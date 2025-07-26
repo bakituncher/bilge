@@ -1,0 +1,43 @@
+name: bilge_ai
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.1 <4.0.0' # SDK aralığını biraz daha esnek tutmak genellikle iyidir
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # iOS stili ikonlar için
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  flutter_riverpod: ^2.5.1
+
+  # Navigation
+  go_router: ^14.1.0
+
+  # Firebase
+  firebase_core: ^3.1.1
+  firebase_auth: ^5.1.1
+  cloud_firestore: ^5.0.2
+  firebase_storage: ^12.1.0
+
+  # Grafikler
+  fl_chart: ^0.68.0
+
+  # Font
+  google_fonts: ^6.2.1
+
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
