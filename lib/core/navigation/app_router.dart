@@ -14,6 +14,8 @@ import 'package:bilge_ai/features/home/screens/dashboard_screen.dart';
 import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
+// Yeni alt rota için import
+import 'package:bilge_ai/features/home/screens/add_test_screen.dart';
 
 
 final goRouterProvider = Provider<GoRouter>((ref) {
@@ -78,6 +80,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/home', // Uygulama açıldığında ilk bu görünecek
                 builder: (context, state) => const DashboardScreen(),
+                // YENİ: Alt rota eklendi
+                routes: [
+                  GoRoute(
+                    path: 'add-test', // '/home/add-test' olarak çalışacak
+                    builder: (context, state) => const AddTestScreen(),
+                  ),
+                ],
               ),
             ],
           ),
