@@ -1,68 +1,108 @@
 // lib/core/navigation/app_router.dart
 
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
-import 'package:bilge_ai/features/auth/screens/login_screen.dart'; // Bunu oluşturman gerekiyor
+import 'package:bilge_ai/features/auth/screens/login_screen.dart';
 import 'package:bilge_ai/features/auth/screens/register_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bilge_ai/features/onboarding/screens/onboarding_screen.dart';
+import 'package:bilge_ai/data/repositories/firestore_service.dart';
 
-
-// Geçici Ana Ekran
-// Geçici Ana Ekran
-class HomeScreen extends ConsumerWidget { // StatelessWidget'ı ConsumerWidget'a çevir
-  const HomeScreen({super.key});
-  @override
-  Widget build(BuildContext context, WidgetRef ref) { // Artık bu doğru
-    return Scaffold(
-      appBar: AppBar(title: const Text('Ana Sayfa')),
-      body: Center(
-        child: ElevatedButton(
-          onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
-          child: const Text('Çıkış Yap'),
-        ),
-      ),
-    );
-  }
-}
+// Yeni ekranları ve ScaffoldWithNavBar'ı import et
+import 'package:bilge_ai/features/home/screens/dashboard_screen.dart';
+import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
+import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
+import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
+  final userProfileAsync = ref.watch(userProfileProvider);
 
   return GoRouter(
     initialLocation: '/login',
-    debugLogDiagnostics: true, // Konsolda yönlendirme bilgilerini gösterir
+    debugLogDiagnostics: true,
     redirect: (BuildContext context, GoRouterState state) {
       final bool loggedIn = authState.value != null;
-      final bool onAuthScreens = state.matchedLocation == '/login' || state.matchedLocation == '/register';
+      final bool onAuthScreens = state.matchedLocation == '/login' ||
+          state.matchedLocation == '/register';
 
-      // Eğer kullanıcı giriş yapmamışsa ve auth ekranlarında değilse, login'e yönlendir.
+      // Kullanıcı giriş yapmamışsa, login ekranına yönlendir.
       if (!loggedIn) {
         return onAuthScreens ? null : '/login';
       }
 
-      // Eğer kullanıcı giriş yapmışsa ve auth ekranlarındaysa, ana sayfaya yönlendir.
-      if (loggedIn && onAuthScreens) {
+      // Kullanıcı giriş yapmışsa, profil verisini kontrol et.
+      // Profil verisi yüklenirken veya hata alırken bir şey yapma, bekle.
+      if (userProfileAsync.isLoading || userProfileAsync.hasError) {
+        return null;
+      }
+
+      final userModel = userProfileAsync.value;
+      if (userModel == null) {
+        // Bu durum normalde yaşanmamalı ama güvenlik için login'e at.
+        return '/login';
+      }
+
+      final bool onboardingCompleted = userModel.onboardingCompleted;
+      final bool onOnboardingScreen = state.matchedLocation == '/onboarding';
+
+      if (!onboardingCompleted) {
+        // Onboarding tamamlanmamışsa, onboarding ekranına zorla.
+        return onOnboardingScreen ? null : '/onboarding';
+      }
+
+      // Onboarding tamamlanmışsa ve auth/onboarding ekranlarındaysa, ana sayfaya at.
+      if (onboardingCompleted && (onAuthScreens || onOnboardingScreen)) {
         return '/home';
       }
 
-      // Diğer durumlarda yönlendirme yapma.
-      return null;
+      return null; // Diğer durumlarda yönlendirme yapma.
     },
     routes: [
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(), // Bu ekranı oluşturmalısın!
-      ),
-      GoRoute(
-        path: '/register',
-        builder: (context, state) => const RegisterScreen(),
-      ),
-      GoRoute(
-        path: '/home',
-        builder: (context, state) => const HomeScreen(), // Bu geçici bir ana ekran
+      GoRoute(path: '/login', builder: (c, s) => const LoginScreen()),
+      GoRoute(path: '/register', builder: (c, s) => const RegisterScreen()),
+      GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
+
+      // YENİ YAPI: Ana uygulama iskeleti (sekme navigasyonu)
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) {
+          // Bu builder, navigasyon çubuğunu içeren ana iskeleti döner.
+          return ScaffoldWithNavBar(navigationShell: navigationShell);
+        },
+        branches: [
+          // 1. Dal (Ana Panel Sekmesi)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/home', // Uygulama açıldığında ilk bu görünecek
+                builder: (context, state) => const DashboardScreen(),
+              ),
+            ],
+          ),
+          // 2. Dal (İstatistikler Sekmesi)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/stats',
+                builder: (context, state) => const StatsScreen(),
+              ),
+            ],
+          ),
+          // 3. Dal (Profil Sekmesi)
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/profile',
+                builder: (context, state) => const ProfileScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );
 });
+
+// GoRouterRefreshStream class'ı artık gerekli değil ve kaldırıldı.
