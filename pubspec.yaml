@@ -32,6 +32,7 @@ dependencies:
   # Font
   google_fonts: ^6.2.1
   intl: ^0.19.0 # <--- BU SATIRI EKLE
+  flutter_animate: ^4.5.0 # EKLENDİ
 
 
 dev_dependencies:

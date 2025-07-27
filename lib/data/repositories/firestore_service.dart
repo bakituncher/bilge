@@ -1,25 +1,24 @@
 // lib/data/repositories/firestore_service.dart
-import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
-import 'package:bilge_ai/data/models/test_model.dart'; // test_model.dart'ı import et
+import 'package:bilge_ai/data/models/test_model.dart';
+import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 
+// GÜNCELLENDİ: Servis provider'ı sadeleştirildi.
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
-  return FirestoreService(FirebaseFirestore.instance);
+  return FirestoreService();
 });
 
-// Anlık giriş yapmış kullanıcının profilini getiren provider.
 final userProfileProvider = StreamProvider.autoDispose<UserModel?>((ref) {
-  final user = ref.watch(authControllerProvider).value; // auth_controller'dan anlık kullanıcıyı al
+  final user = ref.watch(authControllerProvider).value;
   if (user != null) {
     return ref.read(firestoreServiceProvider).getUserProfile(user.uid);
   }
   return Stream.value(null);
 });
 
-// YENİ: Giriş yapmış kullanıcının sınav listesini getiren provider
 final testsProvider = StreamProvider.autoDispose<List<TestModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
@@ -29,58 +28,80 @@ final testsProvider = StreamProvider.autoDispose<List<TestModel>>((ref) {
 });
 
 class FirestoreService {
-  final FirebaseFirestore _db;
-  FirestoreService(this._db);
+  // GÜNCELLENDİ: Gereksiz _db alanı kaldırıldı.
+  final CollectionReference<Map<String, dynamic>> _usersCollection =
+  FirebaseFirestore.instance.collection('users');
 
-  // Yeni bir kullanıcı için Firestore'da profil oluşturur.
-  Future<void> createUserProfile(User user) async {
-    final userProfile = UserModel(id: user.uid, email: user.email!);
-    await _db.collection('users').doc(user.uid).set(userProfile.toJson());
+  final CollectionReference<Map<String, dynamic>> _testsCollection =
+  FirebaseFirestore.instance.collection('tests');
+
+  // GÜNCELLENDİ: `name` parametresi eklendi.
+  Future<void> createUserProfile(User user, String name) async {
+    final userProfile = UserModel(id: user.uid, email: user.email!, name: name);
+    await _usersCollection.doc(user.uid).set(userProfile.toJson());
   }
 
-  // Onboarding bilgilerini günceller.
   Future<void> updateOnboardingData({
     required String userId,
     required String goal,
     required List<String> challenges,
-    required double dailyStudyGoal,
+    required double weeklyStudyGoal,
   }) async {
-    await _db.collection('users').doc(userId).update({
+    await _usersCollection.doc(userId).update({
       'goal': goal,
       'challenges': challenges,
-      'dailyStudyGoal': dailyStudyGoal,
+      'weeklyStudyGoal': weeklyStudyGoal,
       'onboardingCompleted': true,
     });
   }
 
-  // Kullanıcı profilini stream olarak dinler.
   Stream<UserModel> getUserProfile(String userId) {
-    return _db
-        .collection('users')
+    return _usersCollection
         .doc(userId)
         .snapshots()
         .map((doc) => UserModel.fromSnapshot(doc));
   }
 
-  // YENİ: Sınav sonucunu kullanıcının alt koleksiyonuna ekler.
-  Future<void> addTestResult(String userId, TestModel test) async {
-    await _db
-        .collection('users')
-        .doc(userId)
-        .collection('tests')
-        .add(test.toJson());
+  Future<void> addTestResult(TestModel test) async {
+    await _testsCollection.add(test.toJson());
+    await updateUserStreak(test.userId);
   }
 
-  // YENİ: Kullanıcının tüm sınav sonuçlarını dinler.
   Stream<List<TestModel>> getTestResults(String userId) {
-    return _db
-        .collection('users')
-        .doc(userId)
-        .collection('tests')
-        .orderBy('date', descending: true) // En yeni sınav en üstte
+    return _testsCollection
+        .where('userId', isEqualTo: userId)
+        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) => snapshot.docs
         .map((doc) => TestModel.fromSnapshot(doc))
         .toList());
+  }
+
+  Future<void> updateUserStreak(String userId) async {
+    final userDocRef = _usersCollection.doc(userId);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final userSnapshot = await userDocRef.get();
+    if (!userSnapshot.exists) return;
+
+    final user = UserModel.fromSnapshot(userSnapshot);
+    final lastUpdate = user.lastStreakUpdate;
+
+    if (lastUpdate == null) {
+      await userDocRef.update({'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
+    } else {
+      final lastUpdateDate = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
+      if (today.isAtSameMomentAs(lastUpdateDate)) {
+        return;
+      }
+
+      final yesterday = today.subtract(const Duration(days: 1));
+      if (lastUpdateDate.isAtSameMomentAs(yesterday)) {
+        await userDocRef.update({'streak': FieldValue.increment(1), 'lastStreakUpdate': Timestamp.fromDate(today)});
+      } else {
+        await userDocRef.update({'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
+      }
+    }
   }
 }

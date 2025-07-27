@@ -14,22 +14,22 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController(); // EKLENDİ
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  // DÜZELTME: Ekranın kendi yüklenme durumunu takip etmesi için eklendi.
   bool _isLoading = false;
 
   @override
   void dispose() {
+    _nameController.dispose(); // EKLENDİ
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  // DÜZELTME: Metot 'async' yapıldı ve hata yönetimi eklendi.
   void _submit() async {
     FocusScope.of(context).unfocus();
 
@@ -37,11 +37,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() => _isLoading = true);
 
       try {
+        // GÜNCELLENDİ: `name` parametresi eklendi
         await ref.read(authControllerProvider.notifier).signUp(
+          name: _nameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-        // Başarılı olduğunda GoRouter zaten yönlendirecek.
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -58,7 +59,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // DÜZELTME: ref.watch ve ref.listen kaldırıldı, çünkü artık gerekli değiller.
     return Scaffold(
       appBar: AppBar(title: const Text('Kayıt Ol')),
       body: SingleChildScrollView(
@@ -74,6 +74,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
+              // EKLENDİ: İsim alanı
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Adın'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Lütfen adınızı girin.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -111,7 +123,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               const SizedBox(height: 32),
               ElevatedButton(
-                // DÜZELTME: Butonun durumu yerel _isLoading değişkenine bağlandı.
                 onPressed: _isLoading ? null : _submit,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
@@ -119,7 +130,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               TextButton(
                 onPressed: () {
-                  // DÜZELTME: GoRouter ile doğru yönlendirme.
                   context.go('/login');
                 },
                 child: const Text('Zaten bir hesabın var mı? Giriş Yap'),

@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
-import 'package:bilge_ai/features/auth/controller/auth_controller.dart'; // authControllerProvider için
+import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
@@ -15,7 +15,9 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _goalController = TextEditingController();
-  double _dailyStudyGoal = 2.0;
+  // İsim alanı kaldırıldı, çünkü artık kayıt olurken alınıyor.
+
+  double _weeklyStudyGoal = 10.0;
   final Map<String, bool> _challenges = {
     'Konu eksiği': false,
     'Zaman yönetimi': false,
@@ -35,13 +37,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           .toList();
 
       try {
+        // GÜNCELLENDİ: Sadece onboarding verileri gönderiliyor.
         await ref.read(firestoreServiceProvider).updateOnboardingData(
           userId: userId,
           goal: _goalController.text.trim(),
           challenges: selectedChallenges,
-          dailyStudyGoal: _dailyStudyGoal,
+          weeklyStudyGoal: _weeklyStudyGoal,
         );
-        // Yönlendirme GoRouter tarafından otomatik yapılacak.
+
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -67,6 +70,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // İsim alanı kaldırıldı.
               Text('Hedefin nedir?', style: Theme.of(context).textTheme.titleLarge),
               TextFormField(
                 controller: _goalController,
@@ -84,20 +88,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       _challenges[key] = value!;
                     });
                   },
-                  activeColor: Theme.of(context).colorScheme.secondary,
                 );
               }),
               const SizedBox(height: 24),
-              Text('Günde kaç saat çalışmayı hedefliyorsun? (${_dailyStudyGoal.toStringAsFixed(1)} saat)', style: Theme.of(context).textTheme.titleLarge),
+              Text('Haftada kaç saat çalışmayı hedefliyorsun? (${_weeklyStudyGoal.toStringAsFixed(1)} saat)', style: Theme.of(context).textTheme.titleLarge),
               Slider(
-                value: _dailyStudyGoal,
-                min: 0.5,
-                max: 10,
-                divisions: 19,
-                label: _dailyStudyGoal.toStringAsFixed(1),
+                value: _weeklyStudyGoal,
+                min: 1,
+                max: 40,
+                divisions: 39,
+                label: _weeklyStudyGoal.toStringAsFixed(1),
                 onChanged: (double value) {
                   setState(() {
-                    _dailyStudyGoal = value;
+                    _weeklyStudyGoal = value;
                   });
                 },
               ),

@@ -30,6 +30,12 @@ class ScaffoldWithNavBar extends StatelessWidget {
             activeIcon: Icon(Icons.dashboard),
             label: 'Ana Panel',
           ),
+          // YENİ: Koç Sekmesi
+          BottomNavigationBarItem(
+            icon: Icon(Icons.model_training_outlined),
+            activeIcon: Icon(Icons.model_training),
+            label: 'Koç',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart_outlined),
             activeIcon: Icon(Icons.bar_chart),

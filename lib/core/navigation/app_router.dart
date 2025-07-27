@@ -1,28 +1,33 @@
 // lib/core/navigation/app_router.dart
-
+import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/features/auth/screens/login_screen.dart';
 import 'package:bilge_ai/features/auth/screens/register_screen.dart';
+import 'package:bilge_ai/features/coach/screens/coach_screen.dart';
+import 'package:bilge_ai/features/coach/screens/subject_detail_screen.dart';
+import 'package:bilge_ai/features/home/screens/test_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/features/onboarding/screens/onboarding_screen.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
-
-// Yeni ekranları ve ScaffoldWithNavBar'ı import et
 import 'package:bilge_ai/features/home/screens/dashboard_screen.dart';
 import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
-// Yeni alt rota için import
 import 'package:bilge_ai/features/home/screens/add_test_screen.dart';
-
+// DÜZELTİLEN YERLER: Yeni ekranların importları
+import 'package:bilge_ai/features/onboarding/screens/exam_selection_screen.dart';
+import 'package:bilge_ai/features/journal/screens/journal_screen.dart';
+import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
   final userProfileAsync = ref.watch(userProfileProvider);
+  final rootNavigatorKey = GlobalKey<NavigatorState>();
 
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: '/login',
     debugLogDiagnostics: true,
     redirect: (BuildContext context, GoRouterState state) {
@@ -30,67 +35,110 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final bool onAuthScreens = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';
 
-      // Kullanıcı giriş yapmamışsa, login ekranına yönlendir.
       if (!loggedIn) {
         return onAuthScreens ? null : '/login';
       }
 
-      // Kullanıcı giriş yapmışsa, profil verisini kontrol et.
-      // Profil verisi yüklenirken veya hata alırken bir şey yapma, bekle.
       if (userProfileAsync.isLoading || userProfileAsync.hasError) {
-        return null;
+        return null; // Yüklenirken bekle
       }
 
       final userModel = userProfileAsync.value;
       if (userModel == null) {
-        // Bu durum normalde yaşanmamalı ama güvenlik için login'e at.
-        return '/login';
+        return '/login'; // Kullanıcı modeli yoksa login'e at
       }
 
       final bool onboardingCompleted = userModel.onboardingCompleted;
       final bool onOnboardingScreen = state.matchedLocation == '/onboarding';
 
+      // Gerçek bir uygulamada sınav seçimi veritabanından okunmalı, şimdilik provider'dan okuyoruz.
+      final bool examSelected = ref.watch(selectedExamProvider) != null;
+
       if (!onboardingCompleted) {
-        // Onboarding tamamlanmamışsa, onboarding ekranına zorla.
         return onOnboardingScreen ? null : '/onboarding';
       }
 
-      // Onboarding tamamlanmışsa ve auth/onboarding ekranlarındaysa, ana sayfaya at.
-      if (onboardingCompleted && (onAuthScreens || onOnboardingScreen)) {
+      // Onboarding tamamlandı ama sınav seçilmediyse
+      if (onboardingCompleted && !examSelected && state.matchedLocation != '/exam-selection') {
+        return '/exam-selection';
+      }
+
+      // Her şey tamamsa ve hala eski sayfalardaysa ana sayfaya yönlendir
+      if (examSelected && (onAuthScreens || onOnboardingScreen || state.matchedLocation == '/exam-selection')) {
         return '/home';
       }
 
-      return null; // Diğer durumlarda yönlendirme yapma.
+      return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (c, s) => const LoginScreen()),
       GoRoute(path: '/register', builder: (c, s) => const RegisterScreen()),
       GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
+      GoRoute(path: '/exam-selection', builder: (c, s) => const ExamSelectionScreen()),
 
-      // YENİ YAPI: Ana uygulama iskeleti (sekme navigasyonu)
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
-          // Bu builder, navigasyon çubuğunu içeren ana iskeleti döner.
           return ScaffoldWithNavBar(navigationShell: navigationShell);
         },
         branches: [
-          // 1. Dal (Ana Panel Sekmesi)
+          // Ana Panel
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/home', // Uygulama açıldığında ilk bu görünecek
+                path: '/home',
                 builder: (context, state) => const DashboardScreen(),
-                // YENİ: Alt rota eklendi
                 routes: [
                   GoRoute(
-                    path: 'add-test', // '/home/add-test' olarak çalışacak
+                    path: 'add-test',
+                    parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) => const AddTestScreen(),
+                  ),
+                  GoRoute(
+                    path: 'test-detail',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final test = state.extra as TestModel;
+                      return TestDetailScreen(test: test);
+                    },
+                  ),
+                  GoRoute(
+                    path: 'journal',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) => const JournalScreen(),
                   ),
                 ],
               ),
             ],
           ),
-          // 2. Dal (İstatistikler Sekmesi)
+          // Akıllı Koç
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                  path: '/coach',
+                  builder: (context, state) => const CoachScreen(),
+                  routes: [
+                    GoRoute(
+                      path: 'subject-detail',
+                      parentNavigatorKey: rootNavigatorKey,
+                      builder: (context, state) {
+                        final subject = state.extra as String;
+                        return SubjectDetailScreen(subject: subject);
+                      },
+                    ),
+                  ]
+              ),
+            ],
+          ),
+          // Savaşçılar Arenası
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/arena',
+                builder: (context, state) => const ArenaScreen(),
+              ),
+            ],
+          ),
+          // İstatistikler
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -99,7 +147,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // 3. Dal (Profil Sekmesi)
+          // Profil
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -113,5 +161,3 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-
-// GoRouterRefreshStream class'ı artık gerekli değil ve kaldırıldı.
