@@ -24,7 +24,6 @@ class AuthController extends AutoDisposeStreamNotifier<User?> {
     );
   }
 
-  // GÜNCELLENDİ: `name` parametresi eklendi
   Future<void> signUp({required String name, required String email, required String password}) {
     final authRepository = ref.read(authRepositoryProvider);
     return authRepository.signUpWithEmailAndPassword(

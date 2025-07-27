@@ -22,7 +22,7 @@ class SubjectDetailScreen extends ConsumerWidget {
       ),
       body: testsAsync.when(
         data: (tests) {
-          // Bu derse ait verileri filtrele
+          // Bu derse ait verileri içeren denemeleri filtrele ve tarihe göre sırala
           final List<TestModel> relevantTests = tests
               .where((t) => t.scores.containsKey(subject))
               .toList()
@@ -32,7 +32,7 @@ class SubjectDetailScreen extends ConsumerWidget {
             return const Center(child: Text('Bu derse ait deneme bulunamadı.'));
           }
 
-          // Grafik için spotları oluştur
+          // Grafik için spotları (noktaları) oluştur
           final List<FlSpot> spots = [];
           for (int i = 0; i < relevantTests.length; i++) {
             final test = relevantTests[i];

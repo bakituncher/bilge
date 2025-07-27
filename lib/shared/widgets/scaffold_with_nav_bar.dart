@@ -11,6 +11,8 @@ class ScaffoldWithNavBar extends StatelessWidget {
   });
 
   void _onTap(BuildContext context, int index) {
+    // GoRouter'ın branch'leri arasında geçiş yapar.
+    // Bu sayede her sekmenin kendi navigasyon geçmişi korunur.
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -20,7 +22,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: navigationShell,
+      body: navigationShell, // Aktif sekmenin içeriğini gösterir.
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: navigationShell.currentIndex,
         onTap: (index) => _onTap(context, index),
@@ -30,11 +32,16 @@ class ScaffoldWithNavBar extends StatelessWidget {
             activeIcon: Icon(Icons.dashboard),
             label: 'Ana Panel',
           ),
-          // YENİ: Koç Sekmesi
           BottomNavigationBarItem(
             icon: Icon(Icons.model_training_outlined),
             activeIcon: Icon(Icons.model_training),
             label: 'Koç',
+          ),
+          // YENİ: Savaşçılar Arenası Sekmesi
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shield_outlined),
+            activeIcon: Icon(Icons.shield),
+            label: 'Arena',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.bar_chart_outlined),

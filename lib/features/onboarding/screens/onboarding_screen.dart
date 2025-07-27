@@ -15,7 +15,6 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _goalController = TextEditingController();
-  // İsim alanı kaldırıldı, çünkü artık kayıt olurken alınıyor.
 
   double _weeklyStudyGoal = 10.0;
   final Map<String, bool> _challenges = {
@@ -37,14 +36,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           .toList();
 
       try {
-        // GÜNCELLENDİ: Sadece onboarding verileri gönderiliyor.
+        // Toplanan veriler Firestore'a gönderilir.
         await ref.read(firestoreServiceProvider).updateOnboardingData(
           userId: userId,
           goal: _goalController.text.trim(),
           challenges: selectedChallenges,
           weeklyStudyGoal: _weeklyStudyGoal,
         );
-
+        // Yönlendirme (redirect) geri kalanını halledecektir.
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -70,7 +69,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // İsim alanı kaldırıldı.
               Text('Hedefin nedir?', style: Theme.of(context).textTheme.titleLarge),
               TextFormField(
                 controller: _goalController,
@@ -109,7 +107,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _saveProfile,
-                  child: _isLoading ? const CircularProgressIndicator() : const Text('Kaydet ve Başla'),
+                  child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Kaydet ve Başla'),
                 ),
               ),
             ],

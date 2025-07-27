@@ -15,6 +15,7 @@ class CoachScreen extends ConsumerWidget {
 
     final subjectNets = <String, List<double>>{};
 
+    // Her ders için tüm netleri bir listede topla
     for (var test in tests) {
       test.scores.forEach((subject, scores) {
         final net = scores['dogru']! - (scores['yanlis']! * test.penaltyCoefficient);
@@ -22,11 +23,12 @@ class CoachScreen extends ConsumerWidget {
       });
     }
 
+    // Her dersin net ortalamasını hesapla
     final subjectAverages = subjectNets.map((subject, nets) {
       return MapEntry(subject, nets.reduce((a, b) => a + b) / nets.length);
     });
 
-    // Ortalamaya göre sırala
+    // Ortalamaya göre en düşükten en yükseğe doğru sırala
     final sortedSubjects = subjectAverages.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
 
@@ -57,9 +59,13 @@ class CoachScreen extends ConsumerWidget {
 
           if (devAreas.isEmpty)
             const Center(
-              child: Text('Analiz için henüz yeterli deneme verisi yok.'),
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('Analiz için henüz yeterli deneme verisi yok.', textAlign: TextAlign.center),
+              ),
             )
           else
+          // Sıralanmış dersleri animasyonlu kartlar halinde listele
             ...devAreas.entries.map((entry) {
               return Animate(
                 effects: const [FadeEffect(), SlideEffect(begin: Offset(-0.1, 0))],
@@ -68,7 +74,7 @@ class CoachScreen extends ConsumerWidget {
                   child: ListTile(
                     onTap: () => context.go('/coach/subject-detail', extra: entry.key),
                     leading: const Icon(Icons.show_chart),
-                    title: Text(entry.key),
+                    title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.bold)),
                     trailing: Text(
                       'Ort: ${entry.value.toStringAsFixed(2)} Net',
                       style: textTheme.titleMedium?.copyWith(

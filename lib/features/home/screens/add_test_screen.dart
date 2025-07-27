@@ -22,6 +22,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
   ExamType? _selectedExamType;
   ExamSection? _selectedSection;
 
+  // Her ders için Doğru, Yanlış, Boş TextEditingController'larını tutan map
   Map<String, Map<String, TextEditingController>> _controllers = {};
   bool _isLoading = false;
 
@@ -39,6 +40,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     _controllers = {};
   }
 
+  // Sınav bölümü seçildiğinde, o bölüme ait dersler için controller'ları oluşturur.
   void _initializeControllers(ExamSection section) {
     _clearControllers();
     final newControllers = <String, Map<String, TextEditingController>>{};
@@ -71,14 +73,16 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     int totalBlankCount = 0;
     int totalQuestionCount = 0;
 
+    // Controller'lardaki verileri topla ve hesapla
     _controllers.forEach((subject, subjectControllers) {
       final correct = int.tryParse(subjectControllers['dogru']!.text) ?? 0;
       final wrong = int.tryParse(subjectControllers['yanlis']!.text) ?? 0;
       final blank = int.tryParse(subjectControllers['bos']!.text) ?? 0;
       final questionCountForSubject = _selectedSection!.subjects[subject] ?? 0;
 
-      if(correct + wrong + blank != questionCountForSubject){
-        // Optional: Add validation
+      // Basit bir doğrulama: D+Y+B, toplam soru sayısını geçmemeli
+      if(correct + wrong + blank > questionCountForSubject){
+        // Hata yönetimi (şimdilik opsiyonel)
       }
 
       scores[subject] = {'dogru': correct, 'yanlis': wrong, 'bos': blank};
@@ -92,7 +96,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     final userId = ref.read(authControllerProvider).value!.uid;
 
     final newTest = TestModel(
-      id: '', // Firestore will generate
+      id: '', // Firestore ID'yi kendi üretecek
       userId: userId,
       testName: _testNameController.text.trim(),
       examType: _selectedExamType!,
@@ -104,7 +108,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
       totalCorrect: totalCorrect.toInt(),
       totalWrong: totalWrong.toInt(),
       totalBlank: totalBlankCount,
-      penaltyCoefficient: _selectedSection!.penaltyCoefficient, // GÜNCELLENDİ
+      penaltyCoefficient: _selectedSection!.penaltyCoefficient,
     );
 
     try {
@@ -113,7 +117,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Deneme başarıyla kaydedildi!'), backgroundColor: Colors.green,)
         );
-        context.pop();
+        context.pop(); // Sayfayı kapat
       }
     } catch (e) {
       if (mounted) {
@@ -157,7 +161,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
                 onChanged: (value) {
                   setState(() {
                     _selectedExamType = value;
-                    _selectedSection = null;
+                    _selectedSection = null; // Önceki seçimi temizle
                     _clearControllers();
                   });
                 },
@@ -181,7 +185,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
                     setState(() {
                       _selectedSection = value;
                       if (value != null) {
-                        _initializeControllers(value);
+                        _initializeControllers(value); // Controller'ları oluştur
                       }
                     });
                   },
@@ -205,6 +209,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     );
   }
 
+  // Her ders için açılır/kapanır bir alan (ExpansionTile) oluşturan widget.
   Widget _buildSubjectExpansionTile(String subject, int totalQuestions) {
     return ExpansionTile(
       title: Text('$subject ($totalQuestions Soru)'),

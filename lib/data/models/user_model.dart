@@ -4,11 +4,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UserModel {
   final String id;
   final String email;
-  final String? name; // Ad alanı eklendi
-  final String? goal;
-  final List<String>? challenges;
-  final double? weeklyStudyGoal; // Haftalık hedef olarak güncellendi
-  final bool onboardingCompleted;
+  final String? name; // Ad alanı
+  final String? goal; // Hedef
+  final List<String>? challenges; // Zorlandığı alanlar
+  final double? weeklyStudyGoal; // Haftalık çalışma hedefi
+  final bool onboardingCompleted; // Onboarding tamamlandı mı?
   final int streak; // Oyunlaştırma için seri (streak)
   final DateTime? lastStreakUpdate; // Seri takibi için son tarih
 
@@ -26,6 +26,7 @@ class UserModel {
   });
 
 
+  // Firestore'dan gelen veriyi UserModel nesnesine çevirir.
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     return UserModel(
@@ -42,6 +43,7 @@ class UserModel {
   }
 
 
+  // UserModel nesnesini Firestore'a yazılacak formata (JSON) çevirir.
   Map<String, dynamic> toJson() {
     return {
       'id': id,

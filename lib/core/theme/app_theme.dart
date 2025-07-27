@@ -21,7 +21,7 @@ class AppTheme {
   static const Color lightTextColor = Color(0xFF1B263B);
   static const Color darkTextColor = Color(0xFFE0E1DD);
 
-  // DÜZELTİLDİ: 'MaterialStateProperty' kullanımı kaldırıldı.
+  // Merkezi Buton Stili
   static final ButtonStyle _buttonStyle = ElevatedButton.styleFrom(
     backgroundColor: secondaryColor,
     foregroundColor: primaryColor,
@@ -33,6 +33,7 @@ class AppTheme {
     textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
   );
 
+  // Merkezi TextField Stili
   static final InputDecorationTheme _inputDecorationTheme = InputDecorationTheme(
     border: OutlineInputBorder(
       borderRadius: BorderRadius.circular(16.0),
@@ -41,6 +42,7 @@ class AppTheme {
     filled: true,
   );
 
+  // Tema oluşturan ana fonksiyon
   static ThemeData _buildTheme({
     required Brightness brightness,
     required Color scaffoldBackgroundColor,
@@ -97,7 +99,6 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         showSelectedLabels: false,
         showUnselectedLabels: false,
-
       ),
     );
   }

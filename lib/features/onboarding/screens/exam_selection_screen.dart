@@ -6,8 +6,8 @@ import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-// Bu provider, seçilen sınavı uygulama genelinde tutar.
-// Gerçek bir uygulamada bu, bir veritabanına veya SharedPreferences'e kaydedilir.
+// Bu provider, seçilen sınavı uygulama genelinde geçici olarak tutar.
+// Yönlendirme mantığı bu provider'ı kontrol eder.
 final selectedExamProvider = StateProvider<ExamType?>((ref) => null);
 
 class ExamSelectionScreen extends ConsumerWidget {
@@ -35,10 +35,11 @@ class ExamSelectionScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 40),
               ...ExamType.values.map((examType) =>
-                  Animate(
-                      effects: const [FadeEffect(), SlideEffect(begin: Offset(0, 0.2))],
-                      child: _buildExamCard(context, examType, ref)
-                  )
+              // Kartların animasyonlu bir şekilde ekrana gelmesini sağlar.
+              Animate(
+                  effects: const [FadeEffect(), SlideEffect(begin: Offset(0, 0.2))],
+                  child: _buildExamCard(context, examType, ref)
+              )
               ).toList(),
             ],
           ),
@@ -53,7 +54,7 @@ class ExamSelectionScreen extends ConsumerWidget {
       child: InkWell(
         onTap: (){
           ref.read(selectedExamProvider.notifier).state = examType;
-          // Onboarding'in bir sonraki adımı olan ana ekrana yönlendir
+          // Seçim yapıldıktan sonra kullanıcı ana ekrana yönlendirilir.
           context.go('/home');
         },
         borderRadius: BorderRadius.circular(16),

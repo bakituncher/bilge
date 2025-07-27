@@ -55,18 +55,20 @@ class ProfileScreen extends ConsumerWidget {
                     children: [
                       Icon(Icons.local_fire_department, color: colorScheme.secondary, size: 40),
                       const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${user.streak} Günlük Seri',
-                            style: textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                          Text(
-                            'Harika gidiyorsun, devam et!',
-                            style: textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                          )
-                        ],
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${user.streak} Günlük Seri',
+                              style: textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              'Harika gidiyorsun, devam et!',
+                              style: textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                            )
+                          ],
+                        ),
                       )
                     ],
                   ),
@@ -92,7 +94,10 @@ class ProfileScreen extends ConsumerWidget {
                 onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
                 icon: const Icon(Icons.logout),
                 label: const Text('Çıkış Yap'),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.red[400]),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                    foregroundColor: Colors.white
+                ),
               ),
             ],
           );

@@ -1,5 +1,4 @@
 // lib/features/arena/screens/arena_screen.dart
-
 import 'package:flutter/material.dart';
 
 class ArenaScreen extends StatelessWidget {

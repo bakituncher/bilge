@@ -1,5 +1,4 @@
 // lib/features/journal/screens/journal_screen.dart
-
 import 'package:flutter/material.dart';
 
 class JournalScreen extends StatelessWidget {

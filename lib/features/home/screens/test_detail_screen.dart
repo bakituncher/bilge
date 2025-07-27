@@ -7,7 +7,7 @@ class TestDetailScreen extends StatelessWidget {
   final TestModel test;
   const TestDetailScreen({super.key, required this.test});
 
-  // YENİ: En düşük netli dersi bulan fonksiyon
+  // En düşük netli dersi bulan fonksiyon
   MapEntry<String, double> _findWeakestSubject() {
     double minNet = double.maxFinite;
     String weakestSubject = '';
@@ -29,7 +29,7 @@ class TestDetailScreen extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final pieChartSections = _createPieChartSections(context);
-    final weakestSubjectEntry = _findWeakestSubject();
+    final weakestSubjectEntry = _findWeakestSubject(); // Zayıf dersi bul
 
     return Scaffold(
       appBar: AppBar(
@@ -40,6 +40,7 @@ class TestDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // Genel İstatistik Kartı
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
@@ -56,6 +57,7 @@ class TestDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
+            // Pasta Grafiği
             Text('Derslerin Net Dağılımı', style: textTheme.titleLarge),
             const SizedBox(height: 16),
             SizedBox(
@@ -70,7 +72,7 @@ class TestDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // YENİ: AI Analiz Kartı
+            // Yapay Zeka Analiz Kartı (Şimdilik statik, ileride dinamikleşecek)
             Text('Analiz ve Tavsiye', style: textTheme.titleLarge),
             const SizedBox(height: 8),
             Card(
@@ -102,6 +104,7 @@ class TestDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
+            // Ders Sonuçları Listesi
             Text('Ders Sonuçları', style: textTheme.titleLarge),
             const SizedBox(height: 8),
             ...test.scores.entries.map((entry) {
@@ -128,6 +131,7 @@ class TestDetailScreen extends StatelessWidget {
     );
   }
 
+  // Pasta grafiği dilimlerini oluşturan fonksiyon
   List<PieChartSectionData> _createPieChartSections(BuildContext context) {
     final List<Color> colors = [
       Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.red,
@@ -137,7 +141,7 @@ class TestDetailScreen extends StatelessWidget {
 
     return test.scores.entries.map((entry) {
       final subjectNet = entry.value['dogru']! - (entry.value['yanlis']! * test.penaltyCoefficient);
-      if (subjectNet <= 0) return null;
+      if (subjectNet <= 0) return null; // Net'i 0 veya daha düşükse grafikte gösterme
 
       final section = PieChartSectionData(
           value: subjectNet,
@@ -154,6 +158,7 @@ class TestDetailScreen extends StatelessWidget {
     }).where((section) => section != null).cast<PieChartSectionData>().toList();
   }
 
+  // İstatistik kolonu oluşturan yardımcı widget
   Widget _buildStatColumn(String label, String value, BuildContext context, {bool isHeader = false}) {
     final textTheme = Theme.of(context).textTheme;
     final style = isHeader ? textTheme.titleLarge : textTheme.titleMedium;

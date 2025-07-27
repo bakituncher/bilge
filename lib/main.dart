@@ -5,7 +5,7 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/date_symbol_data_local.dart'; // <-- YENİ İMPORT
+import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -18,14 +18,13 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // YENİ EKLENDİ: intl paketini Türkçe yerelleştirmesi için başlatıyoruz.
+  // intl paketini Türkçe yerelleştirmesi için başlatıyoruz.
   await initializeDateFormatting('tr_TR', null);
 
   // Uygulamayı ProviderScope ile sarmalayarak Riverpod'ı aktif ediyoruz.
   runApp(const ProviderScope(child: BilgeAiApp()));
 }
 
-// BilgeAiApp class'ı aynı kalacak...
 class BilgeAiApp extends ConsumerWidget {
   const BilgeAiApp({super.key});
 

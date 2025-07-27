@@ -9,13 +9,13 @@ class TestModel {
   final ExamType examType;
   final String sectionName;
   final DateTime date;
-  final Map<String, Map<String, int>> scores;
+  final Map<String, Map<String, int>> scores; // { 'Türkçe': { 'dogru': 35, 'yanlis': 5, 'bos': 0 } }
   final double totalNet;
   final int totalQuestions;
   final int totalCorrect;
   final int totalWrong;
   final int totalBlank;
-  final double penaltyCoefficient; // EKLENDİ
+  final double penaltyCoefficient; // Net hesaplaması için katsayı
 
   TestModel({
     required this.id,
@@ -30,9 +30,10 @@ class TestModel {
     required this.totalCorrect,
     required this.totalWrong,
     required this.totalBlank,
-    required this.penaltyCoefficient, // EKLENDİ
+    required this.penaltyCoefficient,
   });
 
+  // Firestore'dan gelen veriyi modele çevirir
   factory TestModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     final scoresData = (data['scores'] as Map<String, dynamic>).map(
@@ -52,11 +53,11 @@ class TestModel {
       totalCorrect: data['totalCorrect'],
       totalWrong: data['totalWrong'],
       totalBlank: data['totalBlank'],
-      // GÜNCELLENDİ: Firestore'dan okuma
       penaltyCoefficient: (data['penaltyCoefficient'] as num?)?.toDouble() ?? 0.25,
     );
   }
 
+  // Modeli Firestore'a yazılacak JSON formatına çevirir
   Map<String, dynamic> toJson() {
     return {
       'userId': userId,
@@ -70,7 +71,7 @@ class TestModel {
       'totalCorrect': totalCorrect,
       'totalWrong': totalWrong,
       'totalBlank': totalBlank,
-      'penaltyCoefficient': penaltyCoefficient, // EKLENDİ
+      'penaltyCoefficient': penaltyCoefficient,
     };
   }
 }

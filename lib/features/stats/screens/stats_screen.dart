@@ -20,9 +20,13 @@ class StatsScreen extends ConsumerWidget {
         child: testsAsyncValue.when(
           data: (tests) {
             if (tests.length < 2) {
-              return const Text(
-                'Net grafiğini görmek için en az 2 deneme sınavı eklemelisin.',
-                textAlign: TextAlign.center,
+              return const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  'Net grafiğini görmek için en az 2 deneme sınavı eklemelisin.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
               );
             }
             // Grafiği göstermek için yeni bir widget çağırıyoruz
@@ -46,8 +50,7 @@ class _NetLineChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Grafik için veriyi hazırlıyoruz. fl_chart, FlSpot listesi bekler.
-    // Grafiğin soldan sağa doğru zamanla ilerlemesi için listeyi ters çeviriyoruz (çünkü en yeni en üstte geliyor).
+    // Grafiğin soldan sağa doğru (eskiden yeniye) ilerlemesi için listeyi ters çeviriyoruz.
     final sortedTests = tests.reversed.toList();
     final spots = <FlSpot>[];
     for (int i = 0; i < sortedTests.length; i++) {
@@ -59,13 +62,10 @@ class _NetLineChart extends StatelessWidget {
 
     return LineChart(
       LineChartData(
-        // 1. Izgara (Grid) Ayarları
         gridData: const FlGridData(show: false),
-
-        // 2. Kenarlık Ayarları
         borderData: FlBorderData(show: false),
 
-        // 3. Başlık (Eksen Etiketleri) Ayarları
+        // Eksen Başlıkları
         titlesData: FlTitlesData(
           leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -85,11 +85,11 @@ class _NetLineChart extends StatelessWidget {
           ),
         ),
 
-        // 4. Dokunma (Tooltip) Ayarları - HATANIN DÜZELTİLDİĞİ YER
+        // Grafiğe dokunulduğunda çıkacak Tooltip
         lineTouchData: LineTouchData(
           touchTooltipData: LineTouchTooltipData(
             getTooltipColor: (LineBarSpot touchedSpot) {
-              return primaryColor; // Koyu mavi arka plan
+              return primaryColor;
             },
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
@@ -108,16 +108,19 @@ class _NetLineChart extends StatelessWidget {
           ),
         ),
 
-        // 5. Çizgi Verisi
+        // Çizgi Verisi
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: secondaryColor, // Turuncu renk
-            barWidth: 2.5, // Kalınlık
+            color: secondaryColor,
+            barWidth: 2.5,
             isStrokeCapRound: true,
             dotData: const FlDotData(show: false), // Noktaları gizle
-            belowBarData: BarAreaData(show: false), // Çizgi altını doldurma
+            belowBarData: BarAreaData(
+                show: true,
+                color: secondaryColor.withOpacity(0.2)
+            ),
           ),
         ],
       ),

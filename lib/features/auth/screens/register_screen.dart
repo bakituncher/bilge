@@ -14,7 +14,7 @@ class RegisterScreen extends ConsumerStatefulWidget {
 
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController(); // EKLENDİ
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -23,7 +23,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   @override
   void dispose() {
-    _nameController.dispose(); // EKLENDİ
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -37,7 +37,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() => _isLoading = true);
 
       try {
-        // GÜNCELLENDİ: `name` parametresi eklendi
         await ref.read(authControllerProvider.notifier).signUp(
           name: _nameController.text.trim(),
           email: _emailController.text.trim(),
@@ -74,7 +73,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-              // EKLENDİ: İsim alanı
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(labelText: 'Adın'),

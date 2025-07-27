@@ -19,7 +19,6 @@ class AuthRepository {
 
   Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
 
-  // GÜNCELLENDİ: `name` parametresi eklendi
   Future<void> signUpWithEmailAndPassword({
     required String name,
     required String email,
@@ -31,7 +30,7 @@ class AuthRepository {
         password: password,
       );
       if (userCredential.user != null) {
-        // GÜNCELLENDİ: `name` Firestore'a gönderiliyor
+        // Kayıt başarılıysa, Firestore'da kullanıcı için bir profil oluşturulur.
         await _firestoreService.createUserProfile(userCredential.user!, name);
       }
     } on FirebaseAuthException catch (e) {
@@ -55,7 +54,7 @@ class AuthRepository {
         password: password,
       );
     } on FirebaseAuthException catch (e) {
-      if (e.code == 'user-not-found' || e.code == 'wrong-password') {
+      if (e.code == 'user-not-found' || e.code == 'wrong-password' || e.code == 'invalid-credential') {
         throw 'E-posta veya şifre hatalı.';
       } else {
         throw 'Bir hata oluştu. Lütfen tekrar deneyin.';

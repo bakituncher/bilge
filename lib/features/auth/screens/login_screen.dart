@@ -17,7 +17,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  // DÜZELTME: Ekranın kendi yüklenme durumunu takip etmesi için eklendi.
   bool _isLoading = false;
 
   @override
@@ -27,7 +26,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.dispose();
   }
 
-  // DÜZELTME: Metot 'async' yapıldı ve hata yönetimi eklendi.
   void _submit() async {
     FocusScope.of(context).unfocus();
 
@@ -39,7 +37,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-        // Başarılı olduğunda GoRouter zaten yönlendirecek.
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -56,7 +53,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // DÜZELTME: ref.watch ve ref.listen kaldırıldı, çünkü artık gerekli değiller.
     return Scaffold(
       appBar: AppBar(title: const Text('Giriş Yap')),
       body: SingleChildScrollView(
@@ -97,7 +93,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 32),
               ElevatedButton(
-                // DÜZELTME: Butonun durumu yerel _isLoading değişkenine bağlandı.
                 onPressed: _isLoading ? null : _submit,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)

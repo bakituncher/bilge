@@ -16,7 +16,6 @@ import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'package:bilge_ai/features/home/screens/add_test_screen.dart';
-// DÜZELTİLEN YERLER: Yeni ekranların importları
 import 'package:bilge_ai/features/onboarding/screens/exam_selection_screen.dart';
 import 'package:bilge_ai/features/journal/screens/journal_screen.dart';
 import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
@@ -51,19 +50,16 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       final bool onboardingCompleted = userModel.onboardingCompleted;
       final bool onOnboardingScreen = state.matchedLocation == '/onboarding';
 
-      // Gerçek bir uygulamada sınav seçimi veritabanından okunmalı, şimdilik provider'dan okuyoruz.
       final bool examSelected = ref.watch(selectedExamProvider) != null;
 
       if (!onboardingCompleted) {
         return onOnboardingScreen ? null : '/onboarding';
       }
 
-      // Onboarding tamamlandı ama sınav seçilmediyse
       if (onboardingCompleted && !examSelected && state.matchedLocation != '/exam-selection') {
         return '/exam-selection';
       }
 
-      // Her şey tamamsa ve hala eski sayfalardaysa ana sayfaya yönlendir
       if (examSelected && (onAuthScreens || onOnboardingScreen || state.matchedLocation == '/exam-selection')) {
         return '/home';
       }
@@ -81,7 +77,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           return ScaffoldWithNavBar(navigationShell: navigationShell);
         },
         branches: [
-          // Ana Panel
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -110,7 +105,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Akıllı Koç
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -129,7 +123,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Savaşçılar Arenası
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -138,7 +131,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // İstatistikler
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -147,7 +139,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
               ),
             ],
           ),
-          // Profil
           StatefulShellBranch(
             routes: [
               GoRoute(

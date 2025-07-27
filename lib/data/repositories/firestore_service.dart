@@ -5,8 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
+import 'package:bilge_ai/features/onboarding/screens/exam_selection_screen.dart';
 
-// GÜNCELLENDİ: Servis provider'ı sadeleştirildi.
+
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService();
 });
@@ -28,14 +29,12 @@ final testsProvider = StreamProvider.autoDispose<List<TestModel>>((ref) {
 });
 
 class FirestoreService {
-  // GÜNCELLENDİ: Gereksiz _db alanı kaldırıldı.
   final CollectionReference<Map<String, dynamic>> _usersCollection =
   FirebaseFirestore.instance.collection('users');
 
   final CollectionReference<Map<String, dynamic>> _testsCollection =
   FirebaseFirestore.instance.collection('tests');
 
-  // GÜNCELLENDİ: `name` parametresi eklendi.
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name);
     await _usersCollection.doc(user.uid).set(userProfile.toJson());
@@ -59,7 +58,7 @@ class FirestoreService {
     return _usersCollection
         .doc(userId)
         .snapshots()
-        .map((doc) => UserModel.fromSnapshot(doc));
+        .map((doc) => UserModel.fromSnapshot(doc as DocumentSnapshot<Map<String, dynamic>>));
   }
 
   Future<void> addTestResult(TestModel test) async {
@@ -85,7 +84,7 @@ class FirestoreService {
     final userSnapshot = await userDocRef.get();
     if (!userSnapshot.exists) return;
 
-    final user = UserModel.fromSnapshot(userSnapshot);
+    final user = UserModel.fromSnapshot(userSnapshot as DocumentSnapshot<Map<String, dynamic>>);
     final lastUpdate = user.lastStreakUpdate;
 
     if (lastUpdate == null) {
