@@ -8,14 +8,12 @@ import 'package:go_router/go_router.dart';
 class CoachScreen extends ConsumerWidget {
   const CoachScreen({super.key});
 
-  // Geliştirilmesi gereken alanları hesaplayan fonksiyon
   Map<String, double> _calculateDevelopmentAreas(WidgetRef ref) {
     final tests = ref.watch(testsProvider).asData?.value ?? [];
     if (tests.isEmpty) return {};
 
     final subjectNets = <String, List<double>>{};
 
-    // Her ders için tüm netleri bir listede topla
     for (var test in tests) {
       test.scores.forEach((subject, scores) {
         final net = scores['dogru']! - (scores['yanlis']! * test.penaltyCoefficient);
@@ -23,12 +21,10 @@ class CoachScreen extends ConsumerWidget {
       });
     }
 
-    // Her dersin net ortalamasını hesapla
     final subjectAverages = subjectNets.map((subject, nets) {
       return MapEntry(subject, nets.reduce((a, b) => a + b) / nets.length);
     });
 
-    // Ortalamaya göre en düşükten en yükseğe doğru sırala
     final sortedSubjects = subjectAverages.entries.toList()
       ..sort((a, b) => a.value.compareTo(b.value));
 
@@ -65,7 +61,7 @@ class CoachScreen extends ConsumerWidget {
               ),
             )
           else
-          // Sıralanmış dersleri animasyonlu kartlar halinde listele
+          // HATA DÜZELTİLDİ: Gereksiz .toList() kaldırıldı.
             ...devAreas.entries.map((entry) {
               return Animate(
                 effects: const [FadeEffect(), SlideEffect(begin: Offset(-0.1, 0))],
@@ -84,7 +80,7 @@ class CoachScreen extends ConsumerWidget {
                   ),
                 ),
               );
-            }).toList()
+            })
         ],
       ).animate().fadeIn(),
     );

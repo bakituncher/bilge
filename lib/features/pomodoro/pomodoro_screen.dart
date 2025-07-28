@@ -2,7 +2,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:bilge_ai/core/theme/app_theme.dart'; // <--- BU SATIR EKLENDİ
+import 'package:bilge_ai/core/theme/app_theme.dart';
 
 class PomodoroScreen extends StatefulWidget {
   const PomodoroScreen({super.key});
@@ -38,7 +38,6 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
           _isWorking = !_isWorking;
           _timeRemaining = _isWorking ? _workDuration : _breakDuration;
         });
-        // Burada tamamlanan seans kaydedilebilir (Riverpod ile)
       }
     });
   }
@@ -84,7 +83,7 @@ class _PomodoroScreenState extends State<PomodoroScreen> {
                   CircularProgressIndicator(
                     value: progress,
                     strokeWidth: 12,
-                    backgroundColor: colorScheme.surface.withOpacity(0.5),
+                    backgroundColor: colorScheme.surface.withAlpha(128), // ~0.5 opacity
                     valueColor: AlwaysStoppedAnimation<Color>(
                         _isWorking ? colorScheme.secondary : AppTheme.successColor),
                   ),

@@ -11,8 +11,6 @@ class ArenaScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final leaderboardAsync = ref.watch(leaderboardProvider);
-    // DÜZELTME: Kullanılmadığı için aşağıdaki satır silindi.
-    // final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -24,13 +22,18 @@ class ArenaScreen extends ConsumerWidget {
             return const Center(child: Text('Liderlik tablosu için henüz yeterli veri yok.'));
           }
           return ListView.builder(
+            padding: const EdgeInsets.all(8),
             itemCount: entries.length,
             itemBuilder: (context, index) {
               final entry = entries[index];
               return Animate(
-                delay: (100 * index).ms,
-                // DÜZELTME: 'const' ifadesi hatayı çözmek için kaldırıldı.
-                effects: [FadeEffect(duration: 300.ms), SlideEffect(begin: Offset(-0.1, 0))],
+                // HATA DÜZELTİLDİ: Dinamik değer (index) kullanıldığı için const olamaz.
+                // HATA DÜZELTİLDİ: `.ms` uzantısı Duration nesnesine çevrildi.
+                delay: Duration(milliseconds: 100 * index),
+                effects: const [ // Efekt listesi sabit olabilir
+                  FadeEffect(duration: Duration(milliseconds: 400)),
+                  SlideEffect(begin: Offset(0.1, 0))
+                ],
                 child: _buildLeaderboardCard(context, entry, index + 1),
               );
             },
@@ -46,60 +49,59 @@ class ArenaScreen extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    // İlk 3 için özel ikon ve renkler
-    IconData rankIcon;
-    Color rankColor;
-    if (rank == 1) {
-      rankIcon = Icons.emoji_events;
-      rankColor = const Color(0xFFFFD700); // Altın
-    } else if (rank == 2) {
-      rankIcon = Icons.emoji_events;
-      rankColor = const Color(0xFFC0C0C0); // Gümüş
-    } else if (rank == 3) {
-      rankIcon = Icons.emoji_events;
-      rankColor = const Color(0xFFCD7F32); // Bronz
-    } else {
-      rankIcon = Icons.circle;
-      rankColor = Colors.transparent;
-    }
+    bool isTopThree = rank <= 3;
+    Color? tileColor;
+    // HATA DÜZELTİLDİ: withOpacity -> withAlpha
+    if (rank == 1) tileColor = const Color(0xFFFFD700).withAlpha(51); // Altın
+    if (rank == 2) tileColor = const Color(0xFFC0C0C0).withAlpha(51); // Gümüş
+    if (rank == 3) tileColor = const Color(0xFFCD7F32).withAlpha(51); // Bronz
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      color: tileColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          // HATA DÜZELTİLDİ: withOpacity -> withAlpha
+            color: isTopThree ? tileColor!.withAlpha(204) : Colors.transparent,
+            width: 1.5
+        ),
+      ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 12.0),
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
         child: Row(
           children: [
-            // Sıralama
-            SizedBox(
-              width: 50,
-              child: rank <= 3
-                  ? Icon(rankIcon, color: rankColor, size: 30)
-                  : Center(child: Text('$rank.', style: textTheme.titleMedium)),
+            Column(
+              children: [
+                if (isTopThree)
+                // HATA DÜZELTİLDİ: withOpacity -> withAlpha
+                  Icon(Icons.emoji_events, color: tileColor!.withAlpha(255), size: 30)
+                else
+                  Text('$rank.', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+              ],
             ),
-            // Kullanıcı Avatarı ve Adı
+            const SizedBox(width: 16),
+            // HATA DÜZELTİLDİ: withOpacity -> withAlpha
             CircleAvatar(
-              backgroundColor: colorScheme.primary.withAlpha(50),
-              child: Text(entry.userName.substring(0, 1).toUpperCase()),
+              backgroundColor: colorScheme.primary.withAlpha(80),
+              child: Text(entry.userName.substring(0, 1).toUpperCase(), style: textTheme.titleMedium?.copyWith(color: Colors.white)),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(entry.userName, style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  Text('${entry.testCount} deneme', style: textTheme.bodySmall?.copyWith(color: Colors.grey)),
+                  Text('${entry.testCount} deneme', style: textTheme.bodySmall?.copyWith(color: Colors.grey[600])),
                 ],
               ),
             ),
-            // Ortalama Net
             Text(
               '${entry.averageNet.toStringAsFixed(2)} Net',
-              style: textTheme.titleMedium?.copyWith(
-                color: colorScheme.secondary,
+              style: textTheme.titleLarge?.copyWith(
+                color: colorScheme.primary,
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 8),
           ],
         ),
       ),

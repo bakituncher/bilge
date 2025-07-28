@@ -62,8 +62,6 @@ class AppTheme {
         onSecondary: primaryColor,
         error: accentColor,
         onError: Colors.white,
-        // background: scaffoldBackgroundColor, // KALDIRILDI (Deprecated)
-        // onBackground: textColor,           // KALDIRILDI (Deprecated)
         surface: cardColor,
         onSurface: textColor,
       ),
@@ -94,7 +92,7 @@ class AppTheme {
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
         backgroundColor: cardColor,
         selectedItemColor: secondaryColor,
-        unselectedItemColor: textColor.withOpacity(0.6),
+        unselectedItemColor: textColor.withAlpha(153), // ~0.6 opacity
         elevation: 0,
         type: BottomNavigationBarType.fixed,
         showSelectedLabels: false,

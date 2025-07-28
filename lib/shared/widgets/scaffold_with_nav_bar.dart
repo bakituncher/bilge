@@ -11,8 +11,6 @@ class ScaffoldWithNavBar extends StatelessWidget {
   });
 
   void _onTap(BuildContext context, int index) {
-    // GoRouter'ın branch'leri arasında geçiş yapar.
-    // Bu sayede her sekmenin kendi navigasyon geçmişi korunur.
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -22,31 +20,30 @@ class ScaffoldWithNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: navigationShell, // Aktif sekmenin içeriğini gösterir.
+      body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: navigationShell.currentIndex,
         onTap: (index) => _onTap(context, index),
         items: const [
           BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard),
-            label: 'Ana Panel',
+            icon: Icon(Icons.home_outlined),
+            activeIcon: Icon(Icons.home_filled),
+            label: 'Panel',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.model_training_outlined),
-            activeIcon: Icon(Icons.model_training),
+            icon: Icon(Icons.insights_outlined),
+            activeIcon: Icon(Icons.insights),
             label: 'Koç',
           ),
-          // YENİ: Savaşçılar Arenası Sekmesi
           BottomNavigationBarItem(
-            icon: Icon(Icons.shield_outlined),
-            activeIcon: Icon(Icons.shield),
+            icon: Icon(Icons.military_tech_outlined),
+            activeIcon: Icon(Icons.military_tech),
             label: 'Arena',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            activeIcon: Icon(Icons.bar_chart),
-            label: 'İstatistikler',
+            icon: Icon(Icons.donut_large_outlined),
+            activeIcon: Icon(Icons.donut_large),
+            label: 'İstatistik',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

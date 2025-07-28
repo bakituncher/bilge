@@ -22,17 +22,15 @@ class SubjectDetailScreen extends ConsumerWidget {
       ),
       body: testsAsync.when(
         data: (tests) {
-          // Bu derse ait verileri içeren denemeleri filtrele ve tarihe göre sırala
           final List<TestModel> relevantTests = tests
               .where((t) => t.scores.containsKey(subject))
               .toList()
-              .reversed.toList(); // Eskiden yeniye doğru sırala
+              .reversed.toList();
 
           if (relevantTests.isEmpty) {
             return const Center(child: Text('Bu derse ait deneme bulunamadı.'));
           }
 
-          // Grafik için spotları (noktaları) oluştur
           final List<FlSpot> spots = [];
           for (int i = 0; i < relevantTests.length; i++) {
             final test = relevantTests[i];
@@ -40,7 +38,6 @@ class SubjectDetailScreen extends ConsumerWidget {
             spots.add(FlSpot(i.toDouble(), net));
           }
 
-          // İstatistikleri hesapla
           final nets = spots.map((s) => s.y).toList();
           final avgNet = nets.reduce((a, b) => a + b) / nets.length;
           final maxNet = nets.reduce((a, b) => a > b ? a : b);
@@ -64,7 +61,7 @@ class SubjectDetailScreen extends ConsumerWidget {
                           dotData: const FlDotData(show: true),
                           belowBarData: BarAreaData(
                             show: true,
-                            color: Theme.of(context).colorScheme.secondary.withOpacity(0.2),
+                            color: Theme.of(context).colorScheme.secondary.withAlpha(51), // ~0.2 opacity
                           )
                       )
                     ],

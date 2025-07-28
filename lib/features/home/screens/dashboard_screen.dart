@@ -61,7 +61,6 @@ class DashboardScreen extends ConsumerWidget {
 
             testsAsync.when(
               data: (tests) {
-                // Bu kısım sonraki duraklarda daha da geliştirilecek.
                 double avgNet = tests.isNotEmpty ? tests.map((t) => t.totalNet).reduce((a, b) => a + b) / tests.length : 0;
                 double bestNet = tests.isNotEmpty ? tests.map((t) => t.totalNet).reduce((a, b) => a > b ? a : b) : 0;
 
@@ -105,12 +104,10 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  // Diğer UI oluşturan yardımcı metodlar (buildTodaysPlanCard, buildStatSnapshotCard vb.)
-  // ...
   Widget _buildTodaysPlanCard(BuildContext context) {
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.primary.withOpacity(0.05),
+      color: Theme.of(context).colorScheme.primary.withAlpha(12), // ~0.05 opacity
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -121,7 +118,6 @@ class DashboardScreen extends ConsumerWidget {
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            // Bu kısım ileride dinamik olacak
             _buildPlanItem(context, '2 Pomodoro seansı Matematik tekrarı', true),
             _buildPlanItem(context, '1 Türkçe denemesi çöz', false),
             _buildPlanItem(context, 'Başarı günlüğüne not ekle', false),
