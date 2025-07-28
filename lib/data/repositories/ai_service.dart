@@ -11,7 +11,7 @@ final aiServiceProvider = Provider<AiService>((ref) {
 });
 
 class AiService {
-  // TODO: Google AI Studio'dan aldığınız KENDİ API ANAHTARINIZI buraya yapıştırın.
+  //  Google AI Studio'dan aldığınız KENDİ API ANAHTARINIZI buraya yapıştırın.
   final String _apiKey = "------";
 
   // Kullandığımız modelin API adresi (Fiyat/Performans şampiyonu)
