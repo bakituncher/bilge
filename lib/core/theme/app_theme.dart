@@ -62,8 +62,8 @@ class AppTheme {
         onSecondary: primaryColor,
         error: accentColor,
         onError: Colors.white,
-        background: scaffoldBackgroundColor,
-        onBackground: textColor,
+        // background: scaffoldBackgroundColor, // KALDIRILDI (Deprecated)
+        // onBackground: textColor,           // KALDIRILDI (Deprecated)
         surface: cardColor,
         onSurface: textColor,
       ),

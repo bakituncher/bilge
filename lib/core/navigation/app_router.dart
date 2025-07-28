@@ -1,5 +1,6 @@
 // lib/core/navigation/app_router.dart
 import 'package:bilge_ai/data/models/test_model.dart';
+import 'package:bilge_ai/data/models/journal_entry_model.dart'; // YENİ EKLEME
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/features/auth/screens/login_screen.dart';
 import 'package:bilge_ai/features/auth/screens/register_screen.dart';
@@ -18,6 +19,7 @@ import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'package:bilge_ai/features/home/screens/add_test_screen.dart';
 import 'package:bilge_ai/features/onboarding/screens/exam_selection_screen.dart';
 import 'package:bilge_ai/features/journal/screens/journal_screen.dart';
+import 'package:bilge_ai/features/journal/screens/add_edit_journal_screen.dart'; // YENİ EKLEME
 import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
@@ -97,9 +99,24 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     },
                   ),
                   GoRoute(
-                    path: 'journal',
-                    parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) => const JournalScreen(),
+                      path: 'journal',
+                      parentNavigatorKey: rootNavigatorKey,
+                      builder: (context, state) => const JournalScreen(),
+                      routes: [ // YENİ ALT ROTALAR
+                        GoRoute(
+                          path: 'add',
+                          parentNavigatorKey: rootNavigatorKey,
+                          builder: (context, state) => const AddEditJournalScreen(),
+                        ),
+                        GoRoute(
+                          path: 'edit',
+                          parentNavigatorKey: rootNavigatorKey,
+                          builder: (context, state) {
+                            final entry = state.extra as JournalEntry;
+                            return AddEditJournalScreen(entry: entry);
+                          },
+                        ),
+                      ]
                   ),
                 ],
               ),

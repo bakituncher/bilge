@@ -54,8 +54,11 @@ class ExamSelectionScreen extends ConsumerWidget {
       child: InkWell(
         onTap: (){
           ref.read(selectedExamProvider.notifier).state = examType;
-          // Seçim yapıldıktan sonra kullanıcı ana ekrana yönlendirilir.
-          context.go('/home');
+
+          // DÜZELTME: Yönlendirmeyi bir sonraki frame'e erteleyerek çökme önlendi.
+          Future.delayed(Duration.zero, () {
+            context.go('/home');
+          });
         },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
