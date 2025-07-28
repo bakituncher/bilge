@@ -13,10 +13,12 @@ class UserModel {
   final DateTime? lastStreakUpdate;
   final String? selectedExam;
   final String? selectedExamSection;
-
-  // YENİ EKLENEN ALANLAR: Liderlik tablosu için.
   final int testCount;
   final double totalNetSum;
+
+  // YENİ: Kullanıcının tamamladığı konuları saklamak için.
+  // Map<"Ders Adı", List<"Konu Adı">> formatında olacak.
+  final Map<String, List<String>> completedTopics;
 
   UserModel({
     required this.id,
@@ -30,13 +32,18 @@ class UserModel {
     this.lastStreakUpdate,
     this.selectedExam,
     this.selectedExamSection,
-    // YENİ
     this.testCount = 0,
     this.totalNetSum = 0.0,
+    this.completedTopics = const {}, // Varsayılan değer boş bir harita.
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
+    final topicsData = data['completedTopics'] as Map<String, dynamic>? ?? {};
+    final completedTopics = topicsData.map(
+          (key, value) => MapEntry(key, List<String>.from(value)),
+    );
+
     return UserModel(
       id: doc.id,
       email: data['email'],
@@ -49,9 +56,9 @@ class UserModel {
       lastStreakUpdate: (data['lastStreakUpdate'] as Timestamp?)?.toDate(),
       selectedExam: data['selectedExam'],
       selectedExamSection: data['selectedExamSection'],
-      // YENİ
       testCount: data['testCount'] ?? 0,
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
+      completedTopics: completedTopics,
     );
   }
 
@@ -65,12 +72,12 @@ class UserModel {
       'weeklyStudyGoal': weeklyStudyGoal,
       'onboardingCompleted': onboardingCompleted,
       'streak': streak,
-      'lastStreakUpdate': lastStreakUpdate != null ? Timestamp.fromDate(lastStreakUpdate!) : null,
+      'lastStreakUpdate': lastStreakUpdate,
       'selectedExam': selectedExam,
       'selectedExamSection': selectedExamSection,
-      // YENİ
       'testCount': testCount,
       'totalNetSum': totalNetSum,
+      'completedTopics': completedTopics,
     };
   }
 }

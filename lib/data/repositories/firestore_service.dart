@@ -10,7 +10,6 @@ import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
-  // DÜZELTME: Artık 'ref' parametresine gerek yok.
   return FirestoreService(FirebaseFirestore.instance);
 });
 
@@ -63,7 +62,6 @@ final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((
 class FirestoreService {
   final FirebaseFirestore _firestore;
 
-  // DÜZELTME: Kullanılmadığı için 'ref' kaldırıldı.
   FirestoreService(this._firestore);
 
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
@@ -175,6 +173,25 @@ class FirestoreService {
       }
     }
   }
+
+  // YENİ FONKSİYON: Kullanıcının konu tamamlama durumunu günceller.
+  Future<void> updateCompletedTopic({
+    required String userId,
+    required String subject,
+    required String topic,
+    required bool isCompleted,
+  }) async {
+    final userDocRef = _usersCollection.doc(userId);
+    // Nokta notasyonu kullanarak belirli bir dersin konu listesini güncelliyoruz.
+    final fieldPath = 'completedTopics.$subject';
+    final updateData = {
+      fieldPath: isCompleted
+          ? FieldValue.arrayUnion([topic])  // Konuyu listeye ekle
+          : FieldValue.arrayRemove([topic]), // Konuyu listeden çıkar
+    };
+    await userDocRef.update(updateData);
+  }
+
 
   Future<void> saveExamSelection({
     required String userId,
