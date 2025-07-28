@@ -4,14 +4,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class UserModel {
   final String id;
   final String email;
-  final String? name; // Ad alanı
-  final String? goal; // Hedef
-  final List<String>? challenges; // Zorlandığı alanlar
-  final double? weeklyStudyGoal; // Haftalık çalışma hedefi
-  final bool onboardingCompleted; // Onboarding tamamlandı mı?
-  final int streak; // Oyunlaştırma için seri (streak)
-  final DateTime? lastStreakUpdate; // Seri takibi için son tarih
+  final String? name;
+  final String? goal;
+  final List<String>? challenges;
+  final double? weeklyStudyGoal;
+  final bool onboardingCompleted;
+  final int streak;
+  final DateTime? lastStreakUpdate;
 
+  // YENİ EKLENEN ALANLAR
+  final String? selectedExam;       // Örn: "yks", "lgs"
+  final String? selectedExamSection; // Örn: "AYT - Sayısal", "Sözel Bölüm"
 
   UserModel({
     required this.id,
@@ -23,10 +26,10 @@ class UserModel {
     this.onboardingCompleted = false,
     this.streak = 0,
     this.lastStreakUpdate,
+    this.selectedExam,
+    this.selectedExamSection,
   });
 
-
-  // Firestore'dan gelen veriyi UserModel nesnesine çevirir.
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     return UserModel(
@@ -39,11 +42,12 @@ class UserModel {
       onboardingCompleted: data['onboardingCompleted'] ?? false,
       streak: data['streak'] ?? 0,
       lastStreakUpdate: (data['lastStreakUpdate'] as Timestamp?)?.toDate(),
+      // YENİ
+      selectedExam: data['selectedExam'],
+      selectedExamSection: data['selectedExamSection'],
     );
   }
 
-
-  // UserModel nesnesini Firestore'a yazılacak formata (JSON) çevirir.
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -55,6 +59,9 @@ class UserModel {
       'onboardingCompleted': onboardingCompleted,
       'streak': streak,
       'lastStreakUpdate': lastStreakUpdate != null ? Timestamp.fromDate(lastStreakUpdate!) : null,
+      // YENİ
+      'selectedExam': selectedExam,
+      'selectedExamSection': selectedExamSection,
     };
   }
 }

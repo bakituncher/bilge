@@ -5,8 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/journal_entry_model.dart';
-import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart'; // YENİ
+import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
+import 'package:bilge_ai/data/models/exam_model.dart'; // Bu importu ekleyin
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService(FirebaseFirestore.instance);
@@ -77,7 +78,6 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
   CollectionReference<Map<String, dynamic>> get _journalCollection => _firestore.collection('journal');
 
-  // ... (createUserProfile, updateOnboardingData, getUserProfile metotları burada)
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name);
     await _usersCollection.doc(user.uid).set(userProfile.toJson());
@@ -174,5 +174,17 @@ class FirestoreService {
         await userDocRef.update({'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
       }
     }
+  }
+
+  // YENİ FONKSİYON: Sınav ve bölüm seçimini Firestore'a kaydeder.
+  Future<void> saveExamSelection({
+    required String userId,
+    required ExamType examType,
+    required String sectionName,
+  }) async {
+    await _usersCollection.doc(userId).update({
+      'selectedExam': examType.name,
+      'selectedExamSection': sectionName,
+    });
   }
 }

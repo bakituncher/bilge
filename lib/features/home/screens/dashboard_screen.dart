@@ -8,6 +8,7 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:intl/intl.dart';
 import 'package:bilge_ai/core/constants/app_constants.dart';
+import 'package:bilge_ai/features/coach/screens/ai_coach_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -55,15 +56,12 @@ class DashboardScreen extends ConsumerWidget {
               error: (e,s) => const SizedBox.shrink(),
             ),
             const SizedBox(height: 24),
-
-            _buildTodaysPlanCard(context),
+            _buildTodaysPlanCard(context, ref),
             const SizedBox(height: 24),
-
             testsAsync.when(
               data: (tests) {
                 double avgNet = tests.isNotEmpty ? tests.map((t) => t.totalNet).reduce((a, b) => a + b) / tests.length : 0;
                 double bestNet = tests.isNotEmpty ? tests.map((t) => t.totalNet).reduce((a, b) => a > b ? a : b) : 0;
-
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -77,7 +75,6 @@ class DashboardScreen extends ConsumerWidget {
                     const SizedBox(height: 24),
                     Text('Son Denemeler', style: textTheme.titleLarge),
                     const SizedBox(height: 8),
-
                     if (tests.isEmpty)
                       const Center(child: Text('Henüz deneme eklenmedi.'))
                     else
@@ -86,7 +83,7 @@ class DashboardScreen extends ConsumerWidget {
                             effects: const [FadeEffect(), SlideEffect(begin: Offset(0, 0.1))],
                             child: _buildTestCard(context, test),
                           )
-                      ).toList(),
+                      ),
                   ],
                 );
               },
@@ -97,6 +94,7 @@ class DashboardScreen extends ConsumerWidget {
         ).animate().fadeIn(duration: kMediumAnimationDuration),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'dashboard_fab', // HATA DÜZELTİLDİ
         onPressed: () => context.go('/home/add-test'),
         label: const Text('Deneme Ekle'),
         icon: const Icon(Icons.add),
@@ -104,23 +102,35 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTodaysPlanCard(BuildContext context) {
+  Widget _buildTodaysPlanCard(BuildContext context, WidgetRef ref) {
+    final weeklyPlan = ref.watch(weeklyPlanProvider);
+    final dayOfWeek = DateFormat('EEEE', 'tr_TR').format(DateTime.now());
+
+    DailyPlan? todaysPlan;
+    if (weeklyPlan != null) {
+      todaysPlan = weeklyPlan.plan.firstWhere((p) => p.day == dayOfWeek, orElse: () => DailyPlan(day: dayOfWeek, tasks: []));
+    }
+
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.primary.withAlpha(12), // ~0.05 opacity
+      color: Theme.of(context).colorScheme.primary.withAlpha(12),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Bugünün Planı',
+              'Bugünün Planı ($dayOfWeek)',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 8),
-            _buildPlanItem(context, '2 Pomodoro seansı Matematik tekrarı', true),
-            _buildPlanItem(context, '1 Türkçe denemesi çöz', false),
-            _buildPlanItem(context, 'Başarı günlüğüne not ekle', false),
+            const SizedBox(height: 12),
+            if (todaysPlan != null && todaysPlan.tasks.isNotEmpty)
+              ...todaysPlan.tasks.map((task) => _buildPlanItem(context, task, false))
+            else
+              Text(
+                "Yapay zeka koçundan henüz bir plan oluşturmadın. Koç sekmesinden haftalık planını oluşturarak görevlerini burada görebilirsin.",
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
           ],
         ),
       ),
@@ -138,13 +148,7 @@ class DashboardScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                decoration: isCompleted ? TextDecoration.lineThrough : null,
-                color: isCompleted ? Colors.grey : null,
-              ),
-            ),
+            child: Text(text, style: Theme.of(context).textTheme.bodyLarge),
           ),
         ],
       ),
@@ -154,7 +158,6 @@ class DashboardScreen extends ConsumerWidget {
   Widget _buildStatSnapshotCard(String label, String value, IconData icon, BuildContext context){
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),

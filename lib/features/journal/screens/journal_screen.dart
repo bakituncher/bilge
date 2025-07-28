@@ -57,6 +57,7 @@ class JournalScreen extends ConsumerWidget {
         error: (e, s) => Center(child: Text('Hata: ${e.toString()}')),
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'journal_fab', // HATA DÜZELTİLDİ
         onPressed: () => context.go('/home/journal/add'),
         child: const Icon(Icons.add),
       ),

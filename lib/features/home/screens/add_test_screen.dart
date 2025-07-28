@@ -7,6 +7,8 @@ import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
+// YENİ EKLEME: Sınav seçimi provider'ı import edildi.
+import 'package:bilge_ai/features/onboarding/screens/exam_selection_screen.dart';
 
 class AddTestScreen extends ConsumerStatefulWidget {
   const AddTestScreen({super.key});
@@ -19,10 +21,10 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
   final _formKey = GlobalKey<FormState>();
   final _testNameController = TextEditingController();
 
-  ExamType? _selectedExamType;
+  // DÜZELTME: Bu state'ler artık global provider'dan okunacak.
+  // ExamType? _selectedExamType;
   ExamSection? _selectedSection;
 
-  // Her ders için Doğru, Yanlış, Boş TextEditingController'larını tutan map
   Map<String, Map<String, TextEditingController>> _controllers = {};
   bool _isLoading = false;
 
@@ -40,7 +42,6 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     _controllers = {};
   }
 
-  // Sınav bölümü seçildiğinde, o bölüme ait dersler için controller'ları oluşturur.
   void _initializeControllers(ExamSection section) {
     _clearControllers();
     final newControllers = <String, Map<String, TextEditingController>>{};
@@ -57,10 +58,13 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
   }
 
   void _saveTest() async {
+    // DÜZELTME: Sınav türü artık provider'dan okunuyor.
+    final selectedExamType = ref.read(selectedExamProvider);
+
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedExamType == null || _selectedSection == null) {
+    if (selectedExamType == null || _selectedSection == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lütfen sınav ve bölüm seçin.'))
+          const SnackBar(content: Text('Lütfen sınav bölümünü seçin.'))
       );
       return;
     }
@@ -73,16 +77,14 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     int totalBlankCount = 0;
     int totalQuestionCount = 0;
 
-    // Controller'lardaki verileri topla ve hesapla
     _controllers.forEach((subject, subjectControllers) {
       final correct = int.tryParse(subjectControllers['dogru']!.text) ?? 0;
       final wrong = int.tryParse(subjectControllers['yanlis']!.text) ?? 0;
       final blank = int.tryParse(subjectControllers['bos']!.text) ?? 0;
       final questionCountForSubject = _selectedSection!.subjects[subject] ?? 0;
 
-      // Basit bir doğrulama: D+Y+B, toplam soru sayısını geçmemeli
       if(correct + wrong + blank > questionCountForSubject){
-        // Hata yönetimi (şimdilik opsiyonel)
+        // Gelecekte buraya bir uyarı eklenebilir.
       }
 
       scores[subject] = {'dogru': correct, 'yanlis': wrong, 'bos': blank};
@@ -96,10 +98,10 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     final userId = ref.read(authControllerProvider).value!.uid;
 
     final newTest = TestModel(
-      id: '', // Firestore ID'yi kendi üretecek
+      id: '',
       userId: userId,
       testName: _testNameController.text.trim(),
-      examType: _selectedExamType!,
+      examType: selectedExamType, // Düzeltildi
       sectionName: _selectedSection!.name,
       date: DateTime.now(),
       scores: scores,
@@ -117,7 +119,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Deneme başarıyla kaydedildi!'), backgroundColor: Colors.green,)
         );
-        context.pop(); // Sayfayı kapat
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
@@ -132,8 +134,21 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // DÜZELTME: Sınav türü artık Riverpod state'inden okunuyor.
+    final selectedExamType = ref.watch(selectedExamProvider);
+
+    if (selectedExamType == null) {
+      // Bu durum normalde redirect ile engellenir ama bir güvenlik önlemi.
+      return Scaffold(
+        appBar: AppBar(),
+        body: const Center(
+          child: Text("Lütfen önce bir sınav türü seçin."),
+        ),
+      );
+    }
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Yeni Deneme Ekle')),
+      appBar: AppBar(title: Text('${selectedExamType.displayName} Denemesi Ekle')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Form(
@@ -148,49 +163,30 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
               ),
               const SizedBox(height: 24),
 
-              DropdownButtonFormField<ExamType>(
-                value: _selectedExamType,
-                decoration: const InputDecoration(labelText: 'Sınav Türü'),
-                hint: const Text('Sınav türünü seçin'),
-                items: ExamType.values
-                    .map((type) => DropdownMenuItem(
-                  value: type,
-                  child: Text(type.displayName),
+              // DÜZELTME: Sınav türü seçme dropdown'ı kaldırıldı çünkü artık otomatik geliyor.
+              // Bunun yerine seçilen sınavı gösteren bir bilgi alanı eklenebilir (opsiyonel).
+
+              DropdownButtonFormField<ExamSection>(
+                value: _selectedSection,
+                decoration: const InputDecoration(labelText: 'Sınav Bölümü'),
+                hint: const Text('Sınav bölümünü seçin'),
+                items: ExamData.getExamByType(selectedExamType) // Düzeltildi
+                    .sections
+                    .map((section) => DropdownMenuItem(
+                  value: section,
+                  child: Text(section.name),
                 ))
                     .toList(),
                 onChanged: (value) {
                   setState(() {
-                    _selectedExamType = value;
-                    _selectedSection = null; // Önceki seçimi temizle
-                    _clearControllers();
+                    _selectedSection = value;
+                    if (value != null) {
+                      _initializeControllers(value);
+                    }
                   });
                 },
-                validator: (v) => v == null ? 'Lütfen bir sınav türü seçin.' : null,
+                validator: (v) => v == null ? 'Lütfen bir bölüm seçin.' : null,
               ),
-              const SizedBox(height: 24),
-
-              if (_selectedExamType != null)
-                DropdownButtonFormField<ExamSection>(
-                  value: _selectedSection,
-                  decoration: const InputDecoration(labelText: 'Sınav Bölümü'),
-                  hint: const Text('Sınav bölümünü seçin'),
-                  items: ExamData.getExamByType(_selectedExamType!)
-                      .sections
-                      .map((section) => DropdownMenuItem(
-                    value: section,
-                    child: Text(section.name),
-                  ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedSection = value;
-                      if (value != null) {
-                        _initializeControllers(value); // Controller'ları oluştur
-                      }
-                    });
-                  },
-                  validator: (v) => v == null ? 'Lütfen bir bölüm seçin.' : null,
-                ),
               const SizedBox(height: 24),
 
               if (_selectedSection != null)
@@ -209,7 +205,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     );
   }
 
-  // Her ders için açılır/kapanır bir alan (ExpansionTile) oluşturan widget.
+  // ... (buildSubjectExpansionTile ve buildScoreTextField metodları aynı)
   Widget _buildSubjectExpansionTile(String subject, int totalQuestions) {
     return ExpansionTile(
       title: Text('$subject ($totalQuestions Soru)'),

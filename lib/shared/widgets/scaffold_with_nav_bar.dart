@@ -10,7 +10,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
     required this.navigationShell,
   });
 
-  void _onTap(BuildContext context, int index) {
+  void _onTap(int index) {
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
@@ -21,37 +21,39 @@ class ScaffoldWithNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: navigationShell.currentIndex,
-        onTap: (index) => _onTap(context, index),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home_filled),
-            label: 'Panel',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.insights_outlined),
-            activeIcon: Icon(Icons.insights),
-            label: 'Koç',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.military_tech_outlined),
-            activeIcon: Icon(Icons.military_tech),
-            label: 'Arena',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.donut_large_outlined),
-            activeIcon: Icon(Icons.donut_large),
-            label: 'İstatistik',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: 'Profil',
-          ),
-        ],
+      floatingActionButton: FloatingActionButton(
+        // HATA DÜZELTİLDİ: Benzersiz bir tag eklendi.
+        heroTag: 'main_fab',
+        onPressed: () => _onTap(2), // 3. sekme olan AI Hub'a git
+        backgroundColor: Theme.of(context).colorScheme.secondary,
+        child: Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.primary),
+        elevation: 2.0,
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: BottomAppBar(
+        shape: const CircularNotchedRectangle(),
+        notchMargin: 8.0,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _buildNavItem(context, icon: Icons.home_filled, label: 'Panel', index: 0),
+            _buildNavItem(context, icon: Icons.insights, label: 'Koç', index: 1),
+            const SizedBox(width: 48), // Ortadaki boşluk
+            _buildNavItem(context, icon: Icons.military_tech, label: 'Arena', index: 3),
+            _buildNavItem(context, icon: Icons.person, label: 'Profil', index: 4),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(BuildContext context, {required IconData icon, required String label, required int index}) {
+    final isSelected = navigationShell.currentIndex == index;
+    final color = isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey;
+    return IconButton(
+      icon: Icon(icon, color: color),
+      onPressed: () => _onTap(index),
+      tooltip: label,
     );
   }
 }
