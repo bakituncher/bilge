@@ -22,8 +22,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
     return Scaffold(
       body: navigationShell,
       floatingActionButton: FloatingActionButton(
-        // HATA DÜZELTİLDİ: Benzersiz bir tag eklendi.
-        heroTag: 'main_fab',
+        heroTag: 'main_fab', // HATA DÜZELTİLDİ: Benzersiz bir tag eklendi.
         onPressed: () => _onTap(2), // 3. sekme olan AI Hub'a git
         backgroundColor: Theme.of(context).colorScheme.secondary,
         child: Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.primary),

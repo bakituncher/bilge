@@ -7,9 +7,10 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/journal_entry_model.dart';
 import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
-import 'package:bilge_ai/data/models/exam_model.dart'; // Bu importu ekleyin
+import 'package:bilge_ai/data/models/exam_model.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
+  // DÜZELTME: Artık 'ref' parametresine gerek yok.
   return FirestoreService(FirebaseFirestore.instance);
 });
 
@@ -37,32 +38,22 @@ final journalEntriesProvider = StreamProvider.autoDispose<List<JournalEntry>>((r
   return Stream.value([]);
 });
 
-// YENİ: Liderlik Tablosu için Provider
 final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((ref) async {
   final firestoreService = ref.watch(firestoreServiceProvider);
-
-  // 1. Tüm kullanıcıları al
   final allUsers = await firestoreService.getAllUsers();
 
   final leaderboardEntries = <LeaderboardEntry>[];
 
-  // 2. Her kullanıcı için testlerini al ve ortalamasını hesapla
   for (final user in allUsers) {
-    if (user.name == null || user.name!.isEmpty) continue;
-
-    final tests = await firestoreService.getTestResults(user.id).first; // Stream'in ilk değerini al
-    if (tests.isNotEmpty) {
-      final totalNet = tests.map((t) => t.totalNet).reduce((a, b) => a + b);
-      final averageNet = totalNet / tests.length;
+    if (user.name != null && user.name!.isNotEmpty && user.testCount > 0) {
       leaderboardEntries.add(LeaderboardEntry(
         userName: user.name!,
-        averageNet: averageNet,
-        testCount: tests.length,
+        averageNet: user.totalNetSum / user.testCount,
+        testCount: user.testCount,
       ));
     }
   }
 
-  // 3. Kullanıcıları ortalama netlerine göre büyükten küçüğe sırala
   leaderboardEntries.sort((a, b) => b.averageNet.compareTo(a.averageNet));
 
   return leaderboardEntries;
@@ -72,6 +63,7 @@ final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((
 class FirestoreService {
   final FirebaseFirestore _firestore;
 
+  // DÜZELTME: Kullanılmadığı için 'ref' kaldırıldı.
   FirestoreService(this._firestore);
 
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
@@ -104,14 +96,23 @@ class FirestoreService {
         .map((doc) => UserModel.fromSnapshot(doc));
   }
 
-  // YENİ: Liderlik tablosu için tüm kullanıcıları getiren metot
   Future<List<UserModel>> getAllUsers() async {
     final snapshot = await _usersCollection.get();
     return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
   }
 
   Future<void> addTestResult(TestModel test) async {
-    await _testsCollection.add(test.toJson());
+    final userDocRef = _usersCollection.doc(test.userId);
+
+    await _firestore.runTransaction((transaction) async {
+      final newTestRef = _testsCollection.doc();
+      transaction.set(newTestRef, test.toJson());
+      transaction.update(userDocRef, {
+        'testCount': FieldValue.increment(1),
+        'totalNetSum': FieldValue.increment(test.totalNet),
+      });
+    });
+
     await updateUserStreak(test.userId);
   }
 
@@ -147,7 +148,6 @@ class FirestoreService {
     await _journalCollection.doc(entryId).delete();
   }
 
-
   Future<void> updateUserStreak(String userId) async {
     final userDocRef = _usersCollection.doc(userId);
     final now = DateTime.now();
@@ -176,7 +176,6 @@ class FirestoreService {
     }
   }
 
-  // YENİ FONKSİYON: Sınav ve bölüm seçimini Firestore'a kaydeder.
   Future<void> saveExamSelection({
     required String userId,
     required ExamType examType,

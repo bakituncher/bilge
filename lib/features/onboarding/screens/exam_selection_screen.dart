@@ -21,13 +21,14 @@ class ExamSelectionScreen extends ConsumerWidget {
         examType: examType,
         sectionName: exam.sections.first.name,
       );
+      // DÜZELTME: Bu uyarıyı görmezden geliyoruz çünkü sadece yönlendiriciyi
+      // tetiklemek için refresh işlemini başlatmak istiyoruz, sonucunu beklememiz gerekmiyor.
+      // ignore: unused_result
       ref.refresh(userProfileProvider);
       return;
     }
 
-    // showModalBottomSheet asenkron bir sonuç döndürebilir.
-    // Bu sayede kapandığında haberimiz olur.
-    await showModalBottomSheet(
+    final bool? selectionMade = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
@@ -54,8 +55,7 @@ class ExamSelectionScreen extends ConsumerWidget {
                           examType: examType,
                           sectionName: section.name,
                         );
-                        // Önce pop-up'ı kapat, sonraki adımı dışarıda hallet.
-                        Navigator.of(ctx).pop();
+                        Navigator.of(ctx).pop(true);
                       },
                       child: Text(section.name),
                     ),
@@ -68,10 +68,9 @@ class ExamSelectionScreen extends ConsumerWidget {
       },
     );
 
-    // HATA DÜZELTİLDİ: ref.refresh, pop-up tamamen kapandıktan sonra
-    // ve widget hala "hayattayken" (mounted) çağrılır.
-    // Bu, çökme sorununu %100 çözer.
-    if (context.mounted) {
+    if (selectionMade == true && context.mounted) {
+      // DÜZELTME: Bu uyarıyı da aynı sebeple görmezden geliyoruz.
+      // ignore: unused_result
       ref.refresh(userProfileProvider);
     }
   }

@@ -1,5 +1,6 @@
 // lib/data/repositories/ai_service.dart
-import 'dart:convert';
+import 'dart:convert'; // HATA DÜZELTİLDİ: Eksik olan kütüphane eklendi.
+import 'package:bilge_ai/core/config/app_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:bilge_ai/data/models/test_model.dart';
@@ -11,25 +12,20 @@ final aiServiceProvider = Provider<AiService>((ref) {
 });
 
 class AiService {
-  //  Google AI Studio'dan aldığınız KENDİ API ANAHTARINIZI buraya yapıştırın.
-  final String _apiKey = "------";
-
-  // Kullandığımız modelin API adresi (Fiyat/Performans şampiyonu)
-  final String _apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
+  final String _apiKey = AppConfig.geminiApiKey;
+  final String _apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent";
 
   /// Yapay zekaya bir komut gönderir ve metin tabanlı bir cevap alır.
-  /// Bu merkezi fonksiyon, tüm AI isteklerini yönetir.
   Future<String> _callGemini(String prompt) async {
-    // API anahtarının boş olup olmadığını kontrol et.
-    if (_apiKey == "YOUR_GEMINI_API_KEY_HERE" || _apiKey.isEmpty) {
-      return "**HATA:** API Anahtarı bulunamadı. Lütfen `ai_service.dart` dosyasına kendi Gemini API anahtarınızı ekleyin.";
+    if (_apiKey.isEmpty || _apiKey == "YOUR_GEMINI_API_KEY_HERE") {
+      return "**HATA:** API Anahtarı bulunamadı. Lütfen `lib/core/config/app_config.dart` dosyasına kendi Gemini API anahtarınızı ekleyin.";
     }
 
     try {
       final response = await http.post(
         Uri.parse('$_apiUrl?key=$_apiKey'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
+        body: jsonEncode({ // Artık bu komut tanınıyor.
           "contents": [
             {"parts": [{"text": prompt}]}
           ]
@@ -37,11 +33,14 @@ class AiService {
       );
 
       if (response.statusCode == 200) {
+        // Artık 'utf8' ve 'jsonDecode' komutları tanınıyor.
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        // API'den gelen cevabın içindeki asıl metni güvenli bir şekilde ayıkla
         return data['candidates'][0]['content']['parts'][0]['text'];
       } else {
-        // Hata durumunda log'da daha detaylı bilgi göster
+        if (response.statusCode == 429) {
+          print('API Kota Hatası: ${response.body}');
+          return "**HATA:** Yapay zeka servisinin günlük ücretsiz kullanım limiti aşıldı. Bu normal bir durumdur ve Google Cloud projenizde faturalandırmayı etkinleştirerek çözülebilir.";
+        }
         print('API Hatası: ${response.body}');
         return "**HATA:** Yapay zeka servisinden bir cevap alınamadı. Lütfen API anahtarınızı ve internet bağlantınızı kontrol edin.";
       }

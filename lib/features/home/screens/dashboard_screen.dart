@@ -94,7 +94,7 @@ class DashboardScreen extends ConsumerWidget {
         ).animate().fadeIn(duration: kMediumAnimationDuration),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'dashboard_fab', // HATA DÜZELTİLDİ
+        heroTag: 'dashboard_fab', // HATA DÜZELTİLDİ: Benzersiz bir tag eklendi.
         onPressed: () => context.go('/home/add-test'),
         label: const Text('Deneme Ekle'),
         icon: const Icon(Icons.add),

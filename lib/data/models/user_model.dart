@@ -11,10 +11,12 @@ class UserModel {
   final bool onboardingCompleted;
   final int streak;
   final DateTime? lastStreakUpdate;
+  final String? selectedExam;
+  final String? selectedExamSection;
 
-  // YENİ EKLENEN ALANLAR
-  final String? selectedExam;       // Örn: "yks", "lgs"
-  final String? selectedExamSection; // Örn: "AYT - Sayısal", "Sözel Bölüm"
+  // YENİ EKLENEN ALANLAR: Liderlik tablosu için.
+  final int testCount;
+  final double totalNetSum;
 
   UserModel({
     required this.id,
@@ -28,6 +30,9 @@ class UserModel {
     this.lastStreakUpdate,
     this.selectedExam,
     this.selectedExamSection,
+    // YENİ
+    this.testCount = 0,
+    this.totalNetSum = 0.0,
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -42,9 +47,11 @@ class UserModel {
       onboardingCompleted: data['onboardingCompleted'] ?? false,
       streak: data['streak'] ?? 0,
       lastStreakUpdate: (data['lastStreakUpdate'] as Timestamp?)?.toDate(),
-      // YENİ
       selectedExam: data['selectedExam'],
       selectedExamSection: data['selectedExamSection'],
+      // YENİ
+      testCount: data['testCount'] ?? 0,
+      totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
     );
   }
 
@@ -59,9 +66,11 @@ class UserModel {
       'onboardingCompleted': onboardingCompleted,
       'streak': streak,
       'lastStreakUpdate': lastStreakUpdate != null ? Timestamp.fromDate(lastStreakUpdate!) : null,
-      // YENİ
       'selectedExam': selectedExam,
       'selectedExamSection': selectedExamSection,
+      // YENİ
+      'testCount': testCount,
+      'totalNetSum': totalNetSum,
     };
   }
 }

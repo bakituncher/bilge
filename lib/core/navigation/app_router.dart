@@ -29,7 +29,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authControllerProvider);
   final userProfileAsync = ref.watch(userProfileProvider);
   final rootNavigatorKey = GlobalKey<NavigatorState>();
-  final selectedExamNotifier = ref.watch(selectedExamProvider.notifier);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
@@ -38,30 +37,45 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       final bool loggedIn = authState.value != null;
       final bool onAuthScreens = state.matchedLocation == '/login' || state.matchedLocation == '/register';
+
       if (!loggedIn) {
         return onAuthScreens ? null : '/login';
       }
+
+      // Kullanıcı profili yüklenirken veya hata oluştuğunda bekle
       if (userProfileAsync.isLoading || userProfileAsync.hasError) {
-        return null;
+        return null; // Yükleme ekranı veya hata ekranı gösterilebilir
       }
+
       final userModel = userProfileAsync.value;
       if (userModel == null) {
-        return '/login';
+        return '/login'; // Kullanıcı modeli yoksa login'e yolla
       }
+
       final bool onboardingCompleted = userModel.onboardingCompleted;
       final bool onOnboardingScreen = state.matchedLocation == '/onboarding';
       final bool onExamSelectionScreen = state.matchedLocation == '/exam-selection';
+
+      // Onboarding tamamlanmadıysa Onboarding ekranına yönlendir
       if (!onboardingCompleted) {
         return onOnboardingScreen ? null : '/onboarding';
       }
-      final bool examSelected = selectedExamNotifier.state != null;
+
+      // HATA DÜZELTİLDİ: Sınav seçimi, geçici state yerine Firestore'daki kullanıcı profilinden kontrol ediliyor.
+      final bool examSelected = userModel.selectedExam != null && userModel.selectedExam!.isNotEmpty;
+
+      // Onboarding tamamlandı ama sınav seçilmediyse Sınav Seçim ekranına yönlendir
       if (onboardingCompleted && !examSelected && !onExamSelectionScreen) {
         return '/exam-selection';
       }
-      if (examSelected && (onAuthScreens || onOnboardingScreen || onExamSelectionScreen)) {
+
+      // Kullanıcı oturum açmış, onboarding'i tamamlamış ve sınavını seçmişse
+      // artık login/register/onboarding/exam-selection ekranlarına gitmesini engelle
+      if (loggedIn && examSelected && (onAuthScreens || onOnboardingScreen || onExamSelectionScreen)) {
         return '/home';
       }
-      return null;
+
+      return null; // Başka bir yönlendirme gerekmiyorsa null döndür
     },
     routes: [
       GoRoute(path: '/login', builder: (c, s) => const LoginScreen()),
@@ -106,7 +120,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(routes: [
             GoRoute(
                 path: '/coach',
-                builder: (context, state) => const CoachScreen(), // Bu satır artık hatasız çalışacak
+                builder: (context, state) => const CoachScreen(),
                 routes: [
                   GoRoute(
                       path: 'subject-detail',

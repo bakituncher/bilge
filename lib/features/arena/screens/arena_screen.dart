@@ -50,19 +50,30 @@ class ArenaScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
 
     bool isTopThree = rank <= 3;
-    Color? tileColor;
-    // HATA DÜZELTİLDİ: withOpacity -> withAlpha
-    if (rank == 1) tileColor = const Color(0xFFFFD700).withAlpha(51); // Altın
-    if (rank == 2) tileColor = const Color(0xFFC0C0C0).withAlpha(51); // Gümüş
-    if (rank == 3) tileColor = const Color(0xFFCD7F32).withAlpha(51); // Bronz
+    Color tileColor = Colors.transparent;
+    Color borderColor = Colors.transparent;
+
+    // HATA DÜZELTİLDİ: withOpacity -> withAlpha ve renk atamaları
+    if (rank == 1) {
+      tileColor = const Color(0xFFFFD700).withAlpha(51); // Altın
+      borderColor = const Color(0xFFFFD700);
+    }
+    if (rank == 2) {
+      tileColor = const Color(0xFFC0C0C0).withAlpha(51); // Gümüş
+      borderColor = const Color(0xFFC0C0C0);
+    }
+    if (rank == 3) {
+      tileColor = const Color(0xFFCD7F32).withAlpha(51); // Bronz
+      borderColor = const Color(0xFFCD7F32);
+    }
+
 
     return Card(
       color: tileColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          // HATA DÜZELTİLDİ: withOpacity -> withAlpha
-            color: isTopThree ? tileColor!.withAlpha(204) : Colors.transparent,
+            color: isTopThree ? borderColor : Colors.transparent,
             width: 1.5
         ),
       ),
@@ -73,14 +84,12 @@ class ArenaScreen extends ConsumerWidget {
             Column(
               children: [
                 if (isTopThree)
-                // HATA DÜZELTİLDİ: withOpacity -> withAlpha
-                  Icon(Icons.emoji_events, color: tileColor!.withAlpha(255), size: 30)
+                  Icon(Icons.emoji_events, color: borderColor, size: 30)
                 else
                   Text('$rank.', style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
               ],
             ),
             const SizedBox(width: 16),
-            // HATA DÜZELTİLDİ: withOpacity -> withAlpha
             CircleAvatar(
               backgroundColor: colorScheme.primary.withAlpha(80),
               child: Text(entry.userName.substring(0, 1).toUpperCase(), style: textTheme.titleMedium?.copyWith(color: Colors.white)),
