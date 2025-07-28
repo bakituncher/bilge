@@ -15,16 +15,19 @@ class ExamSelectionScreen extends ConsumerWidget {
     final exam = ExamData.getExamByType(examType);
     final userId = ref.read(authControllerProvider).value!.uid;
 
-    if (exam.sections.length == 1) {
+    if (examType == ExamType.lgs || exam.sections.length == 1) {
       await ref.read(firestoreServiceProvider).saveExamSelection(
         userId: userId,
         examType: examType,
         sectionName: exam.sections.first.name,
       );
-      // DÜZELTME: Bu uyarıyı görmezden geliyoruz çünkü sadece yönlendiriciyi
-      // tetiklemek için refresh işlemini başlatmak istiyoruz, sonucunu beklememiz gerekmiyor.
-      // ignore: unused_result
-      ref.refresh(userProfileProvider);
+
+      // ✅ GÜVENLİK DÜZELTMESİ: İşlem bittikten sonra widget'ın hala "canlı" olup olmadığını kontrol et.
+      // Bu, "Cannot use 'ref' after the widget was disposed" hatasını çözer.
+      if (context.mounted) {
+        // ignore: unused_result
+        ref.refresh(userProfileProvider);
+      }
       return;
     }
 
@@ -40,7 +43,7 @@ class ExamSelectionScreen extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Hangi bölüme hazırlanıyorsun?',
+                  'Hangi alana hazırlanıyorsun?',
                   style: Theme.of(context).textTheme.headlineSmall,
                   textAlign: TextAlign.center,
                 ),
@@ -68,8 +71,8 @@ class ExamSelectionScreen extends ConsumerWidget {
       },
     );
 
+    // ✅ GÜVENLİK DÜZELTMESİ: Aynı kontrol burada da geçerli.
     if (selectionMade == true && context.mounted) {
-      // DÜZELTME: Bu uyarıyı da aynı sebeple görmezden geliyoruz.
       // ignore: unused_result
       ref.refresh(userProfileProvider);
     }

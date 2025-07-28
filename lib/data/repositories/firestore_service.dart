@@ -174,7 +174,6 @@ class FirestoreService {
     }
   }
 
-  // YENİ FONKSİYON: Kullanıcının konu tamamlama durumunu günceller.
   Future<void> updateCompletedTopic({
     required String userId,
     required String subject,
@@ -182,12 +181,11 @@ class FirestoreService {
     required bool isCompleted,
   }) async {
     final userDocRef = _usersCollection.doc(userId);
-    // Nokta notasyonu kullanarak belirli bir dersin konu listesini güncelliyoruz.
     final fieldPath = 'completedTopics.$subject';
     final updateData = {
       fieldPath: isCompleted
-          ? FieldValue.arrayUnion([topic])  // Konuyu listeye ekle
-          : FieldValue.arrayRemove([topic]), // Konuyu listeden çıkar
+          ? FieldValue.arrayUnion([topic])
+          : FieldValue.arrayRemove([topic]),
     };
     await userDocRef.update(updateData);
   }

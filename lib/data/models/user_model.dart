@@ -15,9 +15,6 @@ class UserModel {
   final String? selectedExamSection;
   final int testCount;
   final double totalNetSum;
-
-  // YENİ: Kullanıcının tamamladığı konuları saklamak için.
-  // Map<"Ders Adı", List<"Konu Adı">> formatında olacak.
   final Map<String, List<String>> completedTopics;
 
   UserModel({
@@ -34,15 +31,26 @@ class UserModel {
     this.selectedExamSection,
     this.testCount = 0,
     this.totalNetSum = 0.0,
-    this.completedTopics = const {}, // Varsayılan değer boş bir harita.
+    this.completedTopics = const {},
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
-    final topicsData = data['completedTopics'] as Map<String, dynamic>? ?? {};
-    final completedTopics = topicsData.map(
-          (key, value) => MapEntry(key, List<String>.from(value)),
-    );
+
+    // ✅ GÜVENLİK DÜZELTMESİ: Veri çökmesini önlemek için savunmacı veri okuma.
+    // Bu kod bloğu, 'completedTopics' alanının bozuk veya yanlış formatta olması
+    // durumunda bile uygulamanın çökmesini engeller.
+    final Map<String, List<String>> safeCompletedTopics = {};
+    if (data['completedTopics'] is Map<String, dynamic>) {
+      final topicsData = data['completedTopics'] as Map<String, dynamic>;
+      topicsData.forEach((key, value) {
+        // Sadece 'value' gerçekten bir liste ise işlem yap.
+        if (value is List) {
+          // Listenin içindeki her elemanın String olduğundan emin ol.
+          safeCompletedTopics[key] = value.map((item) => item.toString()).toList();
+        }
+      });
+    }
 
     return UserModel(
       id: doc.id,
@@ -58,7 +66,7 @@ class UserModel {
       selectedExamSection: data['selectedExamSection'],
       testCount: data['testCount'] ?? 0,
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
-      completedTopics: completedTopics,
+      completedTopics: safeCompletedTopics,
     );
   }
 
@@ -72,7 +80,8 @@ class UserModel {
       'weeklyStudyGoal': weeklyStudyGoal,
       'onboardingCompleted': onboardingCompleted,
       'streak': streak,
-      'lastStreakUpdate': lastStreakUpdate,
+      // ✅ DÜZELTME: DateTime'ı Firestore'a göndermeden önce Timestamp'e çevir.
+      'lastStreakUpdate': lastStreakUpdate != null ? Timestamp.fromDate(lastStreakUpdate!) : null,
       'selectedExam': selectedExam,
       'selectedExamSection': selectedExamSection,
       'testCount': testCount,

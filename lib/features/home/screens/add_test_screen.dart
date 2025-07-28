@@ -20,7 +20,6 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
 
   ExamSection? _selectedSection;
 
-  // Controller'larımızı tutan Map yapısı
   final Map<String, Map<String, TextEditingController>> _controllers = {};
   bool _isLoading = false;
 
@@ -39,7 +38,6 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
   }
 
   void _initializeControllers(ExamSection section) {
-    // Önceki controller'ları temizle
     _clearControllers();
     final newControllers = <String, Map<String, TextEditingController>>{};
     for (var subject in section.subjects.keys) {
@@ -49,9 +47,13 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
         'bos': TextEditingController(),
       };
     }
-    // State'i güncelle ve arayüzün yeniden çizilmesini sağla
-    setState(() {
-      _controllers.addAll(newControllers);
+    // setState'i doğrudan çağırmak yerine, build sonrası için planla
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _controllers.addAll(newControllers);
+        });
+      }
     });
   }
 
@@ -75,41 +77,43 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     double totalWrong = 0;
     int totalBlankCount = 0;
     int totalQuestionCount = 0;
+    bool validationError = false;
 
-    _controllers.forEach((subject, subjectControllers) {
+    // for...in döngüsü daha güvenli
+    for (var subject in _controllers.keys) {
+      final subjectControllers = _controllers[subject]!;
       final correct = int.tryParse(subjectControllers['dogru']!.text) ?? 0;
       final wrong = int.tryParse(subjectControllers['yanlis']!.text) ?? 0;
       final blank = int.tryParse(subjectControllers['bos']!.text) ?? 0;
+      final questionCountForSubject =
+          _selectedSection!.subjects[subject]?.questionCount ?? 0;
 
-      // ✅ DÜZELTME: 'SubjectDetails' nesnesinden 'questionCount' alınıyor.
-      final questionCountForSubject = _selectedSection!.subjects[subject]?.questionCount ?? 0;
-
-      // Doğru, yanlış, boş toplamı dersin soru sayısını geçemez kontrolü
       if (correct + wrong + blank > questionCountForSubject) {
-        // Hata durumunu kullanıcıya bildir
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$subject dersi için girdiğiniz değerler toplam soru sayısını ($questionCountForSubject) aşıyor!')),
+          SnackBar(
+              content: Text(
+                  '$subject dersi için girdiğiniz değerler toplam soru sayısını ($questionCountForSubject) aşıyor!')),
         );
-        // İşlemi durdur
         setState(() => _isLoading = false);
-        return;
+        validationError = true;
+        break; // Hata anında döngüyü sonlandır
       }
 
       scores[subject] = {'dogru': correct, 'yanlis': wrong, 'bos': blank};
       totalCorrect += correct;
       totalWrong += wrong;
       totalBlankCount += blank;
-      // ✅ DÜZELTME: Toplam soru sayısına doğru değer ekleniyor.
       totalQuestionCount += questionCountForSubject;
-    });
+    }
 
-    if (!_isLoading) return; // Hatalı giriş nedeniyle işlem durduysa devam etme
+    if (validationError) return; // Hata varsa fonksiyondan çık
 
-    final totalNet = totalCorrect - (totalWrong * _selectedSection!.penaltyCoefficient);
+    final totalNet =
+        totalCorrect - (totalWrong * _selectedSection!.penaltyCoefficient);
     final userId = ref.read(authControllerProvider).value!.uid;
 
     final newTest = TestModel(
-      id: '', // Firestore ID'yi kendisi atayacak
+      id: '',
       userId: userId,
       testName: _testNameController.text.trim(),
       examType: selectedExamType,
@@ -118,8 +122,8 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
       scores: scores,
       totalNet: totalNet,
       totalQuestions: totalQuestionCount,
-      totalCorrect: totalCorrect.toInt(), // double'dan int'e çevriliyor
-      totalWrong: totalWrong.toInt(),     // double'dan int'e çevriliyor
+      totalCorrect: totalCorrect.toInt(),
+      totalWrong: totalWrong.toInt(),
       totalBlank: totalBlankCount,
       penaltyCoefficient: _selectedSection!.penaltyCoefficient,
     );
@@ -152,41 +156,46 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
 
     if (userProfile == null) {
       return Scaffold(
-        appBar: AppBar(),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+          appBar: AppBar(),
+          body: const Center(child: CircularProgressIndicator()));
     }
 
     if (userProfile.selectedExam == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Hata')),
-        body: const Center(
-          child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              "Lütfen profilden bir sınav seçin.",
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      );
+          appBar: AppBar(title: const Text('Hata')),
+          body: const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text("Lütfen profilden bir sınav seçin.",
+                    textAlign: TextAlign.center),
+              )));
     }
 
     final selectedExamType = ExamType.values.byName(userProfile.selectedExam!);
-    final selectedExam = ExamData.getExamByType(selectedExamType);
+    final exam = ExamData.getExamByType(selectedExamType);
 
-    // Eğer sınavın tek bölümü varsa ve _selectedSection henüz ayarlanmamışsa, ayarla.
-    if (selectedExam.sections.length == 1 && _selectedSection == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        setState(() {
-          _selectedSection = selectedExam.sections.first;
-          _initializeControllers(_selectedSection!);
-        });
-      });
+    // ✅ YENİ MANTIK: Kullanıcının sınavına göre gösterilecek bölümleri belirle.
+    List<ExamSection> availableSections;
+    if (selectedExamType == ExamType.lgs) {
+      // LGS öğrencisi her iki bölümün (Sözel/Sayısal) sonucunu da girebilir.
+      availableSections = exam.sections;
+    } else {
+      // YKS/KPSS öğrencisi sadece kendi kayıtlı alanını görür ve seçemez.
+      final userSection = exam.sections.firstWhere(
+              (s) => s.name == userProfile.selectedExamSection,
+          orElse: () => exam.sections.first);
+      availableSections = [userSection];
+
+      // Eğer tek bölüm varsa ve henüz seçilmemişse, otomatik olarak seç ve controller'ları başlat.
+      if (_selectedSection == null) {
+        _selectedSection = availableSections.first;
+        _initializeControllers(_selectedSection!);
+      }
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('${selectedExamType.displayName} Denemesi Ekle')),
+      appBar:
+      AppBar(title: Text('${selectedExamType.displayName} Denemesi Ekle')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Form(
@@ -203,12 +212,13 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
               ),
               const SizedBox(height: 24),
 
-              if (selectedExam.sections.length > 1)
+              // ✅ YENİ MANTIK: Sadece birden fazla seçilebilir bölüm varsa dropdown göster.
+              if (availableSections.length > 1)
                 DropdownButtonFormField<ExamSection>(
                   value: _selectedSection,
                   decoration: const InputDecoration(labelText: 'Sınav Bölümü'),
                   hint: const Text('Sınav bölümünü seçin'),
-                  items: selectedExam.sections
+                  items: availableSections
                       .map((section) => DropdownMenuItem(
                     value: section,
                     child: Text(section.name),
@@ -222,20 +232,25 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
                       });
                     }
                   },
-                  validator: (v) => v == null ? 'Lütfen bir bölüm seçin.' : null,
+                  validator: (v) =>
+                  v == null ? 'Lütfen bir bölüm seçin.' : null,
                 )
-              else if (selectedExam.sections.isNotEmpty)
+              else if (availableSections.isNotEmpty)
+              // Tek bölüm varsa (YKS/KPSS), seçtirmeden göster.
                 ListTile(
                   title: const Text("Sınav Bölümü"),
-                  subtitle: Text(selectedExam.sections.first.name),
+                  subtitle: Text(availableSections.first.name),
                   contentPadding: EdgeInsets.zero,
                 ),
 
               const SizedBox(height: 24),
 
               if (_selectedSection != null)
-                ..._controllers.keys.map((subject) =>
-                    _buildSubjectExpansionTile(subject, _selectedSection!.subjects[subject]!)),
+                ..._controllers.keys.map((subject) {
+                  final subjectDetails = _selectedSection!.subjects[subject];
+                  if (subjectDetails == null) return const SizedBox.shrink();
+                  return _buildSubjectExpansionTile(subject, subjectDetails);
+                }),
 
               const SizedBox(height: 32),
               ElevatedButton(
@@ -258,8 +273,8 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     );
   }
 
-  // ✅ DÜZELTME: Fonksiyon artık 'int' yerine 'SubjectDetails' nesnesi alıyor.
-  Widget _buildSubjectExpansionTile(String subject, SubjectDetails subjectDetails) {
+  Widget _buildSubjectExpansionTile(
+      String subject, SubjectDetails subjectDetails) {
     return ExpansionTile(
       title: Text('$subject (${subjectDetails.questionCount} Soru)'),
       childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
