@@ -33,17 +33,13 @@ class DailyPlan {
 
 // State Provider'ları
 final recommendationProvider = StateProvider<String?>((ref) => null);
-final weeklyPlanProvider = StateProvider<WeeklyPlan?>((ref) => null); // Artık model tutacak
-final isLoadingProvider = StateProvider<bool>((ref) => false);
+final weeklyPlanProvider = StateProvider<WeeklyPlan?>((ref) => null);
 
-
-// Bu ekranın state'ini yöneten Notifier.
 class AiCoachNotifier extends StateNotifier<bool> {
   final Ref _ref;
   AiCoachNotifier(this._ref) : super(false);
 
   Future<void> getRecommendations() async {
-    // Önbellekte varsa tekrar isteme
     if (_ref.read(recommendationProvider) != null) return;
 
     final user = _ref.read(userProfileProvider).value;
@@ -52,29 +48,32 @@ class AiCoachNotifier extends StateNotifier<bool> {
 
     state = true;
     final result = await _ref.read(aiServiceProvider).getAIRecommendations(user, tests);
-    _ref.read(recommendationProvider.notifier).state = result;
-    state = false;
+    if (mounted) {
+      _ref.read(recommendationProvider.notifier).state = result;
+      state = false;
+    }
   }
 
   Future<void> getWeeklyPlan() async {
-    // Önbellekte varsa tekrar isteme
     if (_ref.read(weeklyPlanProvider) != null) return;
 
     final user = _ref.read(userProfileProvider).value;
     final tests = _ref.read(testsProvider).value;
-    if (user == null || tests == null) return;
+    if (user == null) return;
 
     state = true;
-    final resultJson = await _ref.read(aiServiceProvider).generateWeeklyPlan(user, tests);
-    try {
-      final cleanJson = resultJson.replaceAll("```json", "").replaceAll("```", "").trim();
-      final parsedPlan = WeeklyPlan.fromJson(jsonDecode(cleanJson));
-      _ref.read(weeklyPlanProvider.notifier).state = parsedPlan;
-    } catch (e) {
-      print("JSON Parse Hatası: $e");
-      _ref.read(weeklyPlanProvider.notifier).state = WeeklyPlan.fromJson({"plan": [{"day": "Hata", "tasks": ["Plan oluşturulamadı."]}]});
+    final resultJson = await _ref.read(aiServiceProvider).generateWeeklyPlan(user, tests ?? []);
+    if (mounted) {
+      try {
+        final cleanJson = resultJson.replaceAll("```json", "").replaceAll("```", "").trim();
+        final parsedPlan = WeeklyPlan.fromJson(jsonDecode(cleanJson));
+        _ref.read(weeklyPlanProvider.notifier).state = parsedPlan;
+      } catch (e) {
+        print("JSON Parse Hatası: $e");
+        _ref.read(weeklyPlanProvider.notifier).state = WeeklyPlan.fromJson({"plan": [{"day": "Hata", "tasks": ["Plan oluşturulamadı. Lütfen tekrar deneyin."]}]});
+      }
+      state = false;
     }
-    state = false;
   }
 }
 
@@ -90,7 +89,7 @@ class AiCoachScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recommendation = ref.watch(recommendationProvider);
     final plan = ref.watch(weeklyPlanProvider);
-    final isLoading = ref.watch(aiCoachNotifierProvider); // isLoadingProvider yerine aiCoachNotifierProvider kullanılıyor
+    final isLoading = ref.watch(aiCoachNotifierProvider);
     final user = ref.watch(userProfileProvider).value;
     final tests = ref.watch(testsProvider).value;
 
@@ -120,7 +119,7 @@ class AiCoachScreen extends ConsumerWidget {
             _buildActionButton(
               context: context,
               isLoading: isLoading,
-              isDisabled: user == null || tests == null,
+              isDisabled: user == null,
               onPressed: () => ref.read(aiCoachNotifierProvider.notifier).getWeeklyPlan(),
               icon: Icons.schema_rounded,
               label: 'Planımı Oluştur',
@@ -128,7 +127,7 @@ class AiCoachScreen extends ConsumerWidget {
           else
             _buildWeeklyPlanWidget(plan),
 
-          if(isLoading)
+          if(isLoading && (recommendation == null || plan == null))
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24.0),
               child: Center(child: CircularProgressIndicator()),
@@ -138,7 +137,6 @@ class AiCoachScreen extends ConsumerWidget {
     );
   }
 
-  // YENİ WIDGET: Haftalık planı gösterir.
   Widget _buildWeeklyPlanWidget(WeeklyPlan plan) {
     return Column(
       children: plan.plan.map((dailyPlan) {
@@ -157,8 +155,12 @@ class AiCoachScreen extends ConsumerWidget {
                 ...dailyPlan.tasks.map((task) => Padding(
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.check_box_outline_blank, size: 20, color: Colors.grey),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4.0),
+                        child: Icon(Icons.check_box_outline_blank, size: 20, color: Colors.grey[600]),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(child: Text(task, style: const TextStyle(fontSize: 15))),
                     ],
@@ -172,7 +174,6 @@ class AiCoachScreen extends ConsumerWidget {
     ).animate().fadeIn();
   }
 
-  // Diğer widget'lar aynı
   Widget _buildActionButton({
     required BuildContext context,
     required bool isLoading,

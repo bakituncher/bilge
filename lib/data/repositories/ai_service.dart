@@ -7,9 +7,6 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 
-// ChatMessage sınıfının bu dosyada veya import edilen bir dosyada olması gerekir.
-// Eğer ayrı bir dosyadaysa, o dosyayı import etmeyi unutmayın.
-// Örnek: import 'package:bilge_ai/data/models/chat_message_model.dart';
 class ChatMessage {
   final String text;
   final bool isUser;
@@ -43,7 +40,6 @@ class AiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
-        // Yanıtın yapısını kontrol et ve güvenli bir şekilde eriş
         if (data['candidates'] != null && data['candidates'].isNotEmpty &&
             data['candidates'][0]['content'] != null &&
             data['candidates'][0]['content']['parts'] != null &&
@@ -65,19 +61,31 @@ class AiService {
     }
   }
 
-  // Kişiselleştirilmiş analiz ve tavsiye üreten ana fonksiyon
   Future<String> getAIRecommendations(UserModel user, List<TestModel> tests) {
     if (user.selectedExam == null) {
       return Future.value("Analiz için önce bir sınav seçmelisiniz.");
     }
     final exam = ExamData.getExamByType(ExamType.values.byName(user.selectedExam!));
-    final relevantSection = exam.sections.firstWhere((s) => s.name == user.selectedExamSection, orElse: () => exam.sections.first);
 
     String curriculumString = "";
-    relevantSection.subjects.forEach((subjectName, details) {
-      curriculumString += "\n### $subjectName Konuları:\n";
-      curriculumString += details.topics.map((t) => "- ${t.name}").join("\n");
-    });
+    String relevantSectionName;
+
+    if (exam.type == ExamType.lgs) {
+      relevantSectionName = exam.name;
+      for (var section in exam.sections) {
+        section.subjects.forEach((subjectName, details) {
+          curriculumString += "\n### $subjectName Konuları:\n";
+          curriculumString += details.topics.map((t) => "- ${t.name}").join("\n");
+        });
+      }
+    } else {
+      final relevantSection = exam.sections.firstWhere((s) => s.name == user.selectedExamSection, orElse: () => exam.sections.first);
+      relevantSectionName = relevantSection.name;
+      relevantSection.subjects.forEach((subjectName, details) {
+        curriculumString += "\n### $subjectName Konuları:\n";
+        curriculumString += details.topics.map((t) => "- ${t.name}").join("\n");
+      });
+    }
 
     String completedTopicsString = user.completedTopics.entries.map((e) =>
     "**${e.key}**: ${e.value.join(', ')}"
@@ -87,14 +95,14 @@ class AiService {
     }
 
     final prompt = """
-      Sen, BilgeAI adında, LGS ve YKS gibi Türkiye'deki merkezi sınavlar konusunda uzman, hiper-gerçekçi bir yapay zeka sınav stratejistisin.
+      Sen, BilgeAI adında, LGS, YKS ve KPSS gibi Türkiye'deki merkezi sınavlar konusunda uzman, hiper-gerçekçi bir yapay zeka sınav stratejistisin.
       Görevin, öğrencinin verilerini analiz ederek son derece kişiselleştirilmiş, veri odaklı ve eyleme geçirilebilir bir rapor hazırlamaktır.
       ASLA GENEL VEYA SINAVLA ALAKASIZ (örneğin LGS öğrencisine 'dinleme pratiği yap' gibi) TAVSİYELER VERME. Tüm analizlerin aşağıdaki verilere dayanmalıdır.
 
       ---
       **ÖĞRENCİ PROFİLİ VE VERİLERİ**
       ---
-      - **Sınav Türü:** ${exam.name} (${relevantSection.name})
+      - **Sınav Türü:** $relevantSectionName
       - **Öğrencinin Hedefi:** ${user.goal}
       - **Belirttiği Zorluklar:** ${user.challenges?.join(', ') ?? 'Belirtilmemiş'}
       - **Haftalık Çalışma Hedefi:** ${user.weeklyStudyGoal} saat
@@ -131,7 +139,6 @@ class AiService {
     return _callGemini(prompt);
   }
 
-  /// Motivasyon sohbeti için cevap üretir.
   Future<String> getMotivationalResponse(List<ChatMessage> history) {
     final prompt = """
       Sen BilgeAI adında, öğrencilerle sohbet eden, onların moralini yükselten, anlayışlı ve bilge bir dostsun.
@@ -145,28 +152,35 @@ class AiService {
     return _callGemini(prompt);
   }
 
-  /// Haftalık plan oluşturma fonksiyonu.
   Future<String> generateWeeklyPlan(UserModel user, List<TestModel> tests) {
     final analysis = tests.isNotEmpty ? PerformanceAnalysis(tests) : null;
     final prompt = """
-      Sen BilgeAI adında, öğrencilere kişiselleştirilmiş haftalık ders çalışma programları hazırlayan bir yapay zeka planlama asistanısın.
-      Aşağıdaki verileri kullanarak, öğrencinin hedeflerine ve eksiklerine uygun, dengeli ve motive edici bir haftalık ders programı oluştur.
-      Programı KESİNLİKLE AŞAĞIDAKİ JSON FORMATINDA, başka hiçbir ek metin olmadan, sadece JSON olarak döndür.
-      Haftanın her günü için 3 adet görev (task) oluştur. Görevler kısa ve net olmalı.
+      Sen, BilgeAI adında, öğrencilere kişiselleştirilmiş ve EYLEME GEÇİRİLEBİLİR haftalık ders çalışma programları hazırlayan uzman bir sınav stratejistisin.
+      Görevin, öğrencinin verilerine dayanarak, ona her gün için HANGİ KONUDAN, YAKLAŞIK KAÇ SORU ÇÖZMESİ gerektiğini söyleyen bir plan oluşturmaktır.
+      Planı KESİNLİKLE AŞAĞIDAKİ JSON FORMATINDA, başka hiçbir ek metin olmadan, sadece JSON olarak döndür.
+      Haftanın her günü için 2 veya 3 görev (task) oluştur. Görevler kısa, net ve sayısal hedefler içermeli.
 
       JSON FORMATI:
-      {"plan": [{"day": "Pazartesi", "tasks": ["Görev 1", "Görev 2", "Görev 3"]}, {"day": "Salı", "tasks": ["Görev 1", "Görev 2", "Görev 3"]}, ...]}
+      {"plan": [{"day": "Pazartesi", "tasks": ["Konu Tekrarı: [Konu Adı]", "Soru Çözümü: [Ders Adı] (30-40 Soru)"]}, ...]}
 
       ÖĞRENCİ BİLGİLERİ:
-      - Geliştirmesi Gereken Öncelikli Ders: ${analysis?.weakestSubject ?? "Matematik"}
+      - Sınav Türü: ${user.selectedExam ?? 'Bilinmiyor'}
+      - Geliştirmesi Gereken Öncelikli Ders (En Zayıf): ${analysis?.weakestSubject ?? "Matematik"}
       - Güçlü Olduğu Ders: ${analysis?.strongestSubject ?? "Türkçe"}
+      - Haftalık Çalışma Hedefi: ${user.weeklyStudyGoal} saat
+
+      KURALLAR:
+      1. Planı oluştururken zayıf derse ağırlık ver, ama güçlü dersi de ihmal etme.
+      2. Pazar gününü daha hafif bir tekrar veya genel deneme günü olarak planla.
+      3. Verdiğin soru sayıları ve görevler, öğrencinin haftalık çalışma hedefiyle uyumlu olsun.
+      4. Görevler "Matematik çalış" gibi YÜZEYSEL olmasın. "Konu Tekrarı: Üslü İfadeler" veya "Soru Çözümü: Türkçe (40 Paragraf Sorusu)" gibi spesifik olsun.
+
+      Lütfen bu bilgilere göre JSON formatında bir haftalık program oluştur.
     """;
     return _callGemini(prompt);
   }
 }
 
-
-/// Deneme sınavlarının temel analizini yapar.
 class PerformanceAnalysis {
   final List<TestModel> tests;
   late String weakestSubject;
@@ -181,7 +195,7 @@ class PerformanceAnalysis {
     final subjectNets = <String, List<double>>{};
     for (var test in tests) {
       test.scores.forEach((subject, scores) {
-        final net = scores['dogru']! - (scores['yanlis']! * test.penaltyCoefficient);
+        final net = (scores['dogru'] ?? 0) - ((scores['yanlis'] ?? 0) * test.penaltyCoefficient);
         subjectNets.putIfAbsent(subject, () => []).add(net);
       });
     }
@@ -194,7 +208,6 @@ class PerformanceAnalysis {
 
     final subjectAverages = subjectNets.map((subject, nets) => MapEntry(subject, nets.reduce((a, b) => a + b) / nets.length));
 
-    // Net ortalaması en düşük ve en yüksek dersleri bul
     weakestSubject = subjectAverages.entries.reduce((a, b) => a.value < b.value ? a : b).key;
     strongestSubject = subjectAverages.entries.reduce((a, b) => a.value > b.value ? a : b).key;
   }
