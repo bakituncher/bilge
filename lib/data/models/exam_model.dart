@@ -677,4 +677,16 @@ class ExamData {
   static Exam getExamByType(ExamType type) {
     return exams.firstWhere((exam) => exam.type == type);
   }
+
+  // ✅ HATA GİDERİLDİ: Eksik olan bu metot eklendi.
+  static List<SubjectTopic> getAllTopicsForSubject(String subjectName) {
+    for (var exam in exams) {
+      for (var section in exam.sections) {
+        if (section.subjects.containsKey(subjectName)) {
+          return section.subjects[subjectName]!.topics;
+        }
+      }
+    }
+    return [];
+  }
 }

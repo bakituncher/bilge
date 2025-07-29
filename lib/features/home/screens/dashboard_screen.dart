@@ -8,7 +8,9 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:intl/intl.dart';
 import 'package:bilge_ai/core/constants/app_constants.dart';
+// ✅ YENİ İMPORTLAR: Yeni AI verisini ve modellerini kullanmak için eklendi.
 import 'package:bilge_ai/features/coach/screens/ai_coach_screen.dart';
+import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -56,6 +58,7 @@ class DashboardScreen extends ConsumerWidget {
               error: (e,s) => const SizedBox.shrink(),
             ),
             const SizedBox(height: 24),
+            // ✅ GÜNCELLEME: Bugünün Planı kartı, yeni AI veri yapısıyla çalışacak şekilde geri getirildi.
             _buildTodaysPlanCard(context, ref),
             const SizedBox(height: 24),
             testsAsync.when(
@@ -75,7 +78,6 @@ class DashboardScreen extends ConsumerWidget {
                     const SizedBox(height: 24),
                     Text('Son Denemeler', style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    // ✅ UX GELİŞTİRMESİ: Kullanıcıya yol gösteren "Boş Durum" tasarımı eklendi.
                     if (tests.isEmpty)
                       Card(
                         color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
@@ -135,38 +137,66 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
+  // ✅ YENİDEN YAZILDI: Bu widget artık 'coachingSessionProvider'ı dinliyor ve hataları gideriyor.
   Widget _buildTodaysPlanCard(BuildContext context, WidgetRef ref) {
-    final weeklyPlan = ref.watch(weeklyPlanProvider);
+    // Yeni AI verisini dinle
+    final sessionData = ref.watch(coachingSessionProvider);
     final dayOfWeek = DateFormat('EEEE', 'tr_TR').format(DateTime.now());
 
     DailyPlan? todaysPlan;
-    if (weeklyPlan != null) {
-      todaysPlan = weeklyPlan.plan.firstWhere((p) => p.day == dayOfWeek, orElse: () => DailyPlan(day: dayOfWeek, tasks: []));
+
+    // Veri varsa ve hata içermiyorsa, bugünün planını ayıkla
+    if (sessionData != null && !sessionData.containsKey("error")) {
+      final weeklyPlanData = sessionData['weeklyPlan'] as Map<String, dynamic>?;
+      if (weeklyPlanData != null) {
+        final plan = WeeklyPlan.fromJson(weeklyPlanData);
+        todaysPlan = plan.plan.firstWhere((p) => p.day == dayOfWeek, orElse: () => DailyPlan(day: dayOfWeek, tasks: []));
+      }
     }
 
     return Card(
       elevation: 0,
-      color: Theme.of(context).colorScheme.primary.withAlpha(12),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Bugünün Planı ($dayOfWeek)',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            if (todaysPlan != null && todaysPlan.tasks.isNotEmpty)
-              ...todaysPlan.tasks.map((task) => _buildPlanItem(context, task, false))
-            else
+      color: Theme.of(context).colorScheme.primary.withAlpha(25),
+      child: InkWell(
+        onTap: () => context.go('/ai-hub/ai-coach'), // Stratejik Koçluk ekranına git
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                "Yapay zeka koçundan henüz bir plan oluşturmadın. Koç sekmesinden haftalık planını oluşturarak görevlerini burada görebilirsin.",
-                style: Theme.of(context).textTheme.bodyMedium,
+                'Bugünün Planı ($dayOfWeek)',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
-          ],
+              const SizedBox(height: 12),
+              // Duruma göre farklı içerik göster
+              if (todaysPlan != null && todaysPlan.tasks.isNotEmpty)
+                ...todaysPlan.tasks.map((task) => _buildPlanItem(context, task, false))
+              else
+                _buildPlanPrompt(context, sessionData != null),
+            ],
+          ),
         ),
       ),
+    );
+  }
+
+  // ✅ YENİ YARDIMCI WIDGET: Plan olmadığında kullanıcıya ne yapacağını söyler.
+  Widget _buildPlanPrompt(BuildContext context, bool isPlanGenerated) {
+    return Row(
+      children: [
+        Icon(Icons.auto_awesome, color: Theme.of(context).colorScheme.secondary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            !isPlanGenerated
+                ? "Stratejik Koçluk merkezinden haftalık planını oluşturarak görevlerini burada gör."
+                : "Bugün için özel bir görevin yok. Dinlenmek de stratejinin bir parçasıdır!",
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+      ],
     );
   }
 

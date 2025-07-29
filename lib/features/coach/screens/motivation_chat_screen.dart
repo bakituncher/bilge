@@ -24,31 +24,29 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
-    // Kullanıcının mesajını ekle
     ref.read(chatHistoryProvider.notifier).update((state) => [...state, ChatMessage(text, isUser: true)]);
     _controller.clear();
     FocusScope.of(context).unfocus();
 
-    // AI cevabını bekle
     setState(() => _isTyping = true);
-    _scrollToBottom();
+    _scrollToBottom(isNewMessage: true);
+
 
     final aiService = ref.read(aiServiceProvider);
     final history = ref.read(chatHistoryProvider);
     final aiResponse = await aiService.getMotivationalResponse(history);
 
-    // AI cevabını ekle
     ref.read(chatHistoryProvider.notifier).update((state) => [...state, ChatMessage(aiResponse, isUser: false)]);
     setState(() => _isTyping = false);
-    _scrollToBottom();
+    _scrollToBottom(isNewMessage: true);
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool isNewMessage = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
+          duration: isNewMessage ? 300.ms : 100.ms,
           curve: Curves.easeOut,
         );
       }
@@ -136,30 +134,46 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final colorScheme = Theme.of(context).colorScheme;
     final isUser = message.isUser;
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-        decoration: BoxDecoration(
-          color: isUser ? theme.colorScheme.secondary : theme.cardColor,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
-            bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
+      child: Animate(
+        effects: [
+          const ScaleEffect(
+              begin: Offset(0.5, 0.5),
+              end: Offset(1, 1),
+              duration: Duration(milliseconds: 400),
+              curve: Curves.elasticOut),
+          const FadeEffect(duration: Duration(milliseconds: 300)),
+        ],
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+          decoration: BoxDecoration(
+              color: isUser ? colorScheme.secondary : colorScheme.primary.withOpacity(0.5),
+              borderRadius: BorderRadius.only(
+                topLeft: const Radius.circular(16),
+                topRight: const Radius.circular(16),
+                bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
+                bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isUser ? colorScheme.secondary.withOpacity(0.4) : colorScheme.primary.withOpacity(0.4),
+                  blurRadius: 10,
+                )
+              ]
+          ),
+          child: Text(
+            message.text,
+            style: TextStyle(color: isUser ? colorScheme.primary : Colors.white, fontSize: 15, height: 1.4),
           ),
         ),
-        child: Text(
-          message.text,
-          style: TextStyle(color: isUser ? theme.colorScheme.primary : theme.textTheme.bodyLarge?.color, fontSize: 15),
-        ),
       ),
-    ).animate().fadeIn(duration: 300.ms).slideX(begin: isUser ? 0.2 : -0.2);
+    );
   }
 }
 
@@ -169,21 +183,33 @@ class _TypingBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardColor,
-          borderRadius: const BorderRadius.all(Radius.circular(16)),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14.0, horizontal: 8.0),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(width: 8, height: 8, child: CircularProgressIndicator(strokeWidth: 2))
-                .animate(onPlay: (c) => c.repeat(), effects: [FadeEffect(curve: Curves.easeIn, duration: 800.ms)]),
-            const SizedBox(width: 8),
-            Text("Yazıyor...", style: TextStyle(color: Colors.grey[600])),
-          ],
+          children: List.generate(3, (index) {
+            return Animate(
+              delay: (index * 200).ms,
+              onPlay: (c) => c.repeat(reverse: true),
+              // ✅ HATA GİDERİLDİ: 'const' kaldırıldı.
+              effects: const [
+                ScaleEffect(
+                    duration: Duration(milliseconds: 600),
+                    curve: Curves.easeInOut,
+                    begin: Offset(0.8, 0.8),
+                    end: Offset(1.2, 1.2))
+              ],
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.secondary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            );
+          }),
         ),
       ),
     );

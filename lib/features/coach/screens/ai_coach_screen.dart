@@ -6,73 +6,41 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/repositories/ai_service.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-
-// Model Sınıfları
-class WeeklyPlan {
-  final List<DailyPlan> plan;
-  WeeklyPlan({required this.plan});
-
-  factory WeeklyPlan.fromJson(Map<String, dynamic> json) {
-    var list = json['plan'] as List;
-    List<DailyPlan> dailyPlans = list.map((i) => DailyPlan.fromJson(i)).toList();
-    return WeeklyPlan(plan: dailyPlans);
-  }
-}
-
-class DailyPlan {
-  final String day;
-  final List<String> tasks;
-  DailyPlan({required this.day, required this.tasks});
-
-  factory DailyPlan.fromJson(Map<String, dynamic> json) {
-    var tasksFromJson = json['tasks'] as List;
-    List<String> taskList = tasksFromJson.cast<String>();
-    return DailyPlan(day: json['day'], tasks: taskList);
-  }
-}
+import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart'; // Model için import
 
 // State Provider'ları
-final recommendationProvider = StateProvider<String?>((ref) => null);
-final weeklyPlanProvider = StateProvider<WeeklyPlan?>((ref) => null);
+final coachingSessionProvider = StateProvider<Map<String, dynamic>?>((ref) => null);
 
 class AiCoachNotifier extends StateNotifier<bool> {
   final Ref _ref;
   AiCoachNotifier(this._ref) : super(false);
 
-  Future<void> getRecommendations() async {
-    if (_ref.read(recommendationProvider) != null) return;
+  Future<void> getCoachingSession() async {
+    // Veri zaten yüklüyse tekrar çekme
+    if (_ref.read(coachingSessionProvider) != null) return;
 
     final user = _ref.read(userProfileProvider).value;
     final tests = _ref.read(testsProvider).value;
     if (user == null || tests == null || tests.isEmpty) return;
 
     state = true;
-    final result = await _ref.read(aiServiceProvider).getAIRecommendations(user, tests);
-    if (mounted) {
-      _ref.read(recommendationProvider.notifier).state = result;
-      state = false;
-    }
-  }
-
-  Future<void> getWeeklyPlan() async {
-    if (_ref.read(weeklyPlanProvider) != null) return;
-
-    final user = _ref.read(userProfileProvider).value;
-    final tests = _ref.read(testsProvider).value;
-    if (user == null) return;
-
-    state = true;
-    final resultJson = await _ref.read(aiServiceProvider).generateWeeklyPlan(user, tests ?? []);
-    if (mounted) {
-      try {
-        final cleanJson = resultJson.replaceAll("```json", "").replaceAll("```", "").trim();
-        final parsedPlan = WeeklyPlan.fromJson(jsonDecode(cleanJson));
-        _ref.read(weeklyPlanProvider.notifier).state = parsedPlan;
-      } catch (e) {
-        print("JSON Parse Hatası: $e");
-        _ref.read(weeklyPlanProvider.notifier).state = WeeklyPlan.fromJson({"plan": [{"day": "Hata", "tasks": ["Plan oluşturulamadı. Lütfen tekrar deneyin."]}]});
+    try {
+      // ✅ HATA GİDERİLDİ: Artık birleşik metot çağrılıyor.
+      final resultJson = await _ref.read(aiServiceProvider).getCoachingSession(user, tests);
+      if (mounted) {
+        _ref.read(coachingSessionProvider.notifier).state = jsonDecode(resultJson);
       }
-      state = false;
+    } catch (e) {
+      if (mounted) {
+        // Hata durumunda state'i de güncelle
+        _ref.read(coachingSessionProvider.notifier).state = {
+          "error": "Analiz oluşturulurken bir hata oluştu: ${e.toString()}"
+        };
+      }
+    } finally {
+      if (mounted) {
+        state = false;
+      }
     }
   }
 }
@@ -87,47 +55,32 @@ class AiCoachScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final recommendation = ref.watch(recommendationProvider);
-    final plan = ref.watch(weeklyPlanProvider);
+    final sessionData = ref.watch(coachingSessionProvider);
     final isLoading = ref.watch(aiCoachNotifierProvider);
     final user = ref.watch(userProfileProvider).value;
     final tests = ref.watch(testsProvider).value;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Yapay Zeka Koçu')),
+      appBar: AppBar(title: const Text('Stratejik Koçluk')),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          _buildSectionHeader(context, 'Kişisel Analiz ve Tavsiyeler', Icons.insights_rounded),
-          const SizedBox(height: 16),
-          if (recommendation == null)
+          if (sessionData == null)
             _buildActionButton(
               context: context,
               isLoading: isLoading,
               isDisabled: user == null || tests == null || tests.isEmpty,
-              onPressed: () => ref.read(aiCoachNotifierProvider.notifier).getRecommendations(),
+              onPressed: () => ref.read(aiCoachNotifierProvider.notifier).getCoachingSession(),
               icon: Icons.auto_awesome,
-              label: 'Analiz Oluştur',
+              label: 'Analiz ve Plan Oluştur',
             )
+          else if (sessionData.containsKey("error"))
+            _buildErrorCard(sessionData["error"])
           else
-            _buildMarkdownCard(recommendation),
+            _buildSessionContent(context, sessionData),
 
-          const SizedBox(height: 32),
-          _buildSectionHeader(context, 'Haftalık Çalışma Planın', Icons.calendar_today_rounded),
-          const SizedBox(height: 16),
-          if (plan == null)
-            _buildActionButton(
-              context: context,
-              isLoading: isLoading,
-              isDisabled: user == null,
-              onPressed: () => ref.read(aiCoachNotifierProvider.notifier).getWeeklyPlan(),
-              icon: Icons.schema_rounded,
-              label: 'Planımı Oluştur',
-            )
-          else
-            _buildWeeklyPlanWidget(plan),
 
-          if(isLoading && (recommendation == null || plan == null))
+          if(isLoading && sessionData == null)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24.0),
               child: Center(child: CircularProgressIndicator()),
@@ -137,40 +90,91 @@ class AiCoachScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeeklyPlanWidget(WeeklyPlan plan) {
+  Widget _buildErrorCard(String error) {
+    return Card(
+        color: Colors.red.withOpacity(0.1),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Text("Hata: $error"),
+        )
+    );
+  }
+
+  Widget _buildSessionContent(BuildContext context, Map<String, dynamic> sessionData) {
+    final analysisReport = sessionData['analysisReport'] as String?;
+    final weeklyPlanData = sessionData['weeklyPlan'] as Map<String, dynamic>?;
+    final plan = weeklyPlanData != null ? WeeklyPlan.fromJson(weeklyPlanData) : null;
+
     return Column(
-      children: plan.plan.map((dailyPlan) {
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
+      children: [
+        _buildSectionHeader(context, 'Kişisel Analiz ve Tavsiyeler', Icons.insights_rounded),
+        const SizedBox(height: 16),
+        if (analysisReport != null)
+          _buildMarkdownCard(analysisReport),
+
+        const SizedBox(height: 32),
+
+        _buildSectionHeader(context, 'Haftalık Çalışma Planın', Icons.calendar_today_rounded),
+        const SizedBox(height: 16),
+        if (plan != null)
+          _buildWeeklyPlanWidget(context, plan)
+        else
+          const Text("Haftalık plan oluşturulamadı."),
+      ],
+    );
+  }
+
+  Widget _buildWeeklyPlanWidget(BuildContext context, WeeklyPlan plan) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Card(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
               children: [
-                Text(
-                  dailyPlan.day,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-                ),
-                const Divider(height: 20),
-                ...dailyPlan.tasks.map((task) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4.0),
-                        child: Icon(Icons.check_box_outline_blank, size: 20, color: Colors.grey[600]),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(child: Text(task, style: const TextStyle(fontSize: 15))),
-                    ],
-                  ),
-                )).toList(),
+                Icon(Icons.flag_circle_rounded, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 12),
+                Expanded(child: Text(plan.strategyFocus, style: Theme.of(context).textTheme.bodyMedium)),
               ],
             ),
           ),
-        );
-      }).toList(),
+        ),
+        const SizedBox(height: 16),
+        ...plan.plan.map((dailyPlan) {
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    dailyPlan.day,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                  const Divider(height: 20),
+                  ...dailyPlan.tasks.map((task) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4.0),
+                          child: Icon(Icons.check_box_outline_blank, size: 20, color: Colors.grey[600]),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(child: Text(task, style: const TextStyle(fontSize: 15))),
+                      ],
+                    ),
+                  )).toList(),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ],
     ).animate().fadeIn();
   }
 

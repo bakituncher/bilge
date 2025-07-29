@@ -24,7 +24,7 @@ import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_coach_screen.dart';
 import 'package:bilge_ai/features/coach/screens/motivation_chat_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
-import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart'; // ✅ YENİ EKRAN İMPORTU
+import 'package:bilge_ai/features/coach/screens/weakness_hunter_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -132,8 +132,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const AiHubScreen(),
                 routes: [
                   GoRoute(path: 'ai-coach', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const AiCoachScreen()),
-                  // ✅ YENİ ROTA: Haftalık plan ekranı için eklendi.
-                  GoRoute(path: 'weekly-plan', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeeklyPlanScreen()),
+                  GoRoute(
+                      path: 'weakness-hunter',
+                      parentNavigatorKey: rootNavigatorKey,
+                      builder: (context, state) => const WeaknessHunterScreen()),
                   GoRoute(path: 'motivation-chat', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const MotivationChatScreen()),
                 ]),
           ]),
