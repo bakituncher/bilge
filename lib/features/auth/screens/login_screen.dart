@@ -1,5 +1,4 @@
 // lib/features/auth/screens/login_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -18,6 +17,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _isLoading = false;
+  // ✅ UX GELİŞTİRMESİ: Hata durumunu tutacak bir state
+  String? _errorMessage;
 
   @override
   void dispose() {
@@ -30,18 +31,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     FocusScope.of(context).unfocus();
 
     if (_formKey.currentState!.validate()) {
-      setState(() => _isLoading = true);
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null; // Her denemede hata mesajını sıfırla
+      });
 
       try {
         await ref.read(authControllerProvider.notifier).signIn(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
+        // Başarılı girişten sonra yönlendirme zaten redirect'te halledilecek
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toString())),
-          );
+          // ✅ UX GELİŞTİRMESİ: Hata mesajını bir state'e ata ve formu yeniden doğrula
+          setState(() {
+            _errorMessage = e.toString();
+            _formKey.currentState?.validate(); // Formu yeniden doğrula
+          });
         }
       } finally {
         if (mounted) {
@@ -76,8 +83,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   if (value == null || !value.contains('@')) {
                     return 'Lütfen geçerli bir e-posta girin.';
                   }
+                  // ✅ UX GELİŞTİRMESİ: API'den gelen hatayı göster
+                  if (_errorMessage != null) {
+                    return _errorMessage;
+                  }
                   return null;
                 },
+                onChanged: (_) => setState(() => _errorMessage = null),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -88,8 +100,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   if (value == null || value.isEmpty) {
                     return 'Lütfen şifrenizi girin.';
                   }
+                  // ✅ UX GELİŞTİRMESİ: API'den gelen hatayı göster
+                  if (_errorMessage != null) {
+                    return _errorMessage;
+                  }
                   return null;
                 },
+                onChanged: (_) => setState(() => _errorMessage = null),
               ),
               const SizedBox(height: 32),
               ElevatedButton(

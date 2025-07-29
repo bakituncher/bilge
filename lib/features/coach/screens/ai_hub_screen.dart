@@ -17,13 +17,22 @@ class AiHubScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ✅ YENİ YAPI: Üç ayrı ve net seçenek
             _buildAiToolCard(
               context: context,
-              title: 'Yapay Zeka Koçu',
-              subtitle: 'Kişisel analiz, tavsiye ve program',
-              icon: Icons.auto_awesome,
-              onTap: () => context.go('/ai-hub/ai-coach'),
+              title: 'Analiz Raporu Al',
+              subtitle: 'Denemelerine göre kişisel durum analizi ve acil eylem planı.',
+              icon: Icons.insights_rounded,
+              onTap: () => context.go('/ai-hub/ai-coach'), // Mevcut analiz ekranını kullanır
             ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.2),
+
+            _buildAiToolCard(
+              context: context,
+              title: 'Haftalık Stratejik Plan Oluştur',
+              subtitle: 'Sınava kalan süreye göre dinamik olarak hazırlanan haftalık program.',
+              icon: Icons.calendar_today_rounded,
+              onTap: () => context.go('/ai-hub/weekly-plan'), // YENİ EKRAN
+            ).animate().fadeIn(delay: 300.ms).slideX(begin: 0.2),
 
             _buildAiToolCard(
               context: context,
@@ -31,7 +40,7 @@ class AiHubScreen extends StatelessWidget {
               subtitle: 'Zorlandığında konuşabileceğin bir dost',
               icon: Icons.forum_rounded,
               onTap: () => context.go('/ai-hub/motivation-chat'),
-            ).animate().fadeIn(delay: 300.ms).slideX(begin: 0.2),
+            ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.2),
           ],
         ),
       ),
@@ -74,3 +83,5 @@ class AiHubScreen extends StatelessWidget {
     );
   }
 }
+
+

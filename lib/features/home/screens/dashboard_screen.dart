@@ -42,11 +42,11 @@ class DashboardScreen extends ConsumerWidget {
                         '${_getGreeting()}, ${user?.name?.split(' ').first ?? ''}!',
                         style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                       ),
-                      Text('Bugün hedeflerine bir adım daha yaklaş.', style: textTheme.bodyLarge),
+                      Text('Bugün hedeflerine bir adım daha yaklaş.', style: textTheme.bodyLarge?.copyWith(color: Colors.grey.shade600)),
                     ],
                   ),
                   IconButton(
-                    icon: Icon(Icons.menu_book, color: Theme.of(context).colorScheme.secondary),
+                    icon: Icon(Icons.menu_book_rounded, color: Theme.of(context).colorScheme.primary),
                     tooltip: 'Başarı Günlüğüm',
                     onPressed: () => context.go('/home/journal'),
                   ),
@@ -67,16 +67,49 @@ class DashboardScreen extends ConsumerWidget {
                   children: [
                     Row(
                       children: [
-                        Expanded(child: _buildStatSnapshotCard('Ortalama Net', avgNet.toStringAsFixed(2), Icons.track_changes, context)),
+                        Expanded(child: _buildStatSnapshotCard('Ortalama Net', avgNet.toStringAsFixed(2), Icons.track_changes_rounded, context)),
                         const SizedBox(width: 16),
-                        Expanded(child: _buildStatSnapshotCard('En Yüksek Net', bestNet.toStringAsFixed(2), Icons.emoji_events, context)),
+                        Expanded(child: _buildStatSnapshotCard('En Yüksek Net', bestNet.toStringAsFixed(2), Icons.emoji_events_rounded, context)),
                       ],
                     ),
                     const SizedBox(height: 24),
-                    Text('Son Denemeler', style: textTheme.titleLarge),
+                    Text('Son Denemeler', style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
+                    // ✅ UX GELİŞTİRMESİ: Kullanıcıya yol gösteren "Boş Durum" tasarımı eklendi.
                     if (tests.isEmpty)
-                      const Center(child: Text('Henüz deneme eklenmedi.'))
+                      Card(
+                        color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 1)
+                        ),
+                        elevation: 0,
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            children: [
+                              Icon(Icons.add_chart_rounded, size: 40, color: Theme.of(context).colorScheme.secondary),
+                              const SizedBox(height: 12),
+                              Text(
+                                'İlk Denemeni Ekle',
+                                style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Performansını takip etmeye ve yapay zekadan tavsiye almaya başlamak için ilk deneme sonucunu gir.',
+                                textAlign: TextAlign.center,
+                                style: textTheme.bodyMedium,
+                              ),
+                              const SizedBox(height: 16),
+                              ElevatedButton(
+                                onPressed: () => context.go('/home/add-test'),
+                                child: const Text('Hadi Başlayalım!'),
+                              )
+                            ],
+                          ),
+                        ),
+                      )
                     else
                       ...tests.take(3).map((test) =>
                           Animate(
@@ -94,7 +127,7 @@ class DashboardScreen extends ConsumerWidget {
         ).animate().fadeIn(duration: kMediumAnimationDuration),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        heroTag: 'dashboard_fab', // HATA DÜZELTİLDİ: Benzersiz bir tag eklendi.
+        heroTag: 'dashboard_fab',
         onPressed: () => context.go('/home/add-test'),
         label: const Text('Deneme Ekle'),
         icon: const Icon(Icons.add),

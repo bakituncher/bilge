@@ -1,3 +1,4 @@
+// lib/features/home/screens/add_test_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -37,17 +38,41 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     _controllers.clear();
   }
 
+  // ✅ UX GELİŞTİRMESİ: Otomatik boş hesaplaması için listener'lar eklendi.
   void _initializeControllers(ExamSection section) {
     _clearControllers();
     final newControllers = <String, Map<String, TextEditingController>>{};
     for (var subject in section.subjects.keys) {
+      final correctController = TextEditingController();
+      final wrongController = TextEditingController();
+      final blankController = TextEditingController();
+      final totalQuestions = section.subjects[subject]?.questionCount ?? 0;
+
+      void updateBlank() {
+        final correct = int.tryParse(correctController.text) ?? 0;
+        final wrong = int.tryParse(wrongController.text) ?? 0;
+        final blank = totalQuestions - correct - wrong;
+
+        // Sadece geçerli bir sonuç varsa güncelle
+        if (blank >= 0) {
+          blankController.text = blank.toString();
+        } else {
+          // Negatif bir sonuç durumunda, kullanıcıya bir hata göstermek yerine
+          // alanı boş bırakmak veya '0' olarak ayarlamak daha iyi bir UX olabilir.
+          blankController.text = '0';
+        }
+      }
+
+      correctController.addListener(updateBlank);
+      wrongController.addListener(updateBlank);
+
       newControllers[subject] = {
-        'dogru': TextEditingController(),
-        'yanlis': TextEditingController(),
-        'bos': TextEditingController(),
+        'dogru': correctController,
+        'yanlis': wrongController,
+        'bos': blankController,
       };
     }
-    // setState'i doğrudan çağırmak yerine, build sonrası için planla
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
@@ -58,6 +83,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
   }
 
   void _saveTest() async {
+    // ... Bu fonksiyonun içeriği doğru çalıştığı için aynı kalıyor ...
     final userProfile = ref.read(userProfileProvider).value;
     if (userProfile?.selectedExam == null) return;
     final selectedExamType = ExamType.values.byName(userProfile!.selectedExam!);
@@ -79,7 +105,6 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     int totalQuestionCount = 0;
     bool validationError = false;
 
-    // for...in döngüsü daha güvenli
     for (var subject in _controllers.keys) {
       final subjectControllers = _controllers[subject]!;
       final correct = int.tryParse(subjectControllers['dogru']!.text) ?? 0;
@@ -96,7 +121,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
         );
         setState(() => _isLoading = false);
         validationError = true;
-        break; // Hata anında döngüyü sonlandır
+        break;
       }
 
       scores[subject] = {'dogru': correct, 'yanlis': wrong, 'bos': blank};
@@ -106,7 +131,7 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
       totalQuestionCount += questionCountForSubject;
     }
 
-    if (validationError) return; // Hata varsa fonksiyondan çık
+    if (validationError) return;
 
     final totalNet =
         totalCorrect - (totalWrong * _selectedSection!.penaltyCoefficient);
@@ -150,8 +175,10 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
+    // ... build metodunun üst kısmı (veri çekme ve kontrol) aynı kalıyor ...
     final userProfile = ref.watch(userProfileProvider).value;
 
     if (userProfile == null) {
@@ -174,23 +201,36 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     final selectedExamType = ExamType.values.byName(userProfile.selectedExam!);
     final exam = ExamData.getExamByType(selectedExamType);
 
-    // ✅ YENİ MANTIK: Kullanıcının sınavına göre gösterilecek bölümleri belirle.
     List<ExamSection> availableSections;
     if (selectedExamType == ExamType.lgs) {
-      // LGS öğrencisi her iki bölümün (Sözel/Sayısal) sonucunu da girebilir.
       availableSections = exam.sections;
+    } else if (selectedExamType == ExamType.yks) {
+      final tytSection = exam.sections.firstWhere((s) => s.name == 'TYT');
+      final userAytSection = exam.sections.firstWhere(
+            (s) => s.name == userProfile.selectedExamSection,
+        orElse: () => exam.sections.first,
+      );
+      if (tytSection.name == userAytSection.name) {
+        availableSections = [tytSection];
+      } else {
+        availableSections = [tytSection, userAytSection];
+      }
     } else {
-      // YKS/KPSS öğrencisi sadece kendi kayıtlı alanını görür ve seçemez.
       final userSection = exam.sections.firstWhere(
               (s) => s.name == userProfile.selectedExamSection,
           orElse: () => exam.sections.first);
       availableSections = [userSection];
+    }
 
-      // Eğer tek bölüm varsa ve henüz seçilmemişse, otomatik olarak seç ve controller'ları başlat.
-      if (_selectedSection == null) {
-        _selectedSection = availableSections.first;
-        _initializeControllers(_selectedSection!);
-      }
+    if (availableSections.length == 1 && _selectedSection == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if(mounted){
+          setState(() {
+            _selectedSection = availableSections.first;
+            _initializeControllers(_selectedSection!);
+          });
+        }
+      });
     }
 
     return Scaffold(
@@ -206,18 +246,16 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
               TextFormField(
                 controller: _testNameController,
                 decoration: const InputDecoration(
-                    labelText: 'Sınav Adı (Örn: TYT Genel Deneme 5)'),
+                    labelText: 'Sınav Adı (Örn: 3D TYT Genel Deneme)'),
                 validator: (v) =>
                 v == null || v.isEmpty ? 'Sınav adı boş olamaz.' : null,
               ),
               const SizedBox(height: 24),
-
-              // ✅ YENİ MANTIK: Sadece birden fazla seçilebilir bölüm varsa dropdown göster.
               if (availableSections.length > 1)
                 DropdownButtonFormField<ExamSection>(
                   value: _selectedSection,
-                  decoration: const InputDecoration(labelText: 'Sınav Bölümü'),
-                  hint: const Text('Sınav bölümünü seçin'),
+                  decoration: const InputDecoration(labelText: 'Deneme Türü'),
+                  hint: const Text('Ekleyeceğin deneme türünü seç'),
                   items: availableSections
                       .map((section) => DropdownMenuItem(
                     value: section,
@@ -236,9 +274,8 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
                   v == null ? 'Lütfen bir bölüm seçin.' : null,
                 )
               else if (availableSections.isNotEmpty)
-              // Tek bölüm varsa (YKS/KPSS), seçtirmeden göster.
                 ListTile(
-                  title: const Text("Sınav Bölümü"),
+                  title: const Text("Deneme Türü"),
                   subtitle: Text(availableSections.first.name),
                   contentPadding: EdgeInsets.zero,
                 ),
@@ -273,25 +310,31 @@ class _AddTestScreenState extends ConsumerState<AddTestScreen> {
     );
   }
 
-  Widget _buildSubjectExpansionTile(
-      String subject, SubjectDetails subjectDetails) {
+  Widget _buildSubjectExpansionTile(String subject, SubjectDetails subjectDetails) {
     return ExpansionTile(
       title: Text('$subject (${subjectDetails.questionCount} Soru)'),
       childrenPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       children: [
         _buildScoreTextField('Doğru', _controllers[subject]!['dogru']!),
         _buildScoreTextField('Yanlış', _controllers[subject]!['yanlis']!),
-        _buildScoreTextField('Boş', _controllers[subject]!['bos']!),
+        _buildScoreTextField('Boş', _controllers[subject]!['bos']!, readOnly: true),
       ],
     );
   }
 
-  Widget _buildScoreTextField(String label, TextEditingController controller) {
+  // ✅ UX GELİŞTİRMESİ: `readOnly` parametresi ve görsel stil eklendi.
+  Widget _buildScoreTextField(String label, TextEditingController controller, {bool readOnly = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextFormField(
         controller: controller,
-        decoration: InputDecoration(labelText: label),
+        readOnly: readOnly,
+        decoration: InputDecoration(
+          labelText: label,
+          // Boş alanı görsel olarak ayırt etmek için
+          filled: readOnly,
+          fillColor: readOnly ? Theme.of(context).colorScheme.surface.withAlpha(100) : null,
+        ),
         keyboardType: TextInputType.number,
         inputFormatters: [FilteringTextInputFormatter.digitsOnly],
         validator: (v) =>

@@ -1,3 +1,4 @@
+// lib/features/coach/screens/coach_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,14 +6,40 @@ import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 
-class CoachScreen extends ConsumerWidget {
+class CoachScreen extends ConsumerStatefulWidget {
   const CoachScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CoachScreen> createState() => _CoachScreenState();
+}
+
+class _CoachScreenState extends ConsumerState<CoachScreen> {
+  Map<String, List<String>> _localCompletedTopics = {};
+
+  List<ExamSection> _getRelevantSectionsForUser(UserModel user, Exam exam) {
+    if (user.selectedExam == ExamType.lgs.name) {
+      return exam.sections;
+    } else if (user.selectedExam == ExamType.yks.name) {
+      final tytSection = exam.sections.firstWhere((s) => s.name == 'TYT');
+      final userAytSection = exam.sections.firstWhere(
+            (s) => s.name == user.selectedExamSection,
+        orElse: () => exam.sections.first,
+      );
+      if (tytSection.name == userAytSection.name) return [tytSection];
+      return [tytSection, userAytSection];
+    } else {
+      final relevantSection = exam.sections.firstWhere(
+            (s) => s.name == user.selectedExamSection,
+        orElse: () => exam.sections.first,
+      );
+      return [relevantSection];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final userProfileAsync = ref.watch(userProfileProvider);
     final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -20,28 +47,17 @@ class CoachScreen extends ConsumerWidget {
       ),
       body: userProfileAsync.when(
         data: (user) {
-          if (user?.selectedExam == null) {
+          if (user == null || user.selectedExam == null) {
             return const Center(child: Text('Lütfen önce profilden bir sınav seçin.'));
           }
 
-          final examType = ExamType.values.byName(user!.selectedExam!);
-          final exam = ExamData.getExamByType(examType);
-
-          // ✅ DÜZELTME: LGS ise tüm dersleri, YKS/KPSS ise sadece ilgili bölümün derslerini al.
-          Map<String, SubjectDetails> subjectsToShow = {};
-          if (examType == ExamType.lgs) {
-            // LGS için tüm bölümlerdeki dersleri birleştir.
-            for (var section in exam.sections) {
-              subjectsToShow.addAll(section.subjects);
-            }
-          } else {
-            // YKS ve KPSS için sadece kullanıcının seçtiği bölümün derslerini al.
-            final relevantSection = exam.sections.firstWhere(
-                  (s) => s.name == user.selectedExamSection,
-              orElse: () => exam.sections.first,
-            );
-            subjectsToShow = relevantSection.subjects;
+          if (_localCompletedTopics.isEmpty && user.completedTopics.isNotEmpty) {
+            _localCompletedTopics = user.completedTopics.map((key, value) => MapEntry(key, List<String>.from(value)));
           }
+
+          final examType = ExamType.values.byName(user.selectedExam!);
+          final exam = ExamData.getExamByType(examType);
+          final List<ExamSection> relevantSections = _getRelevantSectionsForUser(user, exam);
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -53,19 +69,34 @@ class CoachScreen extends ConsumerWidget {
                 style: textTheme.bodyMedium?.copyWith(color: Colors.grey.shade600),
               ),
               const SizedBox(height: 20),
-              ...subjectsToShow.entries.map((subjectEntry) {
-                final subjectName = subjectEntry.key;
-                final subjectDetails = subjectEntry.value;
-                int index = subjectsToShow.keys.toList().indexOf(subjectName);
-                return _buildSubjectExpansionTile(
-                  context,
-                  ref,
-                  user,
-                  subjectName,
-                  subjectDetails.topics,
-                ).animate()
-                    .fadeIn(delay: (100 * index).ms)
-                    .slideY(begin: 0.1, duration: 300.ms, curve: Curves.easeOut);
+
+              ...relevantSections.expand((section) {
+                int sectionIndex = relevantSections.indexOf(section);
+                return [
+                  if (relevantSections.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+                      child: Text(
+                        section.name,
+                        style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.secondary),
+                      ),
+                    ),
+                  ...section.subjects.entries.map((subjectEntry) {
+                    final subjectName = subjectEntry.key;
+                    final subjectDetails = subjectEntry.value;
+                    int subjectIndex = section.subjects.keys.toList().indexOf(subjectName);
+
+                    return _buildSubjectExpansionTile(
+                      context,
+                      ref,
+                      user,
+                      subjectName,
+                      subjectDetails.topics,
+                    ).animate()
+                        .fadeIn(delay: ((sectionIndex * 200) + (subjectIndex * 100)).ms)
+                        .slideY(begin: 0.1, duration: 300.ms, curve: Curves.easeOut);
+                  })
+                ];
               }),
             ],
           );
@@ -83,8 +114,9 @@ class CoachScreen extends ConsumerWidget {
       String subjectName,
       List<SubjectTopic> topics,
       ) {
-    final completedTopicsForSubject = user.completedTopics[subjectName] ?? [];
+    final completedTopicsForSubject = _localCompletedTopics[subjectName] ?? [];
     final progress = topics.isEmpty ? 0.0 : completedTopicsForSubject.length / topics.length;
+    final bool isCompleted = progress == 1.0;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -95,20 +127,44 @@ class CoachScreen extends ConsumerWidget {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(subjectName, style: const TextStyle(fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                // ✅ HATA DÜZELTİLDİ: Uzun metinlerin taşmasını engellemek için Expanded kullanıldı.
+                Expanded(
+                  child: Text(
+                    subjectName,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    overflow: TextOverflow.ellipsis, // Çok uzunsa sonunu ... ile bitirir.
+                  ),
+                ),
+                if (isCompleted)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: Icon(Icons.check_circle, color: Colors.green.shade600),
+                  ),
+              ],
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.grey.shade300,
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: BorderRadius.circular(8),
-                    minHeight: 6,
+                  child: TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeInOut,
+                    tween: Tween<double>(
+                      begin: 0,
+                      end: progress,
+                    ),
+                    builder: (context, value, child) => LinearProgressIndicator(
+                      value: value,
+                      backgroundColor: Colors.grey.shade300,
+                      color: isCompleted ? Colors.green.shade600 : Theme.of(context).colorScheme.primary,
+                      borderRadius: BorderRadius.circular(8),
+                      minHeight: 8,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 12),
                 Text(
                   '%${(progress * 100).toStringAsFixed(0)}',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold),
@@ -118,13 +174,25 @@ class CoachScreen extends ConsumerWidget {
           ],
         ),
         children: topics.map((topic) {
-          final isCompleted = completedTopicsForSubject.contains(topic.name);
+          final isTopicCompleted = completedTopicsForSubject.contains(topic.name);
           return CheckboxListTile(
-            title: Text(topic.name),
-            value: isCompleted,
+            title: Text(
+              topic.name,
+              style: TextStyle(
+                  decoration: isTopicCompleted ? TextDecoration.lineThrough : TextDecoration.none,
+                  color: isTopicCompleted ? Colors.grey.shade600 : null
+              ),
+            ),
+            value: isTopicCompleted,
             onChanged: (bool? value) {
-              // Butona basıldığında anlık olarak UI'da değişiklik olmasını sağla
-              // ve ardından Firestore'a yaz.
+              setState(() {
+                if (value == true) {
+                  _localCompletedTopics.putIfAbsent(subjectName, () => []).add(topic.name);
+                } else {
+                  _localCompletedTopics[subjectName]?.remove(topic.name);
+                }
+              });
+
               ref.read(firestoreServiceProvider).updateCompletedTopic(
                 userId: user.id,
                 subject: subjectName,

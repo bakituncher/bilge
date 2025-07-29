@@ -24,58 +24,53 @@ import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_coach_screen.dart';
 import 'package:bilge_ai/features/coach/screens/motivation_chat_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
+import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart'; // ✅ YENİ EKRAN İMPORTU
 
 final goRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authControllerProvider);
-  final userProfileAsync = ref.watch(userProfileProvider);
   final rootNavigatorKey = GlobalKey<NavigatorState>();
+
+  final listenable = ValueNotifier<bool>(false);
+  ref.listen(authControllerProvider, (_, __) => listenable.value = !listenable.value);
+  ref.listen(userProfileProvider, (_, __) => listenable.value = !listenable.value);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/login',
     debugLogDiagnostics: true,
+    refreshListenable: listenable,
     redirect: (BuildContext context, GoRouterState state) {
+      final authState = ref.read(authControllerProvider);
+      final userProfileState = ref.read(userProfileProvider);
+
       final bool loggedIn = authState.value != null;
-      final bool onAuthScreens = state.matchedLocation == '/login' || state.matchedLocation == '/register';
+      final String location = state.matchedLocation;
 
       if (!loggedIn) {
-        return onAuthScreens ? null : '/login';
+        return location == '/login' || location == '/register' ? null : '/login';
       }
 
-      // Kullanıcı profili yüklenirken veya hata oluştuğunda bekle
-      if (userProfileAsync.isLoading || userProfileAsync.hasError) {
-        return null; // Yükleme ekranı veya hata ekranı gösterilebilir
+      if (userProfileState.isLoading) {
+        return null;
       }
 
-      final userModel = userProfileAsync.value;
-      if (userModel == null) {
-        return '/login'; // Kullanıcı modeli yoksa login'e yolla
+      if(userProfileState.hasValue && userProfileState.value != null) {
+        final user = userProfileState.value!;
+        final onboardingCompleted = user.onboardingCompleted;
+        final examSelected = user.selectedExam != null && user.selectedExam!.isNotEmpty;
+
+        if (!onboardingCompleted) {
+          return location == '/onboarding' ? null : '/onboarding';
+        }
+        if (!examSelected) {
+          return location == '/exam-selection' ? null : '/exam-selection';
+        }
+
+        if (location == '/login' || location == '/register' || location == '/onboarding' || location == '/exam-selection') {
+          return '/home';
+        }
       }
 
-      final bool onboardingCompleted = userModel.onboardingCompleted;
-      final bool onOnboardingScreen = state.matchedLocation == '/onboarding';
-      final bool onExamSelectionScreen = state.matchedLocation == '/exam-selection';
-
-      // Onboarding tamamlanmadıysa Onboarding ekranına yönlendir
-      if (!onboardingCompleted) {
-        return onOnboardingScreen ? null : '/onboarding';
-      }
-
-      // HATA DÜZELTİLDİ: Sınav seçimi, geçici state yerine Firestore'daki kullanıcı profilinden kontrol ediliyor.
-      final bool examSelected = userModel.selectedExam != null && userModel.selectedExam!.isNotEmpty;
-
-      // Onboarding tamamlandı ama sınav seçilmediyse Sınav Seçim ekranına yönlendir
-      if (onboardingCompleted && !examSelected && !onExamSelectionScreen) {
-        return '/exam-selection';
-      }
-
-      // Kullanıcı oturum açmış, onboarding'i tamamlamış ve sınavını seçmişse
-      // artık login/register/onboarding/exam-selection ekranlarına gitmesini engelle
-      if (loggedIn && examSelected && (onAuthScreens || onOnboardingScreen || onExamSelectionScreen)) {
-        return '/home';
-      }
-
-      return null; // Başka bir yönlendirme gerekmiyorsa null döndür
+      return null;
     },
     routes: [
       GoRoute(path: '/login', builder: (c, s) => const LoginScreen()),
@@ -137,6 +132,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const AiHubScreen(),
                 routes: [
                   GoRoute(path: 'ai-coach', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const AiCoachScreen()),
+                  // ✅ YENİ ROTA: Haftalık plan ekranı için eklendi.
+                  GoRoute(path: 'weekly-plan', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeeklyPlanScreen()),
                   GoRoute(path: 'motivation-chat', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const MotivationChatScreen()),
                 ]),
           ]),
