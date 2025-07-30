@@ -20,6 +20,7 @@ class UserModel {
   final Map<String, List<String>> completedDailyTasks;
   final String? studyPacing; // 'relaxed', 'moderate', 'intense'
   final String? longTermStrategy;
+  final Map<String, dynamic>? weeklyPlan; // YENİ EKLENEN ALAN
 
   UserModel({
     required this.id,
@@ -39,6 +40,7 @@ class UserModel {
     this.completedDailyTasks = const {},
     this.studyPacing,
     this.longTermStrategy,
+    this.weeklyPlan, // YENİ EKLENEN PARAMETRE
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -88,6 +90,7 @@ class UserModel {
       completedDailyTasks: safeCompletedTasks,
       studyPacing: data['studyPacing'],
       longTermStrategy: data['longTermStrategy'],
+      weeklyPlan: data['weeklyPlan'] as Map<String, dynamic>?, // YENİ EKLENEN SATIR
     );
   }
 
@@ -115,6 +118,7 @@ class UserModel {
       'completedDailyTasks': completedDailyTasks,
       'studyPacing': studyPacing,
       'longTermStrategy': longTermStrategy,
+      'weeklyPlan': weeklyPlan, // YENİ EKLENEN SATIR
     };
   }
 }

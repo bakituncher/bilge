@@ -7,7 +7,6 @@ import 'package:bilge_ai/data/repositories/ai_service.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:bilge_ai/features/coach/screens/ai_coach_screen.dart'; // aiAnalysisProvider'ı güncellemek için
 import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
 
 enum Pacing { relaxed, moderate, intense }
@@ -50,10 +49,11 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
         userId: user.id,
         pacing: pacing.name,
         longTermStrategy: longTermStrategy,
+        weeklyPlan: weeklyPlan,
       );
 
-      final newSignature = "${user.id}_${tests.length}_${user.topicPerformances.hashCode}";
-      _ref.read(aiAnalysisProvider.notifier).state = (signature: newSignature, data: {"weeklyPlan": weeklyPlan, "longTermStrategy": longTermStrategy});
+      // ignore: unused_result
+      _ref.refresh(userProfileProvider);
 
       state = const AsyncValue.data(null);
     } catch (e, s) {
@@ -73,10 +73,9 @@ class StrategicPlanningScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;
     final generationState = ref.watch(strategyGenerationProvider);
-    final analysis = ref.watch(aiAnalysisProvider);
 
     if (user?.longTermStrategy != null && !generationState.isLoading) {
-      return _buildStrategyDisplay(context, user!.longTermStrategy!, analysis?.data['weeklyPlan']);
+      return _buildStrategyDisplay(context, ref);
     }
 
     return Scaffold(
@@ -149,8 +148,12 @@ class StrategicPlanningScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStrategyDisplay(BuildContext context, String longTermStrategy, Map<String, dynamic>? weeklyPlanData) {
-    final plan = weeklyPlanData != null ? WeeklyPlan.fromJson(weeklyPlanData) : null;
+  Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProfileProvider).value;
+    if (user == null) return const Scaffold(body: Center(child: Text("Kullanıcı verisi bulunamadı.")));
+
+    final plan = user.weeklyPlan != null ? WeeklyPlan.fromJson(user.weeklyPlan!) : null;
+
     return Scaffold(
       appBar: AppBar(title: const Text("Stratejik Koçluk")),
       body: ListView(
@@ -162,9 +165,9 @@ class StrategicPlanningScreen extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: MarkdownBody(
-                  data: longTermStrategy,
+                  data: user.longTermStrategy ?? "Strateji bulunamadı.",
                   styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                      p: const TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16),
+                      p: const TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16, height: 1.5),
                       h2: const TextStyle(color: AppTheme.secondaryColor, fontSize: 22)
                   )
               ),

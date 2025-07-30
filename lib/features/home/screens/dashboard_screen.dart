@@ -9,7 +9,6 @@ import 'package:intl/intl.dart';
 import 'package:bilge_ai/data/repositories/ai_service.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
-import 'package:bilge_ai/features/coach/screens/ai_coach_screen.dart';
 import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -37,26 +36,21 @@ class DashboardScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
-                // 1. Başlık ve Selamlama
                 _buildHeader(context, user.name ?? '', textTheme).animate().fadeIn(duration: 400.ms),
                 const SizedBox(height: 24),
 
-                // 2. "Günün Emri" - Dinamik Ana Kart
                 _buildSagesDirectiveCard(context, ref).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
                 const SizedBox(height: 16),
 
-                // 3. "Harekat Merkezi" - Hızlı Eylem Butonları
                 _buildActionCenter(context).animate().fadeIn(delay: 300.ms),
                 const SizedBox(height: 24),
 
-                // 4. "Haftalık Harekat Planı" - İnteraktif Görev Listesi
                 _buildWeeklyTasksCard(context, ref).animate().fadeIn(delay: 400.ms),
                 const SizedBox(height: 24),
 
-                // 5. "İstihbarat Raporu" - Son Durum ve İstatistikler
                 testsAsync.when(
                   data: (tests) => tests.isEmpty
-                      ? const SizedBox.shrink() // Eğer test yoksa bu bölüm hiç görünmez.
+                      ? const SizedBox.shrink()
                       : _buildIntelReport(context, tests, textTheme).animate().fadeIn(delay: 500.ms),
                   loading: () => const SizedBox.shrink(),
                   error: (e,s) => const SizedBox.shrink(),
@@ -195,7 +189,6 @@ class DashboardScreen extends ConsumerWidget {
 
   Widget _buildWeeklyTasksCard(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final analysisAsync = ref.watch(aiAnalysisProvider);
     final user = ref.watch(userProfileProvider).value;
 
     final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -203,12 +196,10 @@ class DashboardScreen extends ConsumerWidget {
     final completedTasksToday = user?.completedDailyTasks[todayKey] ?? [];
 
     DailyPlan? todaysPlan;
-    if (analysisAsync != null && !analysisAsync.data.containsKey("error")) {
-      final weeklyPlanData = analysisAsync.data['weeklyPlan'] as Map<String, dynamic>?;
-      if (weeklyPlanData != null) {
-        final plan = WeeklyPlan.fromJson(weeklyPlanData);
-        todaysPlan = plan.plan.firstWhere((p) => p.day == dayOfWeek, orElse: () => DailyPlan(day: dayOfWeek, tasks: []));
-      }
+    if (user != null && user.weeklyPlan != null) {
+      final weeklyPlanData = user.weeklyPlan;
+      final plan = WeeklyPlan.fromJson(weeklyPlanData!);
+      todaysPlan = plan.plan.firstWhere((p) => p.day == dayOfWeek, orElse: () => DailyPlan(day: dayOfWeek, tasks: []));
     }
 
     return Card(
@@ -219,7 +210,7 @@ class DashboardScreen extends ConsumerWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: (todaysPlan == null || todaysPlan.tasks.isEmpty)
-                ? _buildPlanPrompt(context, analysisAsync != null)
+                ? _buildPlanPrompt(context, isPlanGenerated: user?.weeklyPlan != null)
                 : Column(
               children: todaysPlan.tasks.map((task) {
                 final isCompleted = completedTasksToday.contains(task);
@@ -270,7 +261,7 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildPlanPrompt(BuildContext context, bool isPlanGenerated) {
+  Widget _buildPlanPrompt(BuildContext context, {required bool isPlanGenerated}) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(

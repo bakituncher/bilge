@@ -227,10 +227,12 @@ class FirestoreService {
     required String userId,
     required String pacing,
     required String longTermStrategy,
+    required Map<String, dynamic> weeklyPlan,
   }) async {
     await _usersCollection.doc(userId).update({
       'studyPacing': pacing,
       'longTermStrategy': longTermStrategy,
+      'weeklyPlan': weeklyPlan,
     });
   }
 }
