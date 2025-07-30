@@ -1,4 +1,5 @@
 // lib/data/repositories/ai_service.dart
+// ... (üst kısımlar aynı) ...
 import 'dart:convert';
 import 'package:bilge_ai/core/config/app_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +26,7 @@ class AiService {
   final String _apiUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent";
 
+  // ... (_getDaysUntilExam, _callGemini, getCoachingSession metodları önceki cevapla aynı) ...
   int _getDaysUntilExam(ExamType examType) {
     final now = DateTime.now();
     DateTime examDate;
@@ -113,7 +115,7 @@ class AiService {
           "plan": [
             {"day": "Pazartesi", "tasks": ["...", "..."]},
             {"day": "Salı", "tasks": ["...", "..."]},
-            {"day": "Çarşamba", "tasks": ["...", "..."]},
+            {"day": "Çaramba", "tasks": ["...", "..."]},
             {"day": "Perşembe", "tasks": ["...", "..."]},
             {"day": "Cuma", "tasks": ["...", "..."]},
             {"day": "Cumartesi", "tasks": ["...", "..."]},
@@ -156,35 +158,55 @@ class AiService {
     return _callGemini(prompt, expectJson: true);
   }
 
-  Future<String> generateTargetedQuestions(UserModel user, List<TestModel> tests) {
+  Future<String> generateTargetedQuestions(UserModel user, List<TestModel> tests) async {
     if (tests.isEmpty) {
-      return Future.value('{"error":"Soru üretmek için en az bir deneme sonucu gereklidir."}');
+      return Future.value('[]');
     }
     final analysis = PerformanceAnalysis(tests, user.topicPerformances);
     final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
 
     if (weakestTopicInfo == null) {
-      return Future.value('{"error":"Analiz için zayıf bir konu bulunamadı. Lütfen önce konu performans verilerinizi girin."}');
+      return Future.value('[]');
     }
 
     final weakestSubject = weakestTopicInfo['subject'];
     final weakestTopic = weakestTopicInfo['topic'];
 
+    // BİLGEAI DEVRİMİ: Prompt artık tek bir soru değil, 3 soruluk bir set istiyor.
     final prompt = """
-      Sen, bir öğrencinin en zayıf olduğu konudan, sınav formatına uygun, orijinal ve zorlayıcı bir soru üreten uzman bir soru yazarı yapay zekasın.
-      Öğrencinin en zayıf olduğu ders **'$weakestSubject'**. Bu derste özellikle sorun yaşadığı konu ise **'$weakestTopic'**. Bu konudaki başarı oranı oldukça düşük.
-      Şimdi bu **'$weakestTopic'** konusundan, öğrencinin bilgisini gerçekten test edecek, 4 şıklı bir çoktan seçmeli soru oluştur.
-      Çıktıyı KESİNLİKLE AŞAĞIDAKİ JSON FORMATINDA, başka hiçbir ek metin olmadan, sadece JSON olarak döndür.
+      Sen, bir öğrencinin en zayıf olduğu konudan, sınav formatına uygun, orijinal ve zorlayıcı sorular üreten uzman bir soru yazarı yapay zekasın.
+      Öğrencinin en zayıf olduğu ders **'$weakestSubject'**. Bu derste özellikle sorun yaşadığı konu ise **'$weakestTopic'**.
       
-      JSON FORMATI:
-      {
-        "question": "...",
-        "options": ["...", "...", "...", "..."],
-        "correctOptionIndex": 2,
-        "explanation": "...",
-        "weakestTopic": "$weakestTopic",
-        "weakestSubject": "$weakestSubject"
-      }
+      Bu **'$weakestTopic'** konusundan, öğrencinin bilgisini gerçekten test edecek, birbirinden farklı **3 adet** çoktan seçmeli soru oluştur.
+      
+      Çıktıyı KESİNLİKLE bir JSON dizisi (array) formatında, başka hiçbir ek metin olmadan döndür. Her bir dizi elemanı aşağıdaki formatta bir JSON nesnesi olmalıdır:
+      
+      [
+        {
+          "question": "...",
+          "options": ["...", "...", "...", "..."],
+          "correctOptionIndex": 2,
+          "explanation": "...",
+          "weakestTopic": "$weakestTopic",
+          "weakestSubject": "$weakestSubject"
+        },
+        {
+          "question": "...",
+          "options": ["...", "...", "...", "..."],
+          "correctOptionIndex": 0,
+          "explanation": "...",
+          "weakestTopic": "$weakestTopic",
+          "weakestSubject": "$weakestSubject"
+        },
+        {
+          "question": "...",
+          "options": ["...", "...", "...", "..."],
+          "correctOptionIndex": 3,
+          "explanation": "...",
+          "weakestTopic": "$weakestTopic",
+          "weakestSubject": "$weakestSubject"
+        }
+      ]
     """;
 
     return _callGemini(prompt, expectJson: true);
@@ -204,6 +226,7 @@ class AiService {
   }
 }
 
+// ... (PerformanceAnalysis sınıfı önceki cevapla aynı kalır) ...
 class PerformanceAnalysis {
   final List<TestModel> tests;
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;

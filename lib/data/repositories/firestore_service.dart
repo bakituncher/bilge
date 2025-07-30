@@ -1,4 +1,5 @@
 // lib/data/repositories/firestore_service.dart
+// ... (tüm importlar ve provider'lar aynı kalır) ...
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
+import 'package:bilge_ai/data/models/focus_session_model.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService(FirebaseFirestore.instance);
@@ -69,7 +71,9 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
   CollectionReference<Map<String, dynamic>> get _journalCollection => _firestore.collection('journal');
+  CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
 
+  // ... (createUserProfile'dan updateUserStreak'e kadar olan metotlar aynı kalır) ...
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name);
     await _usersCollection.doc(user.uid).set(userProfile.toJson());
@@ -187,8 +191,6 @@ class FirestoreService {
     });
   }
 
-  // BİLGEAI DEVRİMİ: Bu metod, eski ve artık kullanılmayan `updateCompletedTopic` metodunun yerini almıştır.
-  // Her bir konunun detaylı performansını (doğru, yanlış, toplam) Firestore'a kaydeder.
   Future<void> updateTopicPerformance({
     required String userId,
     required String subject,
@@ -196,11 +198,31 @@ class FirestoreService {
     required TopicPerformanceModel performance,
   }) async {
     final userDocRef = _usersCollection.doc(userId);
-    // Firestore'da iç içe haritaları (nested maps) güncellemek için bu nokta notasyonu kullanılır.
     final fieldPath = 'topicPerformances.$subject.$topic';
 
     await userDocRef.update({
       fieldPath: performance.toMap(),
+    });
+  }
+
+  Future<void> addFocusSession(FocusSessionModel session) async {
+    await _focusSessionsCollection.add(session.toMap());
+  }
+
+  // BİLGEAI DEVRİMİ: Görev tamamlama durumunu güncelleyen yeni metod.
+  Future<void> updateDailyTaskCompletion({
+    required String userId,
+    required String dateKey, // Format: "YYYY-MM-DD"
+    required String task,
+    required bool isCompleted,
+  }) async {
+    final userDocRef = _usersCollection.doc(userId);
+    final fieldPath = 'completedDailyTasks.$dateKey';
+
+    await userDocRef.update({
+      fieldPath: isCompleted
+          ? FieldValue.arrayUnion([task])
+          : FieldValue.arrayRemove([task]),
     });
   }
 }

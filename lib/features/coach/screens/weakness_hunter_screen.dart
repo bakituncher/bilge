@@ -7,7 +7,7 @@ import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 
-// Modeller
+// ... (GeneratedQuestion modeli aynı kalır) ...
 class GeneratedQuestion {
   final String question;
   final List<String> options;
@@ -37,14 +37,15 @@ class GeneratedQuestion {
   }
 }
 
-// State Yönetimi
+// BİLGEAI DEVRİMİ: "Soru Kasası" - Soru listesini ve mevcut zayıf konuyu tutar.
+final weaknessHunterCacheProvider = StateProvider<({String weakTopic, List<GeneratedQuestion> questions})?>((ref) => null);
+
 final weaknessHunterProvider = StateNotifierProvider.autoDispose<
     WeaknessHunterNotifier, AsyncValue<GeneratedQuestion>>((ref) {
   return WeaknessHunterNotifier(ref);
 });
 
-class WeaknessHunterNotifier
-    extends StateNotifier<AsyncValue<GeneratedQuestion>> {
+class WeaknessHunterNotifier extends StateNotifier<AsyncValue<GeneratedQuestion>> {
   final Ref _ref;
   WeaknessHunterNotifier(this._ref) : super(const AsyncValue.loading());
 
@@ -54,48 +55,68 @@ class WeaknessHunterNotifier
     final tests = _ref.read(testsProvider).value;
 
     if (user == null || tests == null || tests.isEmpty) {
-      state = AsyncValue.error(
-          "Analiz için yeterli deneme verisi bulunmuyor. Lütfen önce en az bir deneme sonucu ekleyin.", StackTrace.current);
+      state = AsyncValue.error("Analiz için yeterli deneme verisi bulunmuyor.", StackTrace.current);
       return;
     }
 
-    try {
-      final jsonString = await _ref
-          .read(aiServiceProvider)
-          .generateTargetedQuestions(user, tests);
-      final decodedJson = jsonDecode(jsonString);
-      if(decodedJson.containsKey('error')){
-        throw Exception(decodedJson['error']);
-      }
-      final question = GeneratedQuestion.fromJson(decodedJson);
+    final analysis = PerformanceAnalysis(tests, user.topicPerformances);
+    final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
+    if (weakestTopicInfo == null) {
+      state = AsyncValue.error("Zayıf bir konu bulunamadı. Lütfen önce konu performanslarınızı girin.", StackTrace.current);
+      return;
+    }
+    final currentWeakTopic = weakestTopicInfo['topic']!;
+    var cache = _ref.read(weaknessHunterCacheProvider);
+
+    // BİLGEAI DEVRİMİ: Kasa kontrolü
+    if (cache != null && cache.weakTopic == currentWeakTopic && cache.questions.isNotEmpty) {
+      debugPrint("Soru Kasası'ndan yüklendi!");
+      final question = cache.questions.removeAt(0); // Kasadan bir soru al ve listeden çıkar
+      _ref.read(weaknessHunterCacheProvider.notifier).state = cache; // Güncellenmiş kasayı kaydet
       state = AsyncValue.data(question);
+      return;
+    }
+
+    // Kasa boş veya konu değişti, API'yi çağır
+    debugPrint("Soru Kasası boş veya konu değişti. API'den yeni set çekiliyor...");
+    try {
+      // BİLGEAI DEVRİMİ: AI servisi artık bir liste döndürüyor.
+      final jsonString = await _ref.read(aiServiceProvider).generateTargetedQuestions(user, tests);
+      final List<dynamic> decodedList = jsonDecode(jsonString);
+
+      if (decodedList.isEmpty) throw Exception("Yapay zeka soru üretemedi.");
+
+      List<GeneratedQuestion> newQuestions = decodedList.map((q) => GeneratedQuestion.fromJson(q)).toList();
+
+      final firstQuestion = newQuestions.removeAt(0);
+      // Kalan soruları yeni konuyla birlikte kasaya yaz.
+      _ref.read(weaknessHunterCacheProvider.notifier).state = (weakTopic: currentWeakTopic, questions: newQuestions);
+      state = AsyncValue.data(firstQuestion);
+
     } catch (e, s) {
       state = AsyncValue.error("Soru üretilirken bir hata oluştu: ${e.toString()}", s);
     }
   }
 }
 
-// Ekran
 class WeaknessHunterScreen extends ConsumerStatefulWidget {
   const WeaknessHunterScreen({super.key});
-
   @override
-  ConsumerState<WeaknessHunterScreen> createState() =>
-      _WeaknessHunterScreenState();
+  ConsumerState<WeaknessHunterScreen> createState() => _WeaknessHunterScreenState();
 }
 
 class _WeaknessHunterScreenState extends ConsumerState<WeaknessHunterScreen> {
+  // ... (initState aynı kalır) ...
   int? _selectedOptionIndex;
   bool _showAnswer = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => ref.read(weaknessHunterProvider.notifier).fetchQuestion());
+    WidgetsBinding.instance.addPostFrameCallback((_) => ref.read(weaknessHunterProvider.notifier).fetchQuestion());
   }
 
-  void _reset() {
+  void _getNewQuestion() {
     setState(() {
       _selectedOptionIndex = null;
       _showAnswer = false;
@@ -106,6 +127,8 @@ class _WeaknessHunterScreenState extends ConsumerState<WeaknessHunterScreen> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(weaknessHunterProvider);
+    final cache = ref.watch(weaknessHunterCacheProvider);
+    final bool hasMoreQuestionsInCache = (cache?.questions.isNotEmpty ?? false);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Zayıflık Avcısı')),
@@ -117,13 +140,14 @@ class _WeaknessHunterScreenState extends ConsumerState<WeaknessHunterScreen> {
         ),
       ),
       floatingActionButton: state.hasValue ? FloatingActionButton.extended(
-        onPressed: _reset,
-        label: const Text('Yeni Soru'),
+        onPressed: _getNewQuestion,
+        // BİLGEAI DEVRİMİ: Buton metni kasadaki duruma göre değişir.
+        label: Text(hasMoreQuestionsInCache ? 'Sonraki Soru (${cache!.questions.length + 1})' : 'Yeni Soru İste'),
         icon: const Icon(Icons.refresh_rounded),
       ).animate().slide(begin: const Offset(0, 2)).fadeIn(delay: 500.ms) : null,
     );
   }
-
+  // ... (Geri kalan UI metotları aynı, sadece _reset metodu _getNewQuestion oldu) ...
   Widget _buildQuestionView(GeneratedQuestion question, BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
@@ -133,7 +157,6 @@ class _WeaknessHunterScreenState extends ConsumerState<WeaknessHunterScreen> {
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          // BİLGEAI DEVRİMİ: Bu kart, kullanıcıya neden bu sorunun sorulduğunu açıklayarak bağlam oluşturur.
           Card(
             color: AppTheme.cardColor,
             child: Padding(

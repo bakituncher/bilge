@@ -16,9 +16,10 @@ class UserModel {
   final String? selectedExamSection;
   final int testCount;
   final double totalNetSum;
-  // BİLGEAI DEVRİMİ: Basit tamamlanmış konu listesi, detaylı performans modeli ile değiştirildi.
-  // Yapı: { "Fizik": { "Vektörler": TopicPerformanceModel(...), ... }, ... }
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
+  // BİLGEAI DEVRİMİ: Tamamlanan görevleri tarih bazlı saklamak için eklendi.
+  // Yapı: { "2025-07-30": ["Görev 1", "Görev 2"], ... }
+  final Map<String, List<String>> completedDailyTasks;
 
   UserModel({
     required this.id,
@@ -35,11 +36,13 @@ class UserModel {
     this.testCount = 0,
     this.totalNetSum = 0.0,
     this.topicPerformances = const {},
+    this.completedDailyTasks = const {},
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
 
+    // ... (topicPerformances'ın okunması aynı kalır)
     final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
     if (data['topicPerformances'] is Map<String, dynamic>) {
       final subjectMap = data['topicPerformances'] as Map<String, dynamic>;
@@ -52,6 +55,17 @@ class UserModel {
             }
           });
           safeTopicPerformances[subjectKey] = newTopicMap;
+        }
+      });
+    }
+
+    // BİLGEAI DEVRİMİ: Yeni alanın Firestore'dan güvenli bir şekilde okunması.
+    final Map<String, List<String>> safeCompletedTasks = {};
+    if (data['completedDailyTasks'] is Map<String, dynamic>) {
+      final taskMap = data['completedDailyTasks'] as Map<String, dynamic>;
+      taskMap.forEach((dateKey, taskList) {
+        if (taskList is List) {
+          safeCompletedTasks[dateKey] = taskList.cast<String>();
         }
       });
     }
@@ -71,6 +85,7 @@ class UserModel {
       testCount: data['testCount'] ?? 0,
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
       topicPerformances: safeTopicPerformances,
+      completedDailyTasks: safeCompletedTasks,
     );
   }
 
@@ -89,13 +104,14 @@ class UserModel {
       'selectedExamSection': selectedExamSection,
       'testCount': testCount,
       'totalNetSum': totalNetSum,
-      // BİLGEAI DEVRİMİ: Yeni model Firestore'a yazılacak şekilde güncellendi.
       'topicPerformances': topicPerformances.map(
             (subjectKey, topicMap) => MapEntry(
           subjectKey,
           topicMap.map((topicKey, model) => MapEntry(topicKey, model.toMap())),
         ),
       ),
+      // BİLGEAI DEVRİMİ: Yeni alanın Firestore'a yazılması.
+      'completedDailyTasks': completedDailyTasks,
     };
   }
 }
