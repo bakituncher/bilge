@@ -8,6 +8,7 @@ import 'package:bilge_ai/data/models/journal_entry_model.dart';
 import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
+import 'package:bilge_ai/data/models/topic_performance_model.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService(FirebaseFirestore.instance);
@@ -46,7 +47,6 @@ final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((
   for (final user in allUsers) {
     if (user.name != null && user.name!.isNotEmpty && user.testCount > 0) {
       leaderboardEntries.add(LeaderboardEntry(
-        // BİLGEAI DEVRİMİ - DÜZELTME: userId alanı artık dolduruluyor.
         userId: user.id,
         userName: user.name!,
         averageNet: user.totalNetSum / user.testCount,
@@ -176,23 +176,6 @@ class FirestoreService {
     }
   }
 
-  Future<void> updateCompletedTopic({
-    required String userId,
-    required String subject,
-    required String topic,
-    required bool isCompleted,
-  }) async {
-    final userDocRef = _usersCollection.doc(userId);
-    final fieldPath = 'completedTopics.$subject';
-    final updateData = {
-      fieldPath: isCompleted
-          ? FieldValue.arrayUnion([topic])
-          : FieldValue.arrayRemove([topic]),
-    };
-    await userDocRef.update(updateData);
-  }
-
-
   Future<void> saveExamSelection({
     required String userId,
     required ExamType examType,
@@ -201,6 +184,23 @@ class FirestoreService {
     await _usersCollection.doc(userId).update({
       'selectedExam': examType.name,
       'selectedExamSection': sectionName,
+    });
+  }
+
+  // BİLGEAI DEVRİMİ: Bu metod, eski ve artık kullanılmayan `updateCompletedTopic` metodunun yerini almıştır.
+  // Her bir konunun detaylı performansını (doğru, yanlış, toplam) Firestore'a kaydeder.
+  Future<void> updateTopicPerformance({
+    required String userId,
+    required String subject,
+    required String topic,
+    required TopicPerformanceModel performance,
+  }) async {
+    final userDocRef = _usersCollection.doc(userId);
+    // Firestore'da iç içe haritaları (nested maps) güncellemek için bu nokta notasyonu kullanılır.
+    final fieldPath = 'topicPerformances.$subject.$topic';
+
+    await userDocRef.update({
+      fieldPath: performance.toMap(),
     });
   }
 }

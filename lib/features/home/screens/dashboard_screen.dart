@@ -32,7 +32,6 @@ class DashboardScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            // BİLGEAI DEVRİMİ: Selamlama ve profil kısayolu
             userAsync.when(
               data: (user) => _buildHeader(context, user?.name ?? '', textTheme),
               loading: () => const SizedBox.shrink(),
@@ -41,12 +40,10 @@ class DashboardScreen extends ConsumerWidget {
 
             const SizedBox(height: 24),
 
-            // BİLGEAI DEVRİMİ: Günün Özü - En önemli ve bağlamsal kart
             _buildEssenceOfTheDayCard(context, ref).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
 
             const SizedBox(height: 24),
 
-            // BİLGEAI DEVRİMİ: İstatistikler ve Son Denemeler yan yana daha kompakt bir yapıda
             testsAsync.when(
               data: (tests) {
                 if (tests.isEmpty) {
@@ -117,8 +114,9 @@ class DashboardScreen extends ConsumerWidget {
         buttonText = "Deneme Ekle";
         icon = Icons.add_chart_rounded;
       } else {
-        final analysis = PerformanceAnalysis(tests, user.completedTopics);
-        final weakestSubject = analysis.weakestSubject;
+        // BİLGEAI DEVRİMİ - DÜZELTME: PerformanceAnalysis artık yeni `topicPerformances` modelini kullanıyor.
+        final analysis = PerformanceAnalysis(tests, user.topicPerformances);
+        final weakestSubject = analysis.weakestSubjectByNet;
         title = "Zayıf Nokta Tespiti";
         subtitle = "Analizlere göre en çok zorlandığın ders '$weakestSubject'. Bu konunun üzerine gitmek için Zayıflık Avcısı'nı kullan.";
         onTap = () => context.go('/ai-hub/weakness-hunter');
@@ -181,7 +179,7 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildEmptyTestState(BuildContext context, TextTheme textTheme) {
-    return const SizedBox.shrink(); // Artık "Günün Özü" kartı bu görevi üstleniyor.
+    return const SizedBox.shrink();
   }
 
   Widget _buildStatSnapshotCard(String label, String value, IconData icon, BuildContext context){

@@ -1,4 +1,6 @@
 // lib/main.dart
+//Rahman ve Rahim olan Allah'ın adıyla
+//Bismilahirrahmanirrahim
 import 'package:bilge_ai/core/navigation/app_router.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:firebase_core/firebase_core.dart';

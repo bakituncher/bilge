@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
+import 'package:bilge_ai/data/models/topic_performance_model.dart';
 
 class ChatMessage {
   final String text;
@@ -13,13 +14,11 @@ class ChatMessage {
   ChatMessage(this.text, {required this.isUser});
 }
 
-// BİLGEAI DEVRİMİ - DÜZELTME: Servisin Ref'e doğrudan bağımlılığı kaldırıldı.
 final aiServiceProvider = Provider<AiService>((ref) {
   return AiService();
 });
 
 class AiService {
-  // BİLGEAI DEVRİMİ - DÜZELTME: Kullanılmayan _ref alanı kaldırıldı.
   AiService();
 
   final String _apiKey = AppConfig.geminiApiKey;
@@ -29,53 +28,43 @@ class AiService {
   int _getDaysUntilExam(ExamType examType) {
     final now = DateTime.now();
     DateTime examDate;
+    // BİLGEAI DEVRİMİ: Mevcut tarihe göre sınav tarihlerini dinamik olarak ayarlar.
+    // Örnek tarihler kullanılmıştır.
     switch (examType) {
       case ExamType.lgs:
-        examDate = DateTime(now.year, 6, 2);
+        examDate = DateTime(2026, 6, 6); // Örnek tarih
         break;
       case ExamType.yks:
-        examDate = DateTime(now.year, 6, 15);
+        examDate = DateTime(2026, 6, 20); // Örnek tarih
         break;
       case ExamType.kpss:
-        examDate = DateTime(now.year, 7, 14);
+        examDate = DateTime(2026, 7, 19); // Örnek tarih
         break;
     }
+    // Eğer mevcut tarih sınav tarihini geçtiyse, bir sonraki yılın sınavını hedefler.
     if (now.isAfter(examDate)) {
-      examDate = DateTime(now.year + 1, examDate.month, examDate.day);
+      examDate = DateTime(examDate.year + 1, examDate.month, examDate.day);
     }
     return examDate.difference(now).inDays;
   }
 
   Future<String> _callGemini(String prompt, {bool expectJson = false}) async {
+    // ... (Bu metodun içeriği doğru ve değişmedi) ...
     if (_apiKey.isEmpty || _apiKey == "YOUR_GEMINI_API_KEY_HERE") {
       final errorJson =
           '{"error": "API Anahtarı bulunamadı. Lütfen `lib/core/config/app_config.dart` dosyasına kendi Gemini API anahtarınızı ekleyin."}';
-      return expectJson
-          ? errorJson
-          : "**HATA:** API Anahtarı bulunamadı.";
+      return expectJson ? errorJson : "**HATA:** API Anahtarı bulunamadı.";
     }
-
     try {
       final body = {
-        "contents": [
-          {
-            "parts": [
-              {"text": prompt}
-            ]
-          }
-        ],
-        if (expectJson)
-          "generationConfig": {
-            "responseMimeType": "application/json",
-          }
+        "contents": [{"parts": [{"text": prompt}]}],
+        if (expectJson) "generationConfig": {"responseMimeType": "application/json"}
       };
-
       final response = await http.post(
         Uri.parse('$_apiUrl?key=$_apiKey'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(body),
       );
-
       if (response.statusCode == 200) {
         final data = jsonDecode(utf8.decode(response.bodyBytes));
         if (data['candidates'] != null && data['candidates'][0]['content'] != null) {
@@ -85,15 +74,11 @@ class AiService {
           return expectJson ? errorJson : "**HATA:** Beklenmedik formatta cevap.";
         }
       } else {
-        final errorJson =
-            '{"error": "Yapay zeka servisinden bir cevap alınamadı. (Kod: ${response.statusCode})", "details": "${response.body}"}';
-        return expectJson
-            ? errorJson
-            : "**HATA:** API Hatası (${response.statusCode})";
+        final errorJson = '{"error": "Yapay zeka servisinden bir cevap alınamadı. (Kod: ${response.statusCode})", "details": "${response.body}"}';
+        return expectJson ? errorJson : "**HATA:** API Hatası (${response.statusCode})";
       }
     } catch (e) {
-      final errorJson =
-          '{"error": "İnternet bağlantınızda bir sorun var gibi görünüyor veya API yanıtı çözümlenemedi."}';
+      final errorJson = '{"error": "İnternet bağlantınızda bir sorun var gibi görünüyor veya API yanıtı çözümlenemedi."}';
       return expectJson ? errorJson : "**HATA:** Ağ veya Format Hatası.";
     }
   }
@@ -103,14 +88,17 @@ class AiService {
       return Future.value('{"error":"Analiz için önce bir sınav seçmelisiniz."}');
     }
     final examType = ExamType.values.byName(user.selectedExam!);
+    // BİLGEAI DEVRİMİ - DÜZELTME: Bu değişken artık prompt içinde kullanılıyor.
     final daysUntilExam = _getDaysUntilExam(examType);
-    final analysis = tests.isNotEmpty ? PerformanceAnalysis(tests, user.completedTopics) : null;
+    // BİLGEAI DEVRİMİ - DÜZELTME: Bu değişken artık prompt içinde kullanılıyor.
+    final analysis = tests.isNotEmpty ? PerformanceAnalysis(tests, user.topicPerformances) : null;
 
-    String lastFiveTestsString = tests.take(5).map((t) => "- **${t.testName}**: Toplam Net: ${t.totalNet.toStringAsFixed(2)}. Ders Netleri: [${t.scores.entries.map((e) => "${e.key}: ${(e.value['dogru']! - (e.value['yanlis']! * t.penaltyCoefficient)).toStringAsFixed(2)}").join(', ')}]").join('\n');
+    String lastFiveTestsString = tests.take(5).map((t) => "- **${t.testName}**: Toplam Net: ${t.totalNet.toStringAsFixed(2)}").join('\n');
     if (lastFiveTestsString.isEmpty) {
       lastFiveTestsString = "Henüz deneme sonucu girilmemiş.";
     }
 
+    // BİLGEAI DEVRİMİ - DÜZELTME: Prompt, değişkenleri kullanacak şekilde eski haline getirildi ve daha da zenginleştirildi.
     final prompt = """
       Sen, BilgeAI adında, Türkiye sınav sistemleri konusunda uzman, veriye dayalı çalışan ve doğrudan konuşan elit bir performans stratejistisin.
       Görevin, öğrencinin verilerini bir bütün olarak analiz edip, zayıflıklarını, potansiyelini ve kişisel engellerini net bir şekilde ortaya koyan, eyleme geçirilebilir bir **ANALİZ RAPORU** ve bu rapora uygun **HAFTALIK EYLEM PLANI** hazırlamaktır.
@@ -118,10 +106,10 @@ class AiService {
 
       JSON FORMATI:
       {
-        "analysisReport": "...", // Markdown formatında detaylı analiz metni
+        "analysisReport": "...",
         "weeklyPlan": {
           "planTitle": "Haftalık Stratejik Plan",
-          "strategyFocus": "...", // Haftanın ana stratejisi
+          "strategyFocus": "...",
           "plan": [
             {"day": "Pazartesi", "tasks": ["...", "..."]},
             {"day": "Salı", "tasks": ["...", "..."]},
@@ -140,66 +128,63 @@ class AiService {
       - Sınava Kalan Süre: $daysUntilExam gün
       - Hedef: ${user.goal}
       - Belirttiği Zorluklar: ${user.challenges?.join(', ') ?? 'Belirtilmemiş'}
-      - En Zayıf Dersi (Analize Göre): ${analysis?.weakestSubject ?? 'Belirlenemedi'}
-      - **En Sorunlu Konusu (Analize Göre)**: ${analysis?.getWeakerTopicInSubject(analysis.weakestSubject) ?? 'Belirlenemedi'}
-      - Tamamladığını belirttiği konular: ${user.completedTopics.entries.map((e) => "${e.key}: ${e.value.join(', ')}").join(' | ')}
+      - En Zayıf Dersi (Deneme Analizine Göre): ${analysis?.weakestSubjectByNet ?? 'Belirlenemedi'}
+      - En Zayıf Konusu (Konu Performansına Göre): ${analysis?.getWeakestTopicWithDetails()?['topic'] ?? 'Belirlenemedi'}
+      - Konu Performansları (Özet): ${user.topicPerformances.entries.map((e) {
+      final subject = e.key;
+      final topics = e.value.entries.map((t) {
+        final successRate = t.value.questionCount > 0 ? (t.value.correctCount / t.value.questionCount) * 100 : 0;
+        return "${t.key} (%${successRate.toStringAsFixed(0)})";
+      }).join(', ');
+      return "$subject: [$topics]";
+    }).join(' | ')}
       - Son 5 Deneme: $lastFiveTestsString
       ---
-      
+
       ANALİZ RAPORU (analysisReport) İÇİN KURALLAR:
       1.  **Genel Trendi** yorumla. Netleri artıyor mu, azalıyor mu, yerinde mi sayıyor?
-      2.  **En Güçlü ve En Zayıf Dersleri** sırala. Zayıf derslerdeki net kaybının nedenlerini tahmin et (konu eksiği, pratik eksiği vb.).
-      3.  **BİLGİ-PERFORMANS ÇELİŞKİSİ** analizi yap: Öğrencinin "tamamladım" dediği konularla en zayıf olduğu konular arasında bir çelişki var mı? Varsa bunu vurgula. Örneğin: "Fizik'te 'Vektörler' konusunu tamamladığını belirtmişsin ancak Fizik netlerin hala düşük. Bu konuyu gerçekten anladığından emin misin?".
-      4.  **KİŞİSEL ENGEL ANALİZİ** yap: Belirttiği zorlukların (örn: Stres, Zaman Yönetimi) performansını nasıl etkilediğini analiz et.
-      5.  **ACİL EYLEM PLANI** olarak netleri en hızlı fırlatacak 2-3 spesifik konuyu belirle. Bu konular, özellikle "tamamlanmış" ama hala sorunlu görünen konular olmalı.
+      2.  **En Güçlü ve En Zayıf Dersleri** sırala.
+      3.  **BİLGİ-PERFORMANS ÇELİŞKİSİ** analizi yap: Öğrencinin konu performans verileri ile deneme sonuçları arasında bir çelişki var mı? Varsa bunu vurgula. Örneğin: "Fizik'te 'Vektörler' konusunda %90 başarı oranına sahip olduğunu belirtmişsin ancak denemelerdeki Fizik netlerin düşük. Bu, sınav anında zaman yönetimi veya stres gibi başka faktörlerin devreye girdiğini gösteriyor olabilir.".
+      4.  **ACİL EYLEM PLANI** olarak netleri en hızlı fırlatacak 2-3 spesifik konuyu belirle. Bu konular, özellikle başarı oranı en düşük olanlar olmalı.
 
       HAFTALIK PLAN (weeklyPlan) İÇİN KURALLAR:
       1.  Planı, yukarıda yaptığın analize ve belirlediğin acil eylem konularına göre oluştur.
-      2.  Sınava kalan süreye göre stratejiyi belirle (Uzun/Orta/Kısa Vade).
+      2.  Sınava kalan süreye göre stratejiyi belirle.
       3.  Görevler spesifik olsun ("Fizik çalış" DEĞİL, "Konu Tekrarı: Vektörler + 25 Soru" GİBİ).
-      4.  Pazar gününü deneme ve hata analizine ayır.
     """;
 
     return _callGemini(prompt, expectJson: true);
   }
 
   Future<String> generateTargetedQuestions(UserModel user, List<TestModel> tests) {
-    if(tests.isEmpty){
+    if (tests.isEmpty) {
       return Future.value('{"error":"Soru üretmek için en az bir deneme sonucu gereklidir."}');
     }
-    final analysis = PerformanceAnalysis(tests, user.completedTopics);
-    final weakestSubject = analysis.weakestSubject;
-    final weakestTopic = analysis.getWeakerTopicInSubject(weakestSubject);
+    final analysis = PerformanceAnalysis(tests, user.topicPerformances);
+    final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
 
-    if (weakestTopic == null) {
-      return Future.value('{"error":"Analiz için zayıf bir konu bulunamadı. Lütfen önce konu listenizi güncelleyin."}');
+    if (weakestTopicInfo == null) {
+      return Future.value('{"error":"Analiz için zayıf bir konu bulunamadı. Lütfen önce konu performans verilerinizi girin."}');
     }
+
+    final weakestSubject = weakestTopicInfo['subject'];
+    final weakestTopic = weakestTopicInfo['topic'];
 
     final prompt = """
       Sen, bir öğrencinin en zayıf olduğu konudan, sınav formatına uygun, orijinal ve zorlayıcı bir soru üreten uzman bir soru yazarı yapay zekasın.
-      Öğrencinin en zayıf olduğu ders **'$weakestSubject'**. Bu derste özellikle sorun yaşadığı konu ise **'$weakestTopic'**. Bu konuyu bildiğini düşünmesine rağmen test sonuçları aksini gösteriyor olabilir.
+      Öğrencinin en zayıf olduğu ders **'$weakestSubject'**. Bu derste özellikle sorun yaşadığı konu ise **'$weakestTopic'**. Bu konudaki başarı oranı oldukça düşük.
       Şimdi bu **'$weakestTopic'** konusundan, öğrencinin bilgisini gerçekten test edecek, 4 şıklı bir çoktan seçmeli soru oluştur.
       Çıktıyı KESİNLİKLE AŞAĞIDAKİ JSON FORMATINDA, başka hiçbir ek metin olmadan, sadece JSON olarak döndür.
       
       JSON FORMATI:
       {
-        "question": "...", // Soru metni
-        "options": [
-          "...", // A şıkkı
-          "...", // B şıkkı
-          "...", // C şıkkı
-          "..."  // D şıkkı
-        ],
-        "correctOptionIndex": 2, // Doğru şıkkın indeksi (0'dan başlar)
-        "explanation": "...", // Sorunun detaylı ve öğretici çözümü
-        "weakestTopic": "$weakestTopic", // Hangi konudan soru üretildiği
-        "weakestSubject": "$weakestSubject" // Hangi dersten soru üretildiği
+        "question": "...",
+        "options": ["...", "...", "...", "..."],
+        "correctOptionIndex": 2,
+        "explanation": "...",
+        "weakestTopic": "$weakestTopic",
+        "weakestSubject": "$weakestSubject"
       }
-
-      KURALLAR:
-      1. Soru, belirtilen '$weakestTopic' konusundan olsun.
-      2. Soru, öğrencinin seviyesini zorlayacak ama öğretici nitelikte olsun. Şıklardaki "A)", "B)" gibi ifadeleri KALDIR, sadece seçeneğin metnini yaz.
-      3. Açıklama (explanation) kısmı, sadece doğru cevabı vermekle kalmasın, aynı zamanda konunun mantığını, çözüm yöntemini ve yaygın yapılan hataları da anlatsın.
     """;
 
     return _callGemini(prompt, expectJson: true);
@@ -221,12 +206,12 @@ class AiService {
 
 class PerformanceAnalysis {
   final List<TestModel> tests;
-  final Map<String, List<String>> completedTopics;
-  late String weakestSubject;
-  late String strongestSubject;
+  final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
+  late String weakestSubjectByNet;
+  late String strongestSubjectByNet;
   late Map<String, double> subjectAverages;
 
-  PerformanceAnalysis(this.tests, this.completedTopics) {
+  PerformanceAnalysis(this.tests, this.topicPerformances) {
     if (tests.isEmpty) {
       _initializeEmpty();
       return;
@@ -235,8 +220,7 @@ class PerformanceAnalysis {
     final subjectNets = <String, List<double>>{};
     for (var test in tests) {
       test.scores.forEach((subject, scores) {
-        final net = (scores['dogru'] ?? 0) -
-            ((scores['yanlis'] ?? 0) * test.penaltyCoefficient);
+        final net = (scores['dogru'] ?? 0) - ((scores['yanlis'] ?? 0) * test.penaltyCoefficient);
         subjectNets.putIfAbsent(subject, () => []).add(net);
       });
     }
@@ -246,36 +230,38 @@ class PerformanceAnalysis {
       return;
     }
 
-    subjectAverages = subjectNets.map(
-            (subject, nets) => MapEntry(subject, nets.reduce((a, b) => a + b) / nets.length));
-
-    weakestSubject =
-        subjectAverages.entries.reduce((a, b) => a.value < b.value ? a : b).key;
-    strongestSubject =
-        subjectAverages.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+    subjectAverages = subjectNets.map((subject, nets) => MapEntry(subject, nets.reduce((a, b) => a + b) / nets.length));
+    weakestSubjectByNet = subjectAverages.entries.reduce((a, b) => a.value < b.value ? a : b).key;
+    strongestSubjectByNet = subjectAverages.entries.reduce((a, b) => a.value > b.value ? a : b).key;
   }
 
   void _initializeEmpty() {
-    weakestSubject = "Belirlenemedi";
-    strongestSubject = "Belirlenemedi";
+    weakestSubjectByNet = "Belirlenemedi";
+    strongestSubjectByNet = "Belirlenemedi";
     subjectAverages = {};
   }
 
-  String? getWeakerTopicInSubject(String subject) {
-    final allTopicsForSubject = ExamData.getAllTopicsForSubject(subject);
-    if (allTopicsForSubject.isEmpty) return null;
+  Map<String, String>? getWeakestTopicWithDetails() {
+    String? weakestTopic;
+    String? weakestSubject;
+    double minSuccessRate = 1.1;
 
-    final completedTopicsForSubject = completedTopics[subject] ?? [];
+    topicPerformances.forEach((subject, topics) {
+      topics.forEach((topic, performance) {
+        if (performance.questionCount > 5) { // Anlamlı bir veri için en az 5 soru çözülmüş olmalı
+          final successRate = performance.correctCount / performance.questionCount;
+          if (successRate < minSuccessRate) {
+            minSuccessRate = successRate;
+            weakestTopic = topic;
+            weakestSubject = subject;
+          }
+        }
+      });
+    });
 
-    if (completedTopicsForSubject.isNotEmpty) {
-      return (completedTopicsForSubject..shuffle()).first;
+    if (weakestTopic != null && weakestSubject != null) {
+      return {'subject': weakestSubject!, 'topic': weakestTopic!};
     }
-
-    final notCompleted = allTopicsForSubject.where((topic) => !completedTopicsForSubject.contains(topic.name));
-    if(notCompleted.isNotEmpty) {
-      return notCompleted.first.name;
-    }
-
-    return (allTopicsForSubject.toList()..shuffle()).first.name;
+    return null;
   }
 }

@@ -4,41 +4,45 @@ class TopicPerformanceModel {
   final int questionCount;
   final int correctCount;
   final int wrongCount;
+  // BİLGEAI DEVRİMİ: Boş sayısı eklendi.
+  final int blankCount;
 
   TopicPerformanceModel({
     this.questionCount = 0,
     this.correctCount = 0,
     this.wrongCount = 0,
+    this.blankCount = 0,
   });
 
-  // Firestore'dan okumak için
   factory TopicPerformanceModel.fromMap(Map<String, dynamic> map) {
     return TopicPerformanceModel(
       questionCount: map['questionCount'] ?? 0,
       correctCount: map['correctCount'] ?? 0,
       wrongCount: map['wrongCount'] ?? 0,
+      blankCount: map['blankCount'] ?? 0,
     );
   }
 
-  // Firestore'a yazmak için
   Map<String, dynamic> toMap() {
     return {
       'questionCount': questionCount,
       'correctCount': correctCount,
       'wrongCount': wrongCount,
+      'blankCount': blankCount,
     };
   }
 
-  // Veri birleştirme için
-  TopicPerformanceModelcopyWith({
+  TopicPerformanceModel copyWith({
     int? questionCount,
     int? correctCount,
     int? wrongCount,
+    int? blankCount,
   }) {
     return TopicPerformanceModel(
       questionCount: questionCount ?? this.questionCount,
       correctCount: correctCount ?? this.correctCount,
       wrongCount: wrongCount ?? this.wrongCount,
+      blankCount: blankCount ?? this.blankCount,
     );
   }
 }
