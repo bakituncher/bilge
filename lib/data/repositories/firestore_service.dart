@@ -1,5 +1,4 @@
 // lib/data/repositories/firestore_service.dart
-// ... (tüm importlar ve provider'lar aynı kalır) ...
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,7 +72,6 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _journalCollection => _firestore.collection('journal');
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
 
-  // ... (createUserProfile'dan updateUserStreak'e kadar olan metotlar aynı kalır) ...
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name);
     await _usersCollection.doc(user.uid).set(userProfile.toJson());
@@ -209,7 +207,6 @@ class FirestoreService {
     await _focusSessionsCollection.add(session.toMap());
   }
 
-  // BİLGEAI DEVRİMİ: Görev tamamlama durumunu güncelleyen yeni metod.
   Future<void> updateDailyTaskCompletion({
     required String userId,
     required String dateKey, // Format: "YYYY-MM-DD"
@@ -223,6 +220,17 @@ class FirestoreService {
       fieldPath: isCompleted
           ? FieldValue.arrayUnion([task])
           : FieldValue.arrayRemove([task]),
+    });
+  }
+
+  Future<void> updateStrategicPlan({
+    required String userId,
+    required String pacing,
+    required String longTermStrategy,
+  }) async {
+    await _usersCollection.doc(userId).update({
+      'studyPacing': pacing,
+      'longTermStrategy': longTermStrategy,
     });
   }
 }

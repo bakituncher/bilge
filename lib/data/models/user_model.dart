@@ -17,9 +17,9 @@ class UserModel {
   final int testCount;
   final double totalNetSum;
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
-  // BİLGEAI DEVRİMİ: Tamamlanan görevleri tarih bazlı saklamak için eklendi.
-  // Yapı: { "2025-07-30": ["Görev 1", "Görev 2"], ... }
   final Map<String, List<String>> completedDailyTasks;
+  final String? studyPacing; // 'relaxed', 'moderate', 'intense'
+  final String? longTermStrategy;
 
   UserModel({
     required this.id,
@@ -37,12 +37,13 @@ class UserModel {
     this.totalNetSum = 0.0,
     this.topicPerformances = const {},
     this.completedDailyTasks = const {},
+    this.studyPacing,
+    this.longTermStrategy,
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
 
-    // ... (topicPerformances'ın okunması aynı kalır)
     final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
     if (data['topicPerformances'] is Map<String, dynamic>) {
       final subjectMap = data['topicPerformances'] as Map<String, dynamic>;
@@ -59,7 +60,6 @@ class UserModel {
       });
     }
 
-    // BİLGEAI DEVRİMİ: Yeni alanın Firestore'dan güvenli bir şekilde okunması.
     final Map<String, List<String>> safeCompletedTasks = {};
     if (data['completedDailyTasks'] is Map<String, dynamic>) {
       final taskMap = data['completedDailyTasks'] as Map<String, dynamic>;
@@ -86,6 +86,8 @@ class UserModel {
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
       topicPerformances: safeTopicPerformances,
       completedDailyTasks: safeCompletedTasks,
+      studyPacing: data['studyPacing'],
+      longTermStrategy: data['longTermStrategy'],
     );
   }
 
@@ -110,8 +112,9 @@ class UserModel {
           topicMap.map((topicKey, model) => MapEntry(topicKey, model.toMap())),
         ),
       ),
-      // BİLGEAI DEVRİMİ: Yeni alanın Firestore'a yazılması.
       'completedDailyTasks': completedDailyTasks,
+      'studyPacing': studyPacing,
+      'longTermStrategy': longTermStrategy,
     };
   }
 }

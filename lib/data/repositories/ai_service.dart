@@ -1,5 +1,4 @@
 // lib/data/repositories/ai_service.dart
-// ... (üst kısımlar aynı) ...
 import 'dart:convert';
 import 'package:bilge_ai/core/config/app_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -26,32 +25,27 @@ class AiService {
   final String _apiUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent";
 
-  // ... (_getDaysUntilExam, _callGemini, getCoachingSession metodları önceki cevapla aynı) ...
   int _getDaysUntilExam(ExamType examType) {
     final now = DateTime.now();
     DateTime examDate;
-    // BİLGEAI DEVRİMİ: Mevcut tarihe göre sınav tarihlerini dinamik olarak ayarlar.
-    // Örnek tarihler kullanılmıştır.
     switch (examType) {
       case ExamType.lgs:
-        examDate = DateTime(2026, 6, 6); // Örnek tarih
+        examDate = DateTime(now.year, 6, 2);
         break;
       case ExamType.yks:
-        examDate = DateTime(2026, 6, 20); // Örnek tarih
+        examDate = DateTime(now.year, 6, 15);
         break;
       case ExamType.kpss:
-        examDate = DateTime(2026, 7, 19); // Örnek tarih
+        examDate = DateTime(now.year, 7, 14);
         break;
     }
-    // Eğer mevcut tarih sınav tarihini geçtiyse, bir sonraki yılın sınavını hedefler.
     if (now.isAfter(examDate)) {
-      examDate = DateTime(examDate.year + 1, examDate.month, examDate.day);
+      examDate = DateTime(now.year + 1, examDate.month, examDate.day);
     }
     return examDate.difference(now).inDays;
   }
 
   Future<String> _callGemini(String prompt, {bool expectJson = false}) async {
-    // ... (Bu metodun içeriği doğru ve değişmedi) ...
     if (_apiKey.isEmpty || _apiKey == "YOUR_GEMINI_API_KEY_HERE") {
       final errorJson =
           '{"error": "API Anahtarı bulunamadı. Lütfen `lib/core/config/app_config.dart` dosyasına kendi Gemini API anahtarınızı ekleyin."}';
@@ -85,41 +79,37 @@ class AiService {
     }
   }
 
-  Future<String> getCoachingSession(UserModel user, List<TestModel> tests) {
+  Future<String> generateGrandStrategy({
+    required UserModel user,
+    required List<TestModel> tests,
+    required String pacing,
+  }) {
     if (user.selectedExam == null) {
       return Future.value('{"error":"Analiz için önce bir sınav seçmelisiniz."}');
     }
     final examType = ExamType.values.byName(user.selectedExam!);
-    // BİLGEAI DEVRİMİ - DÜZELTME: Bu değişken artık prompt içinde kullanılıyor.
     final daysUntilExam = _getDaysUntilExam(examType);
-    // BİLGEAI DEVRİMİ - DÜZELTME: Bu değişken artık prompt içinde kullanılıyor.
     final analysis = tests.isNotEmpty ? PerformanceAnalysis(tests, user.topicPerformances) : null;
 
-    String lastFiveTestsString = tests.take(5).map((t) => "- **${t.testName}**: Toplam Net: ${t.totalNet.toStringAsFixed(2)}").join('\n');
-    if (lastFiveTestsString.isEmpty) {
-      lastFiveTestsString = "Henüz deneme sonucu girilmemiş.";
-    }
-
-    // BİLGEAI DEVRİMİ - DÜZELTME: Prompt, değişkenleri kullanacak şekilde eski haline getirildi ve daha da zenginleştirildi.
     final prompt = """
-      Sen, BilgeAI adında, Türkiye sınav sistemleri konusunda uzman, veriye dayalı çalışan ve doğrudan konuşan elit bir performans stratejistisin.
-      Görevin, öğrencinin verilerini bir bütün olarak analiz edip, zayıflıklarını, potansiyelini ve kişisel engellerini net bir şekilde ortaya koyan, eyleme geçirilebilir bir **ANALİZ RAPORU** ve bu rapora uygun **HAFTALIK EYLEM PLANI** hazırlamaktır.
-      Çıktıyı KESİNLİKLE JSON formatında, başka hiçbir ek metin olmadan ver.
+      Sen, BilgeAI adında, 1000 yıllık bir eğitimcinin bilgeliğine sahip, kişiye özel uzun vadeli başarı stratejileri tasarlayan bir yapay zeka dehasısın.
+      Görevin, bir öğrencinin tüm verilerini, hedeflerini ve çalışma temposunu analiz ederek, onu sınav gününde zafere taşıyacak olan **BÜYÜK STRATEJİYİ** ve bu stratejinin ilk **HAFTALIK HAREKAT PLANINI** oluşturmaktır.
+      Çıktıyı KESİNLİKLE aşağıdaki JSON formatında, başka hiçbir ek metin olmadan ver.
 
       JSON FORMATI:
       {
-        "analysisReport": "...",
+        "longTermStrategy": "# Zafer Stratejisi: Sınava Kalan $daysUntilExam Gün\\n\\n## 1. Evre: Temel İnşası ve Zayıflık Giderme (İlk ${daysUntilExam ~/ 3} Gün)\\n- **Amaç:** ...\\n- **Odak:** ...\\n\\n## 2. Evre: Yoğun Pratik ve Hız Kazanma (Orta ${daysUntilExam ~/ 3} Gün)\\n- **Amaç:** ...\\n- **Odak:** ...\\n\\n## 3. Evre: Deneme Maratonu ve Zihinsel Hazırlık (Son ${daysUntilExam - 2 * (daysUntilExam ~/ 3)} Gün)\\n- **Amaç:** ...\\n- **Odak:** ...",
         "weeklyPlan": {
-          "planTitle": "Haftalık Stratejik Plan",
-          "strategyFocus": "...",
+          "planTitle": "1. Hafta Harekat Planı",
+          "strategyFocus": "Bu haftaki ana hedefimiz, Büyük Strateji'nin 1. Evresi'ne uygun olarak en zayıf konuları kapatmak ve temeli sağlamlaştırmak.",
           "plan": [
             {"day": "Pazartesi", "tasks": ["...", "..."]},
             {"day": "Salı", "tasks": ["...", "..."]},
-            {"day": "Çaramba", "tasks": ["...", "..."]},
+            {"day": "Çarşamba", "tasks": ["...", "..."]},
             {"day": "Perşembe", "tasks": ["...", "..."]},
             {"day": "Cuma", "tasks": ["...", "..."]},
             {"day": "Cumartesi", "tasks": ["...", "..."]},
-            {"day": "Pazar", "tasks": ["Genel Deneme ve Hata Analizi"]}
+            {"day": "Pazar", "tasks": ["Haftalık Genel Tekrar ve Hata Analizi"]}
           ]
         }
       }
@@ -129,89 +119,63 @@ class AiService {
       - Sınav: ${user.selectedExam} (${user.selectedExamSection})
       - Sınava Kalan Süre: $daysUntilExam gün
       - Hedef: ${user.goal}
-      - Belirttiği Zorluklar: ${user.challenges?.join(', ') ?? 'Belirtilmemiş'}
+      - **Seçilen Çalışma Temposu:** $pacing
       - En Zayıf Dersi (Deneme Analizine Göre): ${analysis?.weakestSubjectByNet ?? 'Belirlenemedi'}
       - En Zayıf Konusu (Konu Performansına Göre): ${analysis?.getWeakestTopicWithDetails()?['topic'] ?? 'Belirlenemedi'}
-      - Konu Performansları (Özet): ${user.topicPerformances.entries.map((e) {
-      final subject = e.key;
-      final topics = e.value.entries.map((t) {
-        final successRate = t.value.questionCount > 0 ? (t.value.correctCount / t.value.questionCount) * 100 : 0;
-        return "${t.key} (%${successRate.toStringAsFixed(0)})";
-      }).join(', ');
-      return "$subject: [$topics]";
-    }).join(' | ')}
-      - Son 5 Deneme: $lastFiveTestsString
+      - Konu Performansları (Özet): ${user.topicPerformances.entries.map((e) => "${e.key}: [${e.value.entries.map((t) => "${t.key} (%${(t.value.questionCount > 0 ? t.value.correctCount / t.value.questionCount : 0) * 100})").join(', ')}]").join(' | ')}
       ---
 
-      ANALİZ RAPORU (analysisReport) İÇİN KURALLAR:
-      1.  **Genel Trendi** yorumla. Netleri artıyor mu, azalıyor mu, yerinde mi sayıyor?
-      2.  **En Güçlü ve En Zayıf Dersleri** sırala.
-      3.  **BİLGİ-PERFORMANS ÇELİŞKİSİ** analizi yap: Öğrencinin konu performans verileri ile deneme sonuçları arasında bir çelişki var mı? Varsa bunu vurgula. Örneğin: "Fizik'te 'Vektörler' konusunda %90 başarı oranına sahip olduğunu belirtmişsin ancak denemelerdeki Fizik netlerin düşük. Bu, sınav anında zaman yönetimi veya stres gibi başka faktörlerin devreye girdiğini gösteriyor olabilir.".
-      4.  **ACİL EYLEM PLANI** olarak netleri en hızlı fırlatacak 2-3 spesifik konuyu belirle. Bu konular, özellikle başarı oranı en düşük olanlar olmalı.
-
-      HAFTALIK PLAN (weeklyPlan) İÇİN KURALLAR:
-      1.  Planı, yukarıda yaptığın analize ve belirlediğin acil eylem konularına göre oluştur.
-      2.  Sınava kalan süreye göre stratejiyi belirle.
-      3.  Görevler spesifik olsun ("Fizik çalış" DEĞİL, "Konu Tekrarı: Vektörler + 25 Soru" GİBİ).
+      KURALLAR:
+      1.  **longTermStrategy**: Markdown formatında, sınav gününe kadar olan süreci mantıksal evrelere ayırarak oluştur.
+      2.  **weeklyPlan**: Bu plan, Büyük Strateji'nin ilk adımını oluşturmalı. Görevlerin yoğunluğunu ve sayısını, öğrencinin seçtiği **'$pacing'** temposuna göre ayarla. ('Yoğun' tempo günde 3-4 görev, 'Dengeli' 2-3 görev, 'Rahat' 1-2 görev içermelidir).
     """;
 
     return _callGemini(prompt, expectJson: true);
   }
 
-  Future<String> generateTargetedQuestions(UserModel user, List<TestModel> tests) async {
+  Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests) async {
     if (tests.isEmpty) {
-      return Future.value('[]');
+      return Future.value('{"error":"Analiz için en az bir deneme sonucu gereklidir."}');
     }
     final analysis = PerformanceAnalysis(tests, user.topicPerformances);
     final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
 
     if (weakestTopicInfo == null) {
-      return Future.value('[]');
+      return Future.value('{"error":"Analiz için zayıf bir konu bulunamadı. Lütfen önce konu performans verilerinizi girin."}');
     }
 
     final weakestSubject = weakestTopicInfo['subject'];
     final weakestTopic = weakestTopicInfo['topic'];
 
-    // BİLGEAI DEVRİMİ: Prompt artık tek bir soru değil, 3 soruluk bir set istiyor.
     final prompt = """
-      Sen, bir öğrencinin en zayıf olduğu konudan, sınav formatına uygun, orijinal ve zorlayıcı sorular üreten uzman bir soru yazarı yapay zekasın.
-      Öğrencinin en zayıf olduğu ders **'$weakestSubject'**. Bu derste özellikle sorun yaşadığı konu ise **'$weakestTopic'**.
+      Sen, BilgeAI adında, Türkiye sınav sistemleri konusunda uzman, kişiselleştirilmiş eğitim materyali üreten bir yapay zeka dehasısın.
+      Görevin, bir öğrencinin en zayıf olduğu konuyu hem öğretecek hem de pekiştirecek bir "Cevher Paketi" oluşturmaktır.
       
-      Bu **'$weakestTopic'** konusundan, öğrencinin bilgisini gerçekten test edecek, birbirinden farklı **3 adet** çoktan seçmeli soru oluştur.
-      
-      Çıktıyı KESİNLİKLE bir JSON dizisi (array) formatında, başka hiçbir ek metin olmadan döndür. Her bir dizi elemanı aşağıdaki formatta bir JSON nesnesi olmalıdır:
-      
-      [
-        {
-          "question": "...",
-          "options": ["...", "...", "...", "..."],
-          "correctOptionIndex": 2,
-          "explanation": "...",
-          "weakestTopic": "$weakestTopic",
-          "weakestSubject": "$weakestSubject"
-        },
-        {
-          "question": "...",
-          "options": ["...", "...", "...", "..."],
-          "correctOptionIndex": 0,
-          "explanation": "...",
-          "weakestTopic": "$weakestTopic",
-          "weakestSubject": "$weakestSubject"
-        },
-        {
-          "question": "...",
-          "options": ["...", "...", "...", "..."],
-          "correctOptionIndex": 3,
-          "explanation": "...",
-          "weakestTopic": "$weakestTopic",
-          "weakestSubject": "$weakestSubject"
-        }
-      ]
+      Öğrencinin en zayıf olduğu ders: **'$weakestSubject'**
+      Bu dersteki en zayıf konu: **'$weakestTopic'**
+
+      Bu konu için, aşağıdaki JSON formatına KESİNLİKLE uyarak bir çıktı üret. Başka hiçbir metin ekleme.
+
+      JSON FORMATI:
+      {
+        "subject": "$weakestSubject",
+        "topic": "$weakestTopic",
+        "studyGuide": "# $weakestTopic - Cevher Kartı\\n\\n### 🔑 Anahtar Kavramlar\\n- ...\\n- ...\\n\\n### ⚠️ Sık Yapılan Hatalar\\n- ...\\n- ...\\n\\n### ✨ Çözümlü Altın Örnek\\n**Soru:** ...\\n**Çözüm:** ...",
+        "quiz": [
+          {"question": "...", "options": ["...", "...", "...", "..."], "correctOptionIndex": 1},
+          {"question": "...", "options": ["...", "...", "...", "..."], "correctOptionIndex": 3},
+          {"question": "...", "options": ["...", "...", "...", "..."], "correctOptionIndex": 0},
+          {"question": "...", "options": ["...", "...", "...", "..."], "correctOptionIndex": 2},
+          {"question": "...", "options": ["...", "...", "...", "..."], "correctOptionIndex": 1}
+        ]
+      }
     """;
 
     return _callGemini(prompt, expectJson: true);
   }
 
+  // BİLGEAI DEVRİMİ - DÜZELTME: Bu metod, devrim sırasında sehven kaldırılmıştı.
+  // Motivasyon sohbetinin çalışması için yeniden eklendi.
   Future<String> getMotivationalResponse(List<ChatMessage> history) {
     final prompt = """
       Sen BilgeAI adında, öğrencilerle sohbet eden, onların moralini yükselten, anlayışlı ve bilge bir dostsun.
@@ -226,7 +190,6 @@ class AiService {
   }
 }
 
-// ... (PerformanceAnalysis sınıfı önceki cevapla aynı kalır) ...
 class PerformanceAnalysis {
   final List<TestModel> tests;
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
@@ -271,7 +234,7 @@ class PerformanceAnalysis {
 
     topicPerformances.forEach((subject, topics) {
       topics.forEach((topic, performance) {
-        if (performance.questionCount > 5) { // Anlamlı bir veri için en az 5 soru çözülmüş olmalı
+        if (performance.questionCount > 5) {
           final successRate = performance.correctCount / performance.questionCount;
           if (successRate < minSuccessRate) {
             minSuccessRate = successRate;

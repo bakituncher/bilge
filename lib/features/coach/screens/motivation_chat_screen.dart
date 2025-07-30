@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/repositories/ai_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:bilge_ai/core/theme/app_theme.dart';
 
 final chatHistoryProvider = StateProvider<List<ChatMessage>>((ref) => [
   ChatMessage("Selam! Başarıya giden bu yolda sana nasıl destek olabilirim?", isUser: false),
@@ -30,7 +31,6 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
 
     setState(() => _isTyping = true);
     _scrollToBottom(isNewMessage: true);
-
 
     final aiService = ref.read(aiServiceProvider);
     final history = ref.read(chatHistoryProvider);
@@ -108,7 +108,7 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: Theme.of(context).scaffoldBackgroundColor,
+                  fillColor: AppTheme.scaffoldBackgroundColor,
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 ),
                 onSubmitted: (_) => _sendMessage(),
@@ -134,7 +134,7 @@ class _MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    // BİLGEAI DEVRİMİ - DÜZELTME: Kullanılmayan 'colorScheme' değişkeni kaldırıldı.
     final isUser = message.isUser;
 
     return Align(
@@ -153,23 +153,17 @@ class _MessageBubble extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
           decoration: BoxDecoration(
-              color: isUser ? colorScheme.secondary : colorScheme.primary.withOpacity(0.5),
-              borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(16),
-                topRight: const Radius.circular(16),
-                bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
-                bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: isUser ? colorScheme.secondary.withOpacity(0.4) : colorScheme.primary.withOpacity(0.4),
-                  blurRadius: 10,
-                )
-              ]
+            color: isUser ? AppTheme.secondaryColor : AppTheme.lightSurfaceColor,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
+              bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
+            ),
           ),
           child: Text(
             message.text,
-            style: TextStyle(color: isUser ? colorScheme.primary : Colors.white, fontSize: 15, height: 1.4),
+            style: TextStyle(color: isUser ? AppTheme.primaryColor : Colors.white, fontSize: 15, height: 1.4),
           ),
         ),
       ),
@@ -191,7 +185,6 @@ class _TypingBubble extends StatelessWidget {
             return Animate(
               delay: (index * 200).ms,
               onPlay: (c) => c.repeat(reverse: true),
-              // ✅ HATA GİDERİLDİ: 'const' kaldırıldı.
               effects: const [
                 ScaleEffect(
                     duration: Duration(milliseconds: 600),
@@ -204,7 +197,7 @@ class _TypingBubble extends StatelessWidget {
                 width: 10,
                 height: 10,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.secondary,
+                  color: AppTheme.secondaryTextColor,
                   shape: BoxShape.circle,
                 ),
               ),

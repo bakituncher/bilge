@@ -12,28 +12,8 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/coach/screens/ai_coach_screen.dart';
 import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
 
-// BİLGEAI DEVRİMİ: Ana paneli sekmeli bir yapıya dönüştürmek için StatefulWidget kullanıldı.
-class DashboardScreen extends ConsumerStatefulWidget {
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
-
-  @override
-  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -44,111 +24,52 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProfileProvider);
+    final testsAsync = ref.watch(testsProvider);
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       body: SafeArea(
-        child: NestedScrollView(
-          headerSliverBuilder: (context, innerBoxIsScrolled) {
-            return [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: userAsync.when(
-                    data: (user) => _buildHeader(context, user?.name ?? '', textTheme),
-                    loading: () => const SizedBox.shrink(),
-                    error: (e,s) => const SizedBox.shrink(),
-                  ),
+        child: userAsync.when(
+          data: (user) {
+            if (user == null) return const Center(child: Text("Kullanıcı verisi yüklenemedi."));
+            return ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                // 1. Başlık ve Selamlama
+                _buildHeader(context, user.name ?? '', textTheme).animate().fadeIn(duration: 400.ms),
+                const SizedBox(height: 24),
+
+                // 2. "Günün Emri" - Dinamik Ana Kart
+                _buildSagesDirectiveCard(context, ref).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
+                const SizedBox(height: 16),
+
+                // 3. "Harekat Merkezi" - Hızlı Eylem Butonları
+                _buildActionCenter(context).animate().fadeIn(delay: 300.ms),
+                const SizedBox(height: 24),
+
+                // 4. "Haftalık Harekat Planı" - İnteraktif Görev Listesi
+                _buildWeeklyTasksCard(context, ref).animate().fadeIn(delay: 400.ms),
+                const SizedBox(height: 24),
+
+                // 5. "İstihbarat Raporu" - Son Durum ve İstatistikler
+                testsAsync.when(
+                  data: (tests) => tests.isEmpty
+                      ? const SizedBox.shrink() // Eğer test yoksa bu bölüm hiç görünmez.
+                      : _buildIntelReport(context, tests, textTheme).animate().fadeIn(delay: 500.ms),
+                  loading: () => const SizedBox.shrink(),
+                  error: (e,s) => const SizedBox.shrink(),
                 ),
-              ),
-              SliverPersistentHeader(
-                delegate: _SliverTabBarDelegate(
-                  TabBar(
-                    controller: _tabController,
-                    indicatorColor: AppTheme.secondaryColor,
-                    indicatorWeight: 3,
-                    labelStyle: const TextStyle(fontWeight: FontWeight.bold),
-                    unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.normal),
-                    tabs: const [
-                      Tab(text: "Bugünün Planı"),
-                      Tab(text: "BilgeAI Analizi"),
-                      Tab(text: "Genel Bakış"),
-                    ],
-                  ),
-                ),
-                pinned: true,
-              ),
-            ];
+              ],
+            );
           },
-          body: TabBarView(
-            controller: _tabController,
-            children: [
-              _buildTodaysPlanView(),
-              _buildAiAnalysisView(),
-              _buildOverviewView(),
-            ],
-          ),
+          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+          error: (e, s) => Center(child: Text("Bir hata oluştu: $e")),
         ),
       ),
     );
   }
-
-  // BÖLÜM 1: Bugünün Planı
-  Widget _buildTodaysPlanView() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _buildTodaysTasksCard(context, ref),
-        const SizedBox(height: 16),
-        _buildFocusCard(context),
-      ],
-    ).animate().fadeIn(duration: 400.ms);
-  }
-
-  // BÖLÜM 2: BilgeAI Analizi (Kullanıcının istediği "zayıflık" ekranı)
-  Widget _buildAiAnalysisView() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _buildEssenceOfTheDayCard(context, ref),
-      ],
-    ).animate().fadeIn(duration: 400.ms);
-  }
-
-  // BÖLÜM 3: Genel Bakış
-  Widget _buildOverviewView() {
-    final testsAsync = ref.watch(testsProvider);
-    final textTheme = Theme.of(context).textTheme;
-
-    return testsAsync.when(
-      data: (tests) {
-        if (tests.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text("İstatistikleri görmek için ilk denemeni ekle.", style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor)),
-            ),
-          );
-        }
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildStatsRow(tests, context),
-            const SizedBox(height: 24),
-            Text('Son Denemeler', style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            ...tests.take(5).map((test) => _buildTestCard(context, test))
-          ],
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-      error: (err, stack) => Center(child: Text('Hata: $err')),
-    ).animate().fadeIn(duration: 400.ms);
-  }
-
-  // --- YARDIMCI WIDGET'LAR ---
 
   Widget _buildHeader(BuildContext context, String name, TextTheme textTheme) {
     return Row(
@@ -157,14 +78,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              '${_getGreeting()},',
-              style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w300, color: AppTheme.secondaryTextColor),
-            ),
-            Text(
-              name.split(' ').first,
-              style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-            ),
+            Text('${_getGreeting()},', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w300, color: AppTheme.secondaryTextColor)),
+            Text(name.split(' ').first, style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
           ],
         ),
         IconButton(
@@ -176,8 +91,109 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
     );
   }
 
-  Widget _buildTodaysTasksCard(BuildContext context, WidgetRef ref) {
-    // ... Bu widget önceki haliyle aynı kalır ...
+  Widget _buildSagesDirectiveCard(BuildContext context, WidgetRef ref) {
+    final tests = ref.watch(testsProvider).valueOrNull;
+    final user = ref.watch(userProfileProvider).valueOrNull;
+    final textTheme = Theme.of(context).textTheme;
+
+    IconData icon;
+    String title;
+    String subtitle;
+    VoidCallback? onTap;
+    String buttonText;
+
+    if (user != null && tests != null) {
+      if (tests.isEmpty) {
+        title = "Yolculuğa Başla";
+        subtitle = "Potansiyelini ortaya çıkarmak için ilk deneme sonucunu ekle.";
+        onTap = () => context.go('/home/add-test');
+        buttonText = "İlk Denemeni Ekle";
+        icon = Icons.add_chart_rounded;
+      } else {
+        final analysis = PerformanceAnalysis(tests, user.topicPerformances);
+        final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
+        title = "Cevher Atölyesi Seni Bekliyor";
+        subtitle = weakestTopicInfo != null
+            ? "BilgeAI, en zayıf noktanın '${weakestTopicInfo['subject']}' dersindeki '${weakestTopicInfo['topic']}' konusu olduğunu tespit etti. Bu cevheri işlemeye hazır mısın?"
+            : "Harika gidiyorsun! Şu an belirgin bir zayıf noktan tespit edilmedi. Yeni konu verileri girerek analizi derinleştirebilirsin.";
+        onTap = weakestTopicInfo != null ? () => context.go('/ai-hub/weakness-workshop') : null;
+        buttonText = "Atölyeye Git";
+        icon = Icons.construction_rounded;
+      }
+    } else {
+      title = "BilgeAI Hazırlanıyor...";
+      subtitle = "Kişisel komuta merkezin kuruluyor. Lütfen bekle...";
+      onTap = null;
+      buttonText = "Bekleniyor...";
+      icon = Icons.hourglass_top_rounded;
+    }
+
+    return Card(
+      color: AppTheme.cardColor,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: AppTheme.secondaryColor, width: 1)
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 32, color: AppTheme.secondaryColor),
+            const SizedBox(height: 12),
+            Text(title, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
+            const SizedBox(height: 4),
+            Text(subtitle, style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor)),
+            if (onTap != null) ...[
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.bottomRight,
+                child: ElevatedButton(
+                  onPressed: onTap,
+                  style: ElevatedButton.styleFrom(minimumSize: const Size(140, 44)),
+                  child: Text(buttonText),
+                ),
+              )
+            ]
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionCenter(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () => context.go('/home/add-test'),
+            icon: const Icon(Icons.add_chart_outlined),
+            label: const Text("Deneme Ekle"),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: AppTheme.lightSurfaceColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: ElevatedButton.icon(
+            onPressed: () => context.go('/home/pomodoro'),
+            icon: const Icon(Icons.timer_outlined),
+            label: const Text("Odaklan"),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              backgroundColor: AppTheme.lightSurfaceColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWeeklyTasksCard(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final analysisAsync = ref.watch(aiAnalysisProvider);
     final user = ref.watch(userProfileProvider).value;
@@ -196,258 +212,139 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> with SingleTi
     }
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Bugünün Görevleri", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 12),
-            if (todaysPlan == null || todaysPlan.tasks.isEmpty)
-              _buildPlanPrompt(context, analysisAsync != null)
-            else
-              ...todaysPlan.tasks.map((task) {
+      child: ExpansionTile(
+        title: Text("Haftalık Harekat Planı", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
+        subtitle: Text("Bugün için ${todaysPlan?.tasks.length ?? 0} görev belirlendi.", style: const TextStyle(color: AppTheme.secondaryTextColor)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: (todaysPlan == null || todaysPlan.tasks.isEmpty)
+                ? _buildPlanPrompt(context, analysisAsync != null)
+                : Column(
+              children: todaysPlan.tasks.map((task) {
                 final isCompleted = completedTasksToday.contains(task);
                 return _buildTaskItem(context, ref, user!.id, todayKey, task, isCompleted);
-              }),
-          ],
-        ),
+              }).toList(),
+            ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTaskItem(BuildContext context, WidgetRef ref, String userId, String dateKey, String task, bool isCompleted) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: InkWell(
-        onTap: () {
-          ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
-            userId: userId,
-            dateKey: dateKey,
-            task: task,
-            isCompleted: !isCompleted,
-          );
-        },
-        child: Row(
-          children: [
-            Checkbox(
-              value: isCompleted,
-              onChanged: (bool? value) {
-                ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
-                  userId: userId,
-                  dateKey: dateKey,
-                  task: task,
-                  isCompleted: value ?? false,
-                );
-              },
-              activeColor: AppTheme.successColor,
-              checkColor: AppTheme.primaryColor,
-              side: const BorderSide(color: AppTheme.secondaryTextColor, width: 2),
-            ),
-            Expanded(
-              child: Text(
-                task,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: isCompleted ? AppTheme.secondaryTextColor : Colors.white,
-                  decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                ),
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        children: [
+          Checkbox(
+            value: isCompleted,
+            onChanged: (bool? value) {
+              ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
+                userId: userId,
+                dateKey: dateKey,
+                task: task,
+                isCompleted: value ?? false,
+              );
+            },
+            activeColor: AppTheme.successColor,
+            checkColor: AppTheme.primaryColor,
+            side: const BorderSide(color: AppTheme.secondaryTextColor, width: 2),
+          ),
+          Expanded(
+            child: Text(
+              task,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: isCompleted ? AppTheme.secondaryTextColor : Colors.white,
+                decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
               ),
             ),
-          ],
-        ),
+          ),
+          IconButton(
+            icon: Icon(Icons.play_circle_outline_rounded, color: isCompleted ? AppTheme.lightSurfaceColor : AppTheme.successColor),
+            onPressed: isCompleted ? null : () => context.go('/home/pomodoro'),
+            tooltip: "Bu Göreve Odaklan",
+          )
+        ],
       ),
     );
   }
 
   Widget _buildPlanPrompt(BuildContext context, bool isPlanGenerated) {
-    return Row(
-      children: [
-        Icon(Icons.auto_awesome, color: AppTheme.secondaryColor.withOpacity(0.8)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            !isPlanGenerated
-                ? "Stratejik Koçluk merkezinden haftalık planını oluşturarak görevlerini burada gör."
-                : "Bugün için özel bir görevin yok. Dinlenmek de stratejinin bir parçasıdır!",
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          Icon(Icons.auto_awesome, color: AppTheme.secondaryColor.withOpacity(0.8)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              !isPlanGenerated
+                  ? "Stratejik Koçluk merkezinden haftalık planını oluşturarak görevlerini burada gör."
+                  : "Bugün için özel bir görevin yok. Dinlenmek de stratejinin bir parçasıdır!",
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+            ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEssenceOfTheDayCard(BuildContext context, WidgetRef ref) {
-    // ... Bu widget önceki haliyle aynı kalır ...
-    final tests = ref.watch(testsProvider).valueOrNull;
-    final user = ref.watch(userProfileProvider).valueOrNull;
-    final textTheme = Theme.of(context).textTheme;
-
-    IconData icon = Icons.auto_awesome_outlined;
-    String title;
-    String subtitle;
-    VoidCallback? onTap;
-    String buttonText;
-
-    if (user != null && tests != null) {
-      if (tests.isEmpty) {
-        title = "Yolculuğa Başla";
-        subtitle = "Potansiyelini ortaya çıkarmak için ilk deneme sonucunu ekle.";
-        onTap = () => context.go('/home/add-test');
-        buttonText = "Deneme Ekle";
-        icon = Icons.add_chart_rounded;
-      } else {
-        final analysis = PerformanceAnalysis(tests, user.topicPerformances);
-        final weakestSubject = analysis.weakestSubjectByNet;
-        title = "Zayıf Nokta Tespiti";
-        subtitle = "Analizlere göre en çok zorlandığın ders '$weakestSubject'. Bu konunun üzerine gitmek için Zayıflık Avcısı'nı kullan.";
-        onTap = () => context.go('/ai-hub/weakness-hunter');
-        buttonText = "Avcı'yı Başlat";
-        icon = Icons.radar_outlined;
-      }
-    } else {
-      title = "BilgeAI Hazır";
-      subtitle = "Kişisel koçun, verilerini analiz etmek için sabırsızlanıyor.";
-      buttonText = "Bekleniyor...";
-    }
-
-    return Card(
-      color: AppTheme.secondaryColor.withOpacity(0.1),
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: AppTheme.secondaryColor, width: 1.5)
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 32, color: AppTheme.secondaryColor),
-            const SizedBox(height: 12),
-            Text(title, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-            const SizedBox(height: 4),
-            Text(subtitle, style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor)),
-            if (onTap != null) ...[
-              const SizedBox(height: 16),
-              Align(
-                alignment: Alignment.bottomRight,
-                child: ElevatedButton(
-                  onPressed: onTap,
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.secondaryColor,
-                      foregroundColor: AppTheme.primaryColor,
-                      minimumSize: const Size(140, 44)
-                  ),
-                  child: Text(buttonText),
-                ),
-              )
-            ]
-          ],
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildFocusCard(BuildContext context) {
-    return Card(
-      child: InkWell(
-        onTap: () => context.go('/home/pomodoro'),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Row(
-            children: [
-              const Icon(Icons.timer_rounded, color: AppTheme.successColor, size: 32),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("Odaklanma Zamanı", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                    Text("AI destekli planınla zamanını yönet.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildStatsRow(List<TestModel> tests, BuildContext context) {
-    // ...
+  Widget _buildIntelReport(BuildContext context, List<TestModel> tests, TextTheme textTheme) {
+    final latestTest = tests.first;
     final avgNet = tests.map((t) => t.totalNet).reduce((a, b) => a + b) / tests.length;
     final bestNet = tests.map((t) => t.totalNet).reduce((a, b) => a > b ? a : b);
-    return Row(
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(child: _buildStatSnapshotCard('Ortalama Net', avgNet.toStringAsFixed(2), Icons.track_changes_rounded, context)),
-        const SizedBox(width: 16),
-        Expanded(child: _buildStatSnapshotCard('En Yüksek Net', bestNet.toStringAsFixed(2), Icons.emoji_events_rounded, context)),
+        Text("İstihbarat Raporu", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(child: _buildStatSnapshotCard('Ortalama Net', avgNet.toStringAsFixed(2), Icons.track_changes_rounded, context)),
+                    const SizedBox(width: 16),
+                    Expanded(child: _buildStatSnapshotCard('En Yüksek Net', bestNet.toStringAsFixed(2), Icons.emoji_events_rounded, context)),
+                  ],
+                ),
+                const Divider(height: 32, color: AppTheme.lightSurfaceColor),
+                _buildTestCard(context, latestTest, isLatest: true),
+              ],
+            ),
+          ),
+        ),
       ],
     );
-  }
-
-  Widget _buildEmptyTestState(BuildContext context, TextTheme textTheme) {
-    return const SizedBox.shrink();
   }
 
   Widget _buildStatSnapshotCard(String label, String value, IconData icon, BuildContext context){
-    // ...
     final textTheme = Theme.of(context).textTheme;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: AppTheme.secondaryTextColor),
-            const SizedBox(height: 8),
-            Text(label, style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
-            Text(value, style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-          ],
-        ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: AppTheme.secondaryTextColor),
+        const SizedBox(height: 8),
+        Text(label, style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+        Text(value, style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
+      ],
+    );
+  }
+
+  Widget _buildTestCard(BuildContext context, TestModel test, {bool isLatest = false}) {
+    return ListTile(
+      onTap: () => context.go('/home/test-detail', extra: test),
+      leading: Icon(isLatest ? Icons.history_edu_rounded : Icons.article_outlined, color: AppTheme.secondaryTextColor),
+      title: Text(test.testName, style: const TextStyle(fontWeight: FontWeight.bold)),
+      subtitle: Text(isLatest ? "En Son Deneme" : '${test.examType.displayName} - ${DateFormat.yMMMMd('tr').format(test.date)}', style: TextStyle(color: AppTheme.secondaryTextColor)),
+      trailing: Text(
+        test.totalNet.toStringAsFixed(2),
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.successColor, fontWeight: FontWeight.bold),
       ),
     );
-  }
-
-  Widget _buildTestCard(BuildContext context, TestModel test) {
-    // ...
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12.0),
-      child: ListTile(
-        onTap: () => context.go('/home/test-detail', extra: test),
-        title: Text(test.testName, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text('${test.examType.displayName} - ${DateFormat.yMMMMd('tr').format(test.date)}', style: TextStyle(color: AppTheme.secondaryTextColor)),
-        trailing: Text(
-          test.totalNet.toStringAsFixed(2),
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.successColor, fontWeight: FontWeight.bold),
-        ),
-      ),
-    );
-  }
-}
-
-// BİLGEAI DEVRİMİ: Sabitlenmiş TabBar'ı oluşturmak için özel bir delegate.
-class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverTabBarDelegate(this._tabBar);
-  final TabBar _tabBar;
-
-  @override
-  double get minExtent => _tabBar.preferredSize.height;
-  @override
-  double get maxExtent => _tabBar.preferredSize.height;
-
-  @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
-    return Container(
-      color: AppTheme.scaffoldBackgroundColor, // Arka plan rengiyle uyumlu
-      child: _tabBar,
-    );
-  }
-
-  @override
-  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
-    return false;
   }
 }

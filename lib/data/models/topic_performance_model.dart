@@ -4,7 +4,6 @@ class TopicPerformanceModel {
   final int questionCount;
   final int correctCount;
   final int wrongCount;
-  // BİLGEAI DEVRİMİ: Boş sayısı eklendi.
   final int blankCount;
 
   TopicPerformanceModel({

@@ -21,10 +21,11 @@ import 'package:bilge_ai/features/journal/screens/journal_screen.dart';
 import 'package:bilge_ai/features/journal/screens/add_edit_journal_screen.dart';
 import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
 import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
-import 'package:bilge_ai/features/coach/screens/ai_coach_screen.dart';
-import 'package:bilge_ai/features/coach/screens/motivation_chat_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
-import 'package:bilge_ai/features/coach/screens/weakness_hunter_screen.dart';
+import 'package:bilge_ai/features/coach/screens/motivation_chat_screen.dart';
+// BİLGEAI DEVRİMİ - DÜZELTME: Eksik olan ve hataya sebep olan import eklendi.
+import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_screen.dart';
+import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -50,7 +51,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (userProfileState.isLoading) {
-        return null;
+        return null; // Yüklenirken bekle
       }
 
       if(userProfileState.hasValue && userProfileState.value != null) {
@@ -131,11 +132,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 path: '/ai-hub',
                 builder: (context, state) => const AiHubScreen(),
                 routes: [
-                  GoRoute(path: 'ai-coach', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const AiCoachScreen()),
-                  GoRoute(
-                      path: 'weakness-hunter',
-                      parentNavigatorKey: rootNavigatorKey,
-                      builder: (context, state) => const WeaknessHunterScreen()),
+                  GoRoute(path: 'strategic-planning', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const StrategicPlanningScreen()),
+                  GoRoute(path: 'weakness-workshop', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeaknessWorkshopScreen()),
                   GoRoute(path: 'motivation-chat', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const MotivationChatScreen()),
                 ]),
           ]),
