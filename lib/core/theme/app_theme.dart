@@ -3,23 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
+  // BİLGEAI DEVRİMİ: Renk paleti, bilgeliği, odaklanmayı ve motivasyonu yansıtacak şekilde yeniden tasarlandı.
   // Ana Renkler
-  static const Color primaryColor = Color(0xFF1B263B); // Koyu Lacivert
-  static const Color secondaryColor = Color(0xFFFCA311); // Canlı Turuncu
-  static const Color accentColor = Color(0xFFE53935); // Kırmızı - Hata/Uyarı
-  static const Color successColor = Color(0xFF43A047); // Yeşil - Başarı
+  static const Color primaryColor = Color(0xFF0D1B2A);      // Derin Gece Mavisi (Odaklanma)
+  static const Color secondaryColor = Color(0xFFFCA311);     // Canlı Turuncu (Eylem ve Motivasyon)
+  static const Color accentColor = Color(0xFFE71D36);       // Güçlü Kırmızı (Uyarı ve Hata)
+  static const Color successColor = Color(0xFF2EC4B6);      // Canlı Turkuaz (Başarı)
 
-  // Arka Plan Renkleri
-  static const Color lightScaffoldBackgroundColor = Color(0xFFF4F7FC);
-  static const Color darkScaffoldBackgroundColor = Color(0xFF0D1B2A);
-
-  // Kart Renkleri
-  static const Color lightCardColor = Color(0xFFFFFFFF);
-  static const Color darkCardColor = Color(0xFF1B263B);
+  // Arka Plan ve Yüzey Renkleri
+  static const Color scaffoldBackgroundColor = Color(0xFF0D1B2A); // Ana arka plan
+  static const Color cardColor = Color(0xFF1B263B);             // Kartların ve yüzeylerin rengi
+  static const Color lightSurfaceColor = Color(0xFF415A77);     // Daha açık tonlu yüzeyler (inputlar vb.)
 
   // Metin Renkleri
-  static const Color lightTextColor = Color(0xFF1B263B);
-  static const Color darkTextColor = Color(0xFFE0E1DD);
+  static const Color textColor = Color(0xFFE0E1DD);              // Ana metin rengi
+  static const Color secondaryTextColor = Color(0xFFA0AEC0);      // Daha az önemli metinler için gri ton
 
   // Merkezi Buton Stili
   static final ButtonStyle _buttonStyle = ElevatedButton.styleFrom(
@@ -30,7 +28,8 @@ class AppTheme {
       borderRadius: BorderRadius.circular(16.0),
     ),
     elevation: 4.0,
-    textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w600),
+    textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 16),
+    shadowColor: secondaryColor.withOpacity(0.4),
   );
 
   // Merkezi TextField Stili
@@ -40,82 +39,64 @@ class AppTheme {
       borderSide: BorderSide.none,
     ),
     filled: true,
+    fillColor: lightSurfaceColor.withOpacity(0.5),
+    labelStyle: TextStyle(color: secondaryTextColor),
+    hintStyle: TextStyle(color: secondaryTextColor.withOpacity(0.7)),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
   );
 
-  // Tema oluşturan ana fonksiyon
-  static ThemeData _buildTheme({
-    required Brightness brightness,
-    required Color scaffoldBackgroundColor,
-    required Color textColor,
-    required Color cardColor,
-    required Color inputFillColor,
-  }) {
-    final baseTheme = ThemeData(brightness: brightness);
-    return baseTheme.copyWith(
-      primaryColor: primaryColor,
-      scaffoldBackgroundColor: scaffoldBackgroundColor,
-      colorScheme: ColorScheme(
-        brightness: brightness,
-        primary: primaryColor,
-        onPrimary: Colors.white,
-        secondary: secondaryColor,
-        onSecondary: primaryColor,
-        error: accentColor,
-        onError: Colors.white,
-        surface: cardColor,
-        onSurface: textColor,
-      ),
-      textTheme: GoogleFonts.montserratTextTheme(baseTheme.textTheme).apply(
-        bodyColor: textColor,
-        displayColor: textColor,
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(style: _buttonStyle),
-      inputDecorationTheme: _inputDecorationTheme.copyWith(
-        fillColor: inputFillColor,
-      ),
-      cardTheme: CardTheme(
-        elevation: 0,
-        color: cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      appBarTheme: AppBarTheme(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        titleTextStyle: GoogleFonts.montserrat(
-          fontWeight: FontWeight.bold,
-          fontSize: 20,
-          color: textColor,
-        ),
-        iconTheme: IconThemeData(color: textColor),
-      ),
-      bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: cardColor,
-        selectedItemColor: secondaryColor,
-        unselectedItemColor: textColor.withAlpha(153), // ~0.6 opacity
-        elevation: 0,
-        type: BottomNavigationBarType.fixed,
-        showSelectedLabels: false,
-        showUnselectedLabels: false,
-      ),
-    );
-  }
-
-  // Açık Tema
-  static final ThemeData lightTheme = _buildTheme(
-    brightness: Brightness.light,
-    scaffoldBackgroundColor: lightScaffoldBackgroundColor,
-    textColor: lightTextColor,
-    cardColor: lightCardColor,
-    inputFillColor: const Color(0xFFEDF2F7),
-  );
-
-  // Koyu Tema
-  static final ThemeData darkTheme = _buildTheme(
+  // BİLGEAI DEVRİMİ: Tek ve güçlü "Modern Bilge" teması.
+  static final ThemeData modernTheme = ThemeData(
     brightness: Brightness.dark,
-    scaffoldBackgroundColor: darkScaffoldBackgroundColor,
-    textColor: darkTextColor,
-    cardColor: darkCardColor,
-    inputFillColor: const Color(0xFF2D3748),
+    primaryColor: primaryColor,
+    scaffoldBackgroundColor: scaffoldBackgroundColor,
+    colorScheme: ColorScheme(
+      brightness: Brightness.dark,
+      primary: secondaryColor, // Ana etkileşim rengi olarak turuncu
+      onPrimary: primaryColor,
+      secondary: successColor,   // İkincil etkileşim rengi olarak turkuaz
+      onSecondary: Colors.white,
+      error: accentColor,
+      onError: Colors.white,
+      surface: cardColor,
+      onSurface: textColor,
+    ),
+    textTheme: GoogleFonts.montserratTextTheme(ThemeData.dark().textTheme).apply(
+      bodyColor: textColor,
+      displayColor: textColor,
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(style: _buttonStyle),
+    inputDecorationTheme: _inputDecorationTheme,
+    cardTheme: CardTheme(
+      elevation: 0,
+      color: cardColor,
+      shape: RoundedRectangleBorder(
+          side: BorderSide(color: lightSurfaceColor.withOpacity(0.5), width: 1),
+          borderRadius: BorderRadius.circular(16)
+      ),
+    ),
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      centerTitle: true,
+      titleTextStyle: GoogleFonts.montserrat(
+        fontWeight: FontWeight.bold,
+        fontSize: 20,
+        color: textColor,
+      ),
+      iconTheme: IconThemeData(color: secondaryColor),
+    ),
+    iconTheme: IconThemeData(color: secondaryTextColor),
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: secondaryColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      textStyle: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
+    ),
+    bottomAppBarTheme: BottomAppBarTheme(
+      color: cardColor,
+      elevation: 0,
+    ),
   );
 }

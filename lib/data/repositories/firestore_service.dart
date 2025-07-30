@@ -46,6 +46,8 @@ final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((
   for (final user in allUsers) {
     if (user.name != null && user.name!.isNotEmpty && user.testCount > 0) {
       leaderboardEntries.add(LeaderboardEntry(
+        // BİLGEAI DEVRİMİ - DÜZELTME: userId alanı artık dolduruluyor.
+        userId: user.id,
         userName: user.name!,
         averageNet: user.totalNetSum / user.testCount,
         testCount: user.testCount,
