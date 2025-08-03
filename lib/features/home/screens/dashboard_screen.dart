@@ -45,7 +45,7 @@ class DashboardScreen extends ConsumerWidget {
             final tests = ref.watch(testsProvider).valueOrNull ?? [];
             final testCount = tests.length;
             final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
-            final bestNet = tests.isEmpty ? 0.0 : tests.map((t) => t.totalNet).reduce((a, b) => a > b ? a : b);
+            final bestNet = tests.isEmpty ? 0.0 : tests.map((t) => t.totalNet).reduce(max);
 
             return ListView(
               padding: const EdgeInsets.all(16.0),
@@ -54,13 +54,13 @@ class DashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 _buildMotivationalQuoteCard(randomQuote),
                 const SizedBox(height: 24),
-                _buildStatsRow(avgNet, bestNet, user.streak), // HATA GİDERİLDİ: GridView -> Row
+                _buildStatsRow(avgNet, bestNet, user.streak),
                 const SizedBox(height: 24),
                 _buildTodaysMissionCard(context, ref),
                 const SizedBox(height: 24),
                 _buildActionCenter(context),
                 const SizedBox(height: 24),
-                _buildWeeklyTasksCard(context, ref),
+                _buildDestinyScroll(context, ref), // YENİ GÜNLÜK GÖREV WIDGET'I
               ].animate(interval: 80.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
             );
           },
@@ -71,7 +71,6 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  // --- DEVİR DEĞİŞİKLİĞİ: GridView yerine Row kullanıldı ---
   Widget _buildStatsRow(double avgNet, double bestNet, int streak) {
     return Row(
       children: [
@@ -83,9 +82,6 @@ class DashboardScreen extends ConsumerWidget {
       ],
     );
   }
-
-  // Diğer tüm widget'lar önceki devrimdeki gibi kalabilir, çünkü sorun GridView'daydı.
-  // Ancak okunabilirlik ve bütünlük için tam kodu sağlıyorum.
 
   Widget _buildHeader(BuildContext context, String name, TextTheme textTheme) {
     return Row(
@@ -236,7 +232,8 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWeeklyTasksCard(BuildContext context, WidgetRef ref) {
+  // --- BİN YILLIK UZMAN DOKUNUŞU: YENİ GÜNLÜK GÖREV BÖLÜMÜ ---
+  Widget _buildDestinyScroll(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final user = ref.watch(userProfileProvider).value;
 
@@ -257,36 +254,33 @@ class DashboardScreen extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Günlük Vazifeler", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        Text("Günün Parşömeni", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                if(totalTasks > 0)
-                  Row(
-                    children: [
-                      Expanded(child: LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 8,
-                        borderRadius: BorderRadius.circular(4),
-                        backgroundColor: AppTheme.lightSurfaceColor,
-                        color: AppTheme.successColor,
-                      )),
-                      const SizedBox(width: 12),
-                      Text("$completedCount / $totalTasks", style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
-                    ],
-                  ),
-                if(totalTasks > 0) const Divider(height: 32),
-                (todaysPlan == null || todaysPlan.tasks.isEmpty)
-                    ? _buildPlanPrompt(context, isPlanGenerated: user?.weeklyPlan != null)
-                    : Column(
-                  children: todaysPlan.tasks.map((task) {
+                _buildProgressHeader(context, progress, completedCount, totalTasks),
+                const Divider(height: 32, color: AppTheme.lightSurfaceColor),
+                if (todaysPlan == null || todaysPlan.tasks.isEmpty)
+                  _buildRestPrompt(context, isPlanGenerated: user?.weeklyPlan != null)
+                else
+                  ...todaysPlan.tasks.map((task) {
                     final isCompleted = completedTasksToday.contains(task);
-                    return _buildTaskItem(context, ref, user!.id, todayKey, task, isCompleted);
+                    return _DestinyTaskCard(
+                      task: task,
+                      isCompleted: isCompleted,
+                      onToggle: () {
+                        ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
+                          userId: user!.id,
+                          dateKey: todayKey,
+                          task: task,
+                          isCompleted: !isCompleted,
+                        );
+                      },
+                    );
                   }).toList(),
-                ),
               ],
             ),
           ),
@@ -295,75 +289,157 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTaskItem(BuildContext context, WidgetRef ref, String userId, String dateKey, String task, bool isCompleted) {
-    return InkWell(
-      onTap: () {
-        ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
-          userId: userId,
-          dateKey: dateKey,
-          task: task,
-          isCompleted: !isCompleted,
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0),
-        child: Row(
+  Widget _buildProgressHeader(BuildContext context, double progress, int completed, int total) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      children: [
+        SizedBox(
+          width: 50,
+          height: 50,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CircularProgressIndicator(
+                value: progress,
+                strokeWidth: 6,
+                backgroundColor: AppTheme.lightSurfaceColor,
+                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.successColor),
+                strokeCap: StrokeCap.round,
+              ),
+              Center(
+                  child: Text(
+                    "${(progress * 100).toInt()}%",
+                    style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                  )
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 2.0),
-              child: Checkbox(
-                value: isCompleted,
-                onChanged: (bool? value) {
-                  ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
-                    userId: userId,
-                    dateKey: dateKey,
-                    task: task,
-                    isCompleted: value ?? false,
-                  );
-                },
-                activeColor: AppTheme.successColor,
-                checkColor: AppTheme.primaryColor,
-                side: const BorderSide(color: AppTheme.secondaryTextColor, width: 2),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-                child: _buildRichTextFromMarkdown(
-                    task,
-                    baseStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: isCompleted ? AppTheme.secondaryTextColor : Colors.white,
-                      decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                    ),
-                    boldStyle: TextStyle(fontWeight: FontWeight.bold, color: isCompleted ? AppTheme.secondaryTextColor : Colors.white)
-                )
-            ),
+            Text("İlerleme", style: textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text("$completed / $total görev tamamlandı.", style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
           ],
-        ),
-      ),
+        )
+      ],
     );
   }
 
-  Widget _buildPlanPrompt(BuildContext context, {required bool isPlanGenerated}) {
+  Widget _buildRestPrompt(BuildContext context, {required bool isPlanGenerated}) {
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Row(
+      child: Column(
         children: [
-          Icon(isPlanGenerated ? Icons.celebration_rounded : Icons.auto_awesome, color: AppTheme.secondaryColor.withOpacity(0.8)),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              !isPlanGenerated
-                  ? "Stratejik planını oluşturarak günlük görevlerini burada gör."
-                  : "Bugün için özel bir görevin yok. Dinlenmek de stratejinin bir parçasıdır!",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor, height: 1.4),
-            ),
+          Icon(isPlanGenerated ? Icons.shield_moon_rounded : Icons.auto_awesome, color: AppTheme.secondaryColor.withOpacity(0.8), size: 40),
+          const SizedBox(height: 16),
+          Text(
+            !isPlanGenerated
+                ? "Stratejik planını oluşturarak kaderinin mühürlerini burada gör."
+                : "Bugün dinlenme ve gücünü toplama günü. Unutma, en keskin kılıç bile bilenmeye ihtiyaç duyar.",
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
           ),
         ],
       ),
     );
   }
 }
+
+// BİN YILLIK UZMAN DOKUNUŞU: YENİ GÖREV KARTI WIDGET'I
+class _DestinyTaskCard extends StatefulWidget {
+  final String task;
+  final bool isCompleted;
+  final VoidCallback onToggle;
+
+  const _DestinyTaskCard({
+    required this.task,
+    required this.isCompleted,
+    required this.onToggle,
+  });
+
+  @override
+  State<_DestinyTaskCard> createState() => _DestinyTaskCardState();
+}
+
+class _DestinyTaskCardState extends State<_DestinyTaskCard> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10.0),
+      child: InkWell(
+        onTap: () => setState(() => _isExpanded = !_isExpanded),
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: 300.ms,
+          padding: const EdgeInsets.all(16.0),
+          decoration: BoxDecoration(
+              color: widget.isCompleted ? AppTheme.successColor.withOpacity(0.1) : AppTheme.lightSurfaceColor.withOpacity(0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: widget.isCompleted ? AppTheme.successColor : AppTheme.lightSurfaceColor,
+                width: 1.5,
+              )
+          ),
+          child: Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2.0),
+                    child: Icon(
+                      widget.isCompleted ? Icons.verified_user_rounded : Icons.shield_outlined,
+                      color: widget.isCompleted ? AppTheme.successColor : AppTheme.secondaryColor,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _buildRichTextFromMarkdown(
+                      widget.task,
+                      baseStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: widget.isCompleted ? AppTheme.secondaryTextColor : Colors.white,
+                        decoration: widget.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
+                      ),
+                      boldStyle: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: widget.isCompleted ? AppTheme.secondaryTextColor : Colors.white
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              AnimatedSize(
+                duration: 300.ms,
+                curve: Curves.easeInOut,
+                child: Visibility(
+                  visible: _isExpanded,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: ElevatedButton.icon(
+                      onPressed: widget.onToggle,
+                      icon: Icon(widget.isCompleted ? Icons.restart_alt_rounded : Icons.check_circle_outline_rounded),
+                      label: Text(widget.isCompleted ? "Mührü Geri Al" : "Mührü Kır"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: widget.isCompleted ? AppTheme.lightSurfaceColor : AppTheme.secondaryColor,
+                        foregroundColor: widget.isCompleted ? Colors.white : AppTheme.primaryColor,
+                        minimumSize: const Size(double.infinity, 44),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 class _StatCard extends StatelessWidget {
   final IconData icon;
@@ -380,7 +456,7 @@ class _StatCard extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceAround, // HATA GİDERİLDİ
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
@@ -388,7 +464,7 @@ class _StatCard extends StatelessWidget {
               backgroundColor: color,
               child: Icon(icon, color: Colors.white, size: 20),
             ),
-            const SizedBox(height: 8), // HATA GİDERİLDİ
+            const SizedBox(height: 8),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

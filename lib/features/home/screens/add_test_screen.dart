@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
-import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:uuid/uuid.dart';

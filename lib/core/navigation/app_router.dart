@@ -23,10 +23,11 @@ import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
 import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
 import 'package:bilge_ai/features/coach/screens/motivation_chat_screen.dart';
-// BİLGEAI DEVRİMİ - DÜZELTME: Eksik olan ve hataya sebep olan import eklendi.
 import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
-import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart'; // YENİ EKLENDİ
+import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart';
+import 'package:bilge_ai/features/coach/screens/update_topic_performance_screen.dart';
+import 'package:bilge_ai/data/models/topic_performance_model.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -98,7 +99,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                         return TestDetailScreen(test: test);
                       }),
                   GoRoute(
-                    path: 'test-result-summary', // YENİ EKLENEN ROTA
+                    path: 'test-result-summary',
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) {
                       final test = state.extra as TestModel;
@@ -134,6 +135,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                         final subject = state.extra as String;
                         return SubjectDetailScreen(subject: subject);
                       }),
+                  GoRoute(
+                    path: 'update-topic-performance',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final args = state.extra as Map<String, dynamic>;
+                      return UpdateTopicPerformanceScreen(
+                        subject: args['subject'] as String,
+                        topic: args['topic'] as String,
+                        initialPerformance: args['performance'] as TopicPerformanceModel,
+                      );
+                    },
+                  ),
                 ]),
           ]),
           StatefulShellBranch(routes: [

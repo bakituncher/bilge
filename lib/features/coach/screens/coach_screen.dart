@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
@@ -60,7 +61,6 @@ class CoachScreen extends ConsumerWidget {
         final exam = ExamData.getExamByType(examType);
         final subjects = _getRelevantSubjects(user, exam);
 
-        // Eğer hiç ders yoksa, boş bir ekran göster.
         if (subjects.isEmpty) {
           return Scaffold(
               appBar: AppBar(title: const Text('Hakimiyet Haritası')),
@@ -68,7 +68,6 @@ class CoachScreen extends ConsumerWidget {
           );
         }
 
-        // --- DEVRİMİN KALBİ: SEKMELİ YAPI ---
         return DefaultTabController(
           length: subjects.length,
           child: Scaffold(
@@ -84,7 +83,7 @@ class CoachScreen extends ConsumerWidget {
                 final subjectName = entry.key;
                 final topics = entry.value;
                 return _SubjectMapView(
-                  key: ValueKey(subjectName), // Her sekmenin durumunu korumak için
+                  key: ValueKey(subjectName),
                   user: user,
                   subjectName: subjectName,
                   topics: topics,
@@ -106,7 +105,6 @@ class CoachScreen extends ConsumerWidget {
   }
 }
 
-// Her bir dersin haritasını gösteren, kendi içinde kaydırılabilen widget
 class _SubjectMapView extends ConsumerWidget {
   final UserModel user;
   final String subjectName;
@@ -135,10 +133,8 @@ class _SubjectMapView extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- DEVRİM: GENEL DURUM RADARI ---
           _buildMasteryHeader(context, overallMastery),
           const SizedBox(height: 24),
-          // --- DEVRİM: CANLI KONU HÜCRELERİ ---
           Wrap(
             spacing: 10.0,
             runSpacing: 10.0,
@@ -147,7 +143,14 @@ class _SubjectMapView extends ConsumerWidget {
               return _TopicBubble(
                 topic: topic,
                 performance: performance,
-                onTap: () => _showPerformanceInputDialog(context, ref, user.id, subjectName, topic.name, performance),
+                onTap: () => context.go(
+                  '/coach/update-topic-performance',
+                  extra: {
+                    'subject': subjectName,
+                    'topic': topic.name,
+                    'performance': performance,
+                  },
+                ),
               ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.8, 0.8));
             }).toList(),
           ),
@@ -191,120 +194,8 @@ class _SubjectMapView extends ConsumerWidget {
       ],
     );
   }
-
-  void _showPerformanceInputDialog(BuildContext context, WidgetRef ref, String userId, String subject, String topic, TopicPerformanceModel currentPerformance) {
-    // Bu fonksiyon, önceki versiyonda olduğu gibi işlevini mükemmel şekilde yerine getirdiği için değiştirilmedi.
-    final correctController = TextEditingController();
-    final wrongController = TextEditingController();
-    final blankController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        bool isAddingMode = true;
-
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return AlertDialog(
-              backgroundColor: AppTheme.cardColor,
-              title: Text(topic, style: const TextStyle(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold)),
-              content: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ToggleButtons(
-                      isSelected: [isAddingMode, !isAddingMode],
-                      onPressed: (index) {
-                        setState(() { isAddingMode = index == 0; });
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      selectedColor: AppTheme.primaryColor,
-                      color: Colors.white,
-                      fillColor: AppTheme.secondaryColor,
-                      selectedBorderColor: AppTheme.secondaryColor,
-                      borderColor: AppTheme.lightSurfaceColor,
-                      children: const [
-                        Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Üzerine Ekle')),
-                        Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('Değiştir')),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: correctController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(labelText: 'Doğru Sayısı', hintText: isAddingMode ? 'Eklenecek doğru' : 'Toplam doğru'),
-                      validator: (v) => (v == null || v.isEmpty) ? 'Boş bırakılamaz' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: wrongController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(labelText: 'Yanlış Sayısı', hintText: isAddingMode ? 'Eklenecek yanlış' : 'Toplam yanlış'),
-                      validator: (v) => (v == null || v.isEmpty) ? 'Boş bırakılamaz' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: blankController,
-                      keyboardType: TextInputType.number,
-                      decoration: InputDecoration(labelText: 'Boş Sayısı', hintText: isAddingMode ? 'Eklenecek boş' : 'Toplam boş'),
-                      validator: (v) => (v == null || v.isEmpty) ? 'Boş bırakılamaz' : null,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('İptal', style: TextStyle(color: AppTheme.secondaryTextColor)),
-                ),
-                ElevatedButton(
-                  onPressed: () {
-                    if (formKey.currentState!.validate()) {
-                      final correct = int.tryParse(correctController.text) ?? 0;
-                      final wrong = int.tryParse(wrongController.text) ?? 0;
-                      final blank = int.tryParse(blankController.text) ?? 0;
-
-                      TopicPerformanceModel newPerformance;
-                      if (isAddingMode) {
-                        newPerformance = TopicPerformanceModel(
-                          correctCount: currentPerformance.correctCount + correct,
-                          wrongCount: currentPerformance.wrongCount + wrong,
-                          blankCount: currentPerformance.blankCount + blank,
-                          questionCount: currentPerformance.questionCount + correct + wrong + blank,
-                        );
-                      } else {
-                        newPerformance = TopicPerformanceModel(
-                          correctCount: correct,
-                          wrongCount: wrong,
-                          blankCount: blank,
-                          questionCount: correct + wrong + blank,
-                        );
-                      }
-
-                      ref.read(firestoreServiceProvider).updateTopicPerformance(
-                        userId: userId,
-                        subject: subject,
-                        topic: topic,
-                        performance: newPerformance,
-                      );
-                      Navigator.of(context).pop();
-                    }
-                  },
-                  child: const Text('Kaydet'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
 }
 
-
-// Yeni ve geliştirilmiş Konu Hücresi Widget'ı
 class _TopicBubble extends StatelessWidget {
   final SubjectTopic topic;
   final TopicPerformanceModel performance;
@@ -318,7 +209,6 @@ class _TopicBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Analiz için en az 5 soru çözülmüş olmalı
     final double mastery = performance.questionCount < 5 ? -1 : (performance.correctCount / performance.questionCount);
 
     final Color color = switch(mastery) {
@@ -346,7 +236,7 @@ class _TopicBubble extends StatelessWidget {
           ),
           child: Text(
             topic.name,
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
           ),
         ),
       ),
