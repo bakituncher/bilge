@@ -8,13 +8,19 @@ import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:uuid/uuid.dart';
 
 // Adımları yönetmek için bir state provider
-final _stepperProvider = StateProvider<int>((ref) => 0);
+final _stepperProvider = StateProvider.autoDispose<int>((ref) => 0);
 // Seçilen bölümü saklamak için
-final _selectedSectionProvider = StateProvider<ExamSection?>((ref) => null);
+final _selectedSectionProvider = StateProvider.autoDispose<ExamSection?>((ref) => null);
 // Girilen skorları saklamak için
-final _scoresProvider = StateProvider<Map<String, Map<String, int>>>((ref) => {});
+final _scoresProvider = StateProvider.autoDispose<Map<String, Map<String, int>>>((ref) => {});
+// Test adı için
+final _testNameProvider = StateProvider.autoDispose<String>((ref) => '');
+// Kaydetme işlemi sırasında bekleme durumunu yönetmek için
+final _isSavingProvider = StateProvider.autoDispose<bool>((ref) => false);
+
 
 class AddTestScreen extends ConsumerWidget {
   const AddTestScreen({super.key});
@@ -24,15 +30,16 @@ class AddTestScreen extends ConsumerWidget {
     final userProfile = ref.watch(userProfileProvider).value;
     final int currentStep = ref.watch(_stepperProvider);
 
+    // HATA DÜZELTİLDİ: Bu blok kaldırıldı, çünkü 'autoDispose' zaten bu işi yapıyor.
+    // ref.onDispose(() { ... });
+
     if (userProfile?.selectedExam == null) {
-      // Bu durum normalde router tarafından engellenir, ama bir güvenlik önlemi.
       return Scaffold(appBar: AppBar(), body: const Center(child: Text("Lütfen önce profilden bir sınav seçin.")));
     }
 
     final selectedExamType = ExamType.values.byName(userProfile!.selectedExam!);
     final exam = ExamData.getExamByType(selectedExamType);
 
-    // YKS için özel bölüm listesi oluşturma
     List<ExamSection> availableSections;
     if (selectedExamType == ExamType.yks) {
       final tytSection = exam.sections.firstWhere((s) => s.name == 'TYT');
@@ -45,10 +52,11 @@ class AddTestScreen extends ConsumerWidget {
       availableSections = exam.sections;
     }
 
-    // Eğer tek bölüm varsa, otomatik olarak seç.
     if (availableSections.length == 1 && ref.read(_selectedSectionProvider) == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(_selectedSectionProvider.notifier).state = availableSections.first;
+        if(context.mounted) {
+          ref.read(_selectedSectionProvider.notifier).state = availableSections.first;
+        }
       });
     }
 
@@ -74,7 +82,10 @@ class Step1TestInfo extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    _testNameController.text = ref.watch(_testNameProvider);
+    _testNameController.selection = TextSelection.fromPosition(TextPosition(offset: _testNameController.text.length));
     final selectedSection = ref.watch(_selectedSectionProvider);
+
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
@@ -86,6 +97,7 @@ class Step1TestInfo extends ConsumerWidget {
           TextField(
             controller: _testNameController,
             decoration: const InputDecoration(labelText: 'Deneme Adı (Örn: 3D Genel Deneme)'),
+            onChanged: (value) => ref.read(_testNameProvider.notifier).state = value,
           ),
           const SizedBox(height: 24),
           if (availableSections.length > 1)
@@ -99,7 +111,17 @@ class Step1TestInfo extends ConsumerWidget {
           const Spacer(),
           ElevatedButton(
             onPressed: (selectedSection != null && _testNameController.text.isNotEmpty)
-                ? () => ref.read(_stepperProvider.notifier).state = 1
+                ? () {
+              final section = ref.read(_selectedSectionProvider);
+              if (section != null) {
+                final initialScores = {
+                  for (var subject in section.subjects.keys)
+                    subject: {'dogru': 0, 'yanlis': 0}
+                };
+                ref.read(_scoresProvider.notifier).state = initialScores;
+              }
+              ref.read(_stepperProvider.notifier).state = 1;
+            }
                 : null,
             child: const Text('İlerle'),
           ),
@@ -109,7 +131,7 @@ class Step1TestInfo extends ConsumerWidget {
   }
 }
 
-// Adım 2: Sonuç Bildirimi (Devrimin Kalbi)
+// Adım 2: Sonuç Bildirimi
 class Step2ScoreEntry extends ConsumerStatefulWidget {
   const Step2ScoreEntry({super.key});
 
@@ -148,6 +170,7 @@ class _Step2ScoreEntryState extends ConsumerState<Step2ScoreEntry> {
             itemBuilder: (context, index) {
               final subjectEntry = subjects[index];
               return _SubjectScoreCard(
+                key: ValueKey(subjectEntry.key),
                 subjectName: subjectEntry.key,
                 details: subjectEntry.value,
                 isFirst: index == 0,
@@ -177,6 +200,7 @@ class _SubjectScoreCard extends ConsumerWidget {
   final VoidCallback onNext, onPrevious;
 
   const _SubjectScoreCard({
+    super.key,
     required this.subjectName,
     required this.details,
     required this.isFirst,
@@ -193,7 +217,8 @@ class _SubjectScoreCard extends ConsumerWidget {
     int correct = subjectScores['dogru']!;
     int wrong = subjectScores['yanlis']!;
     int blank = details.questionCount - correct - wrong;
-    double net = correct - (wrong * 0.25); // Katsayı eklenebilir
+    final section = ref.watch(_selectedSectionProvider)!;
+    double net = correct - (wrong * section.penaltyCoefficient);
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
@@ -210,13 +235,20 @@ class _SubjectScoreCard extends ConsumerWidget {
             max: details.questionCount.toDouble(),
             color: AppTheme.successColor,
             onChanged: (value) {
-              if (value.toInt() + wrong > details.questionCount) {
-                wrong = details.questionCount - value.toInt();
+              final newCorrect = value.toInt();
+              final currentWrong = subjectScores['yanlis']!;
+              if (newCorrect + currentWrong > details.questionCount) {
+                final adjustedWrong = details.questionCount - newCorrect;
+                ref.read(_scoresProvider.notifier).state = {
+                  ...scores,
+                  subjectName: {'dogru': newCorrect, 'yanlis': adjustedWrong}
+                };
+              } else {
+                ref.read(_scoresProvider.notifier).state = {
+                  ...scores,
+                  subjectName: {'dogru': newCorrect, 'yanlis': currentWrong}
+                };
               }
-              ref.read(_scoresProvider.notifier).state = {
-                ...scores,
-                subjectName: {'dogru': value.toInt(), 'yanlis': wrong}
-              };
             },
           ),
           _ScoreSlider(
@@ -225,9 +257,10 @@ class _SubjectScoreCard extends ConsumerWidget {
             max: (details.questionCount - correct).toDouble(),
             color: AppTheme.accentColor,
             onChanged: (value) {
+              final newWrong = value.toInt();
               ref.read(_scoresProvider.notifier).state = {
                 ...scores,
-                subjectName: {'dogru': correct, 'yanlis': value.toInt()}
+                subjectName: {'dogru': correct, 'yanlis': newWrong}
               };
             },
           ),
@@ -317,25 +350,33 @@ class Step3Summary extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Hesaplamalar
     final section = ref.watch(_selectedSectionProvider)!;
     final scores = ref.watch(_scoresProvider);
+    final testName = ref.watch(_testNameProvider);
+    final user = ref.watch(userProfileProvider).value;
+    final isSaving = ref.watch(_isSavingProvider);
 
     int totalCorrect = 0;
     int totalWrong = 0;
     int totalBlank = 0;
     int totalQuestions = 0;
 
+    final Map<String, Map<String, int>> finalScores = {};
+
     scores.forEach((subject, values) {
-      totalCorrect += values['dogru']!;
-      totalWrong += values['yanlis']!;
+      final subjectDetails = section.subjects[subject]!;
+      final correct = values['dogru']!;
+      final wrong = values['yanlis']!;
+      final blank = subjectDetails.questionCount - correct - wrong;
+
+      totalCorrect += correct;
+      totalWrong += wrong;
+      totalBlank += blank;
+      totalQuestions += subjectDetails.questionCount;
+
+      finalScores[subject] = {'dogru': correct, 'yanlis': wrong, 'bos': blank};
     });
 
-    section.subjects.forEach((key, value) {
-      totalQuestions += value.questionCount;
-    });
-
-    totalBlank = totalQuestions - totalCorrect - totalWrong;
     double totalNet = totalCorrect - (totalWrong * section.penaltyCoefficient);
 
     return Padding(
@@ -352,11 +393,47 @@ class Step3Summary extends ConsumerWidget {
           _SummaryRow(label: "Toplam Net", value: totalNet.toStringAsFixed(2), isTotal: true),
           const Spacer(),
           ElevatedButton(
-            onPressed: () {
-              // TODO: Kaydetme işlemini buraya ekle
-              context.pop(); // Önceki ekrana dön
+            onPressed: isSaving ? null : () async {
+              if (user == null) return;
+
+              ref.read(_isSavingProvider.notifier).state = true;
+
+              final newTest = TestModel(
+                id: const Uuid().v4(),
+                userId: user.id,
+                testName: testName,
+                examType: ExamType.values.byName(user.selectedExam!),
+                sectionName: section.name,
+                date: DateTime.now(),
+                scores: finalScores,
+                totalNet: totalNet,
+                totalQuestions: totalQuestions,
+                totalCorrect: totalCorrect,
+                totalWrong: totalWrong,
+                totalBlank: totalBlank,
+                penaltyCoefficient: section.penaltyCoefficient,
+              );
+
+              try {
+                await ref.read(firestoreServiceProvider).addTestResult(newTest);
+                if (context.mounted) {
+                  context.go('/home/test-result-summary', extra: newTest);
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Hata: $e')),
+                  );
+                }
+              } finally {
+                if(context.mounted) {
+                  ref.read(_isSavingProvider.notifier).state = false;
+                }
+              }
             },
-            child: const Text('Kaydet ve Bitir'),
+            child: isSaving
+                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3,))
+                : const Text('Kaydet ve Raporu Görüntüle'),
           ),
           TextButton(
               onPressed: () => ref.read(_stepperProvider.notifier).state = 1,

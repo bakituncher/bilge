@@ -26,6 +26,7 @@ import 'package:bilge_ai/features/coach/screens/motivation_chat_screen.dart';
 // BİLGEAI DEVRİMİ - DÜZELTME: Eksik olan ve hataya sebep olan import eklendi.
 import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
+import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart'; // YENİ EKLENDİ
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -96,6 +97,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                         final test = state.extra as TestModel;
                         return TestDetailScreen(test: test);
                       }),
+                  GoRoute(
+                    path: 'test-result-summary', // YENİ EKLENEN ROTA
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final test = state.extra as TestModel;
+                      return TestResultSummaryScreen(test: test);
+                    },
+                  ),
                   GoRoute(path: 'pomodoro', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const PomodoroScreen()),
                   GoRoute(
                       path: 'journal',
