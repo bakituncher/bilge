@@ -1,18 +1,24 @@
 // lib/features/pomodoro/pomodoro_screen.dart
-import 'dart:async';
+import 'dart:async'; // HATA BURADAYDI: 'dart:async' import'u eklendi.
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:bilge_ai/features/coach/screens/ai_coach_screen.dart';
-// BİLGEAI DEVRİMİ - DÜZELTME: 'WeeklyPlan' modelini tanımak için import eklendi.
-import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
-import 'package:bilge_ai/data/repositories/firestore_service.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
+import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
+import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
 
 // Pomodoro durumları için bir enum
-enum PomodoroState { idle, selectingTask, breathing, working, shortBreak }
+enum PomodoroState {
+  idle,
+  selectingTask,
+  breathing,
+  working,
+  shortBreak,
+  feedback
+}
 
 class PomodoroScreen extends ConsumerStatefulWidget {
   const PomodoroScreen({super.key});
@@ -21,11 +27,12 @@ class PomodoroScreen extends ConsumerStatefulWidget {
   ConsumerState<PomodoroScreen> createState() => _PomodoroScreenState();
 }
 
-class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProviderStateMixin {
+class _PomodoroScreenState extends ConsumerState<PomodoroScreen>
+    with TickerProviderStateMixin {
   // Zamanlayıcı Ayarları
   static const int _workDuration = 25 * 60;
   static const int _breakDuration = 5 * 60;
-  static const int _breathingDuration = 60;
+  static const int _breathingDuration = 10; // 10 saniyelik nefes egzersizi
 
   // State Yönetimi
   int _timeRemaining = _workDuration;
@@ -39,7 +46,9 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProv
   @override
   void initState() {
     super.initState();
-    _breathingController = AnimationController(vsync: this, duration: 4.seconds)..repeat(reverse: true);
+    _breathingController =
+    AnimationController(vsync: this, duration: 4.seconds)
+      ..repeat(reverse: true);
   }
 
   @override
@@ -61,7 +70,7 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProv
   }
 
   void _handleStateChange({bool fromButton = false}) {
-    if (fromButton && _currentState != PomodoroState.idle) { // Reset
+    if (fromButton) { // Reset
       _timer?.cancel();
       setState(() => _currentState = PomodoroState.idle);
       return;
@@ -72,7 +81,7 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProv
         setState(() => _currentState = PomodoroState.selectingTask);
         _selectTask();
         break;
-      case PomodoroState.selectingTask: // Görev seçildikten sonra
+      case PomodoroState.selectingTask:
         setState(() {
           _currentState = PomodoroState.breathing;
           _timeRemaining = _breathingDuration;
@@ -87,7 +96,10 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProv
         _startTimer();
         break;
       case PomodoroState.working:
-        _saveSession(); // Çalışma seansını kaydet
+        _saveSession();
+        setState(() => _currentState = PomodoroState.feedback);
+        break;
+      case PomodoroState.feedback:
         setState(() {
           _currentState = PomodoroState.shortBreak;
           _timeRemaining = _breakDuration;
@@ -114,27 +126,37 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProv
   }
 
   Future<void> _selectTask() async {
-    final analysisData = ref.read(aiAnalysisProvider)?.data;
-    List<String> tasks = ["Genel Çalışma", "Konu Tekrarı"];
+    final user = ref.read(userProfileProvider).value;
+    List<String> tasks = ["Genel Çalışma", "Konu Tekrarı", "Soru Çözümü"];
 
-    if (analysisData != null && analysisData['weeklyPlan'] != null) {
-      final plan = WeeklyPlan.fromJson(analysisData['weeklyPlan']);
-      tasks.addAll(plan.plan.expand((day) => day.tasks));
+    if (user != null && user.weeklyPlan != null) {
+      final plan = WeeklyPlan.fromJson(user.weeklyPlan!);
+      final allTasks = plan.plan.expand((day) => day.tasks).toList();
+      tasks.addAll(allTasks);
     }
+    // Tekrarları kaldır
+    tasks = tasks.toSet().toList();
 
     final String? chosenTask = await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => _TaskSelectionSheet(tasks: tasks.toSet().toList()), // Tekrarları kaldır
+      builder: (context) => _TaskSelectionSheet(tasks: tasks),
     );
 
     if (chosenTask != null) {
       setState(() => _selectedTask = chosenTask);
       _handleStateChange();
     } else {
-      // Kullanıcı görev seçmeden kapattı, başa dön
       setState(() => _currentState = PomodoroState.idle);
+    }
+  }
+
+  void _handleFeedback(String feedbackType) {
+    if (feedbackType == 'test' || feedbackType == 'deneme') {
+      context.go('/home/add-test');
+    } else {
+      _handleStateChange();
     }
   }
 
@@ -142,55 +164,74 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProv
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Odaklanma Merkezi')),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _buildTimerDisplay(),
-            const SizedBox(height: 50),
-            _buildControlButton(),
-          ],
+      body: AnimatedContainer(
+        duration: 500.ms,
+        color: _getBackgroundColor(),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildTimerDisplay(),
+              _buildControlButton(),
+            ],
+          ),
         ),
       ),
     );
   }
 
+  Color _getBackgroundColor() {
+    switch (_currentState) {
+      case PomodoroState.working:
+        return AppTheme.primaryColor.withBlue(60);
+      case PomodoroState.shortBreak:
+        return AppTheme.successColor.withOpacity(0.2);
+      default:
+        return AppTheme.scaffoldBackgroundColor;
+    }
+  }
+
   Widget _buildTimerDisplay() {
     return Animate(
-      target: _currentState.index.toDouble(),
-      // BİLGEAI DEVRİMİ - DÜZELTME: `const` ifadesi, animasyon süresi gibi dinamik
-      // olabilecek bir extension method ile kullanılamayacağı için kaldırıldı.
-      effects: [FadeEffect(duration: 600.ms)],
-      child: Column(
-        children: [
-          if (_currentState == PomodoroState.breathing)
-            _buildBreathingCircle(),
-          if (_currentState == PomodoroState.working || _currentState == PomodoroState.shortBreak)
+      key: ValueKey(_currentState),
+      effects: [FadeEffect(duration: 600.ms), ScaleEffect(begin: const Offset(0.9, 0.9))],
+      child: switch (_currentState) {
+        PomodoroState.breathing => _buildBreathingCircle(),
+        PomodoroState.working ||
+        PomodoroState.shortBreak =>
             _buildProgressCircle(),
-          if (_currentState == PomodoroState.idle || _currentState == PomodoroState.selectingTask)
-            _buildIdleDisplay(),
-          const SizedBox(height: 20),
-          _buildStatusText(),
-        ],
-      ),
+        PomodoroState.feedback => _buildFeedbackView(),
+        _ => _buildIdleDisplay(),
+      },
     );
   }
+
   Widget _buildBreathingCircle() {
-    return FadeTransition(
-      opacity: CurvedAnimation(parent: _breathingController, curve: Curves.easeInOut),
-      child: ScaleTransition(
-        scale: Tween<double>(begin: 0.8, end: 1.0).animate(CurvedAnimation(parent: _breathingController, curve: Curves.easeInOut)),
-        child: Container(
-          width: 250,
-          height: 250,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [AppTheme.successColor.withOpacity(0.5), AppTheme.primaryColor.withOpacity(0.1)],
+    return Column(
+      children: [
+        FadeTransition(
+          opacity: CurvedAnimation(parent: _breathingController, curve: Curves.easeInOut),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                CurvedAnimation(parent: _breathingController, curve: Curves.easeInOut)),
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AppTheme.successColor.withOpacity(0.5),
+                    _getBackgroundColor().withOpacity(0.1)
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-      ),
+        const SizedBox(height: 20),
+        Text("Nefes Al... Nefes Ver...", style: Theme.of(context).textTheme.headlineSmall),
+      ],
     );
   }
 
@@ -199,76 +240,138 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProv
     final progress = 1.0 - (_timeRemaining / totalDuration);
     final color = _currentState == PomodoroState.working ? AppTheme.secondaryColor : AppTheme.successColor;
 
-    return SizedBox(
-      width: 250,
-      height: 250,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CircularProgressIndicator(
-            value: progress,
-            strokeWidth: 12,
-            backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-            strokeCap: StrokeCap.round,
+    return Column(
+      children: [
+        SizedBox(
+          width: 250,
+          height: 250,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              CircularProgressIndicator(
+                value: progress,
+                strokeWidth: 12,
+                backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
+                valueColor: AlwaysStoppedAnimation<Color>(color),
+                strokeCap: StrokeCap.round,
+              ),
+              Center(
+                child: Text(
+                  '${(_timeRemaining / 60).floor().toString().padLeft(2, '0')}:${(_timeRemaining % 60).toString().padLeft(2, '0')}',
+                  style: Theme.of(context).textTheme.displayLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
           ),
-          Center(
-            child: Text(
-              '${(_timeRemaining / 60).floor().toString().padLeft(2, '0')}:${(_timeRemaining % 60).toString().padLeft(2, '0')}',
-              style: Theme.of(context).textTheme.displayLarge?.copyWith(fontWeight: FontWeight.bold),
-            ),
+        ),
+        const SizedBox(height: 20),
+        Text(_selectedTask, style: Theme.of(context).textTheme.headlineSmall),
+      ],
+    );
+  }
+
+  Widget _buildIdleDisplay() {
+    return Column(
+      children: [
+        Container(
+          width: 250,
+          height: 250,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(color: AppTheme.lightSurfaceColor, width: 2),
+          ),
+          child: const Center(
+            child: Icon(Icons.play_arrow_rounded, size: 100, color: AppTheme.secondaryColor),
+          ),
+        ),
+        const SizedBox(height: 20),
+        Text("Başlamaya hazır mısın?", style: Theme.of(context).textTheme.headlineSmall),
+      ],
+    );
+  }
+
+  Widget _buildFeedbackView() {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.check_circle, color: AppTheme.successColor, size: 80),
+          const SizedBox(height: 24),
+          Text(
+            "Harika bir seans!",
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Bu 25 dakikada ne üzerine odaklandın?",
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.secondaryTextColor),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 32),
+          _buildFeedbackButton(
+            "Konu Çalıştım / Tekrar Yaptım",
+            Icons.menu_book,
+                () => _handleFeedback('konu'),
+          ),
+          const SizedBox(height: 16),
+          _buildFeedbackButton(
+            "Test Çözdüm / Deneme Analizi",
+            Icons.checklist,
+                () => _handleFeedback('test'),
+          ),
+          const SizedBox(height: 16),
+          _buildFeedbackButton(
+            "Deneme Çözdüm",
+            Icons.assignment,
+                () => _handleFeedback('deneme'),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildIdleDisplay() {
-    return Container(
-      width: 250,
-      height: 250,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.lightSurfaceColor, width: 2),
-      ),
-      child: const Center(
-        child: Icon(Icons.play_arrow_rounded, size: 100, color: AppTheme.secondaryColor),
-      ),
-    );
-  }
-
-  Widget _buildStatusText() {
-    String status;
-    String task = _selectedTask;
-    switch (_currentState) {
-      case PomodoroState.idle: status = "Başlamaya hazır mısın?"; break;
-      case PomodoroState.selectingTask: status = "Görev seçiliyor..."; break;
-      case PomodoroState.breathing: status = "Nefes Al... Nefes Ver..."; break;
-      case PomodoroState.working: status = task; break;
-      case PomodoroState.shortBreak: status = "Kısa bir mola."; break;
-    }
-    return Text(status, style: Theme.of(context).textTheme.headlineSmall);
-  }
-  Widget _buildControlButton() {
-    String text = "Başla";
-    IconData icon = Icons.play_arrow;
-    VoidCallback? onPressed = () => _handleStateChange();
-
-    if (_currentState != PomodoroState.idle && _currentState != PomodoroState.selectingTask) {
-      text = "Sıfırla";
-      icon = Icons.refresh;
-      onPressed = () => _handleStateChange(fromButton: true);
-    }
-    if (_currentState == PomodoroState.selectingTask) {
-      onPressed = null; // Görev seçilirken butonu devre dışı bırak
-    }
-
+  Widget _buildFeedbackButton(String text, IconData icon, VoidCallback onPressed) {
     return ElevatedButton.icon(
       onPressed: onPressed,
       icon: Icon(icon),
       label: Text(text),
       style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+        minimumSize: const Size(double.infinity, 50),
+        backgroundColor: AppTheme.lightSurfaceColor,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+    );
+  }
+
+  Widget _buildControlButton() {
+    String text = "Başla";
+    IconData icon = Icons.play_arrow;
+    VoidCallback? onPressed = () => _handleStateChange();
+
+    if (_currentState == PomodoroState.working || _currentState == PomodoroState.shortBreak) {
+      text = "Sıfırla";
+      icon = Icons.refresh;
+      onPressed = () => _handleStateChange(fromButton: true);
+    }
+    if (_currentState == PomodoroState.selectingTask || _currentState == PomodoroState.breathing || _currentState == PomodoroState.feedback) {
+      onPressed = null;
+    }
+
+    return Animate(
+      key: ValueKey(text),
+      effects: const [FadeEffect(), ScaleEffect()],
+      child: ElevatedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon),
+        label: Text(text),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
+          backgroundColor: AppTheme.secondaryColor,
+          foregroundColor: AppTheme.primaryColor,
+        ),
       ),
     );
   }
