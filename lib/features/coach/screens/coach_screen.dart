@@ -11,6 +11,19 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 class CoachScreen extends ConsumerWidget {
   const CoachScreen({super.key});
 
+  // Kullanıcının sınav türüne göre ilgili bölümleri ve dersleri tek bir listede toplar.
+  Map<String, List<SubjectTopic>> _getRelevantSubjects(UserModel user, Exam exam) {
+    final subjects = <String, List<SubjectTopic>>{};
+    final relevantSections = _getRelevantSectionsForUser(user, exam);
+
+    for (var section in relevantSections) {
+      section.subjects.forEach((subjectName, subjectDetails) {
+        subjects[subjectName] = subjectDetails.topics;
+      });
+    }
+    return subjects;
+  }
+
   List<ExamSection> _getRelevantSectionsForUser(UserModel user, Exam exam) {
     if (user.selectedExam == ExamType.lgs.name) {
       return exam.sections;
@@ -34,60 +47,80 @@ class CoachScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userProfileAsync = ref.watch(userProfileProvider);
-    final textTheme = Theme.of(context).textTheme;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Konu Takip Merkezi'),
-      ),
-      body: userProfileAsync.when(
-        data: (user) {
-          if (user == null || user.selectedExam == null) {
-            return const Center(child: Text('Lütfen önce profilden bir sınav seçin.'));
-          }
-
-          final examType = ExamType.values.byName(user.selectedExam!);
-          final exam = ExamData.getExamByType(examType);
-          final List<ExamSection> relevantSections = _getRelevantSectionsForUser(user, exam);
-
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text('Konu Hakimiyetin', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(
-                'Her konu için çözdüğün soru sayılarını girerek yapay zekanın hakimiyet seviyeni ölçmesini ve sana özel tavsiyeler vermesini sağla.',
-                style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
-              ),
-              const SizedBox(height: 20),
-              ...relevantSections.expand((section) {
-                return [
-                  if (relevantSections.length > 1)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
-                      child: Text(
-                        section.name,
-                        style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.secondaryColor),
-                      ),
-                    ),
-                  ...section.subjects.entries.map((subjectEntry) {
-                    final subjectName = subjectEntry.key;
-                    final subjectDetails = subjectEntry.value;
-                    return _buildSubjectExpansionTile(context, ref, user, subjectName, subjectDetails.topics)
-                        .animate().fadeIn(delay: 300.ms).slideY(begin: 0.1);
-                  })
-                ];
-              }),
-            ],
+    return userProfileAsync.when(
+      data: (user) {
+        if (user == null || user.selectedExam == null) {
+          return Scaffold(
+              appBar: AppBar(title: const Text('Hakimiyet Haritası')),
+              body: const Center(child: Text('Lütfen önce profilden bir sınav seçin.'))
           );
-        },
-        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-        error: (e, s) => Center(child: Text('Veriler yüklenirken bir hata oluştu: $e')),
+        }
+
+        final examType = ExamType.values.byName(user.selectedExam!);
+        final exam = ExamData.getExamByType(examType);
+        final subjects = _getRelevantSubjects(user, exam);
+
+        // Eğer hiç ders yoksa, boş bir ekran göster.
+        if (subjects.isEmpty) {
+          return Scaffold(
+              appBar: AppBar(title: const Text('Hakimiyet Haritası')),
+              body: const Center(child: Text('Bu sınav için konu bulunamadı.'))
+          );
+        }
+
+        // --- DEVRİMİN KALBİ: SEKMELİ YAPI ---
+        return DefaultTabController(
+          length: subjects.length,
+          child: Scaffold(
+            appBar: AppBar(
+              title: const Text('Hakimiyet Haritası'),
+              bottom: TabBar(
+                isScrollable: true,
+                tabs: subjects.keys.map((subjectName) => Tab(text: subjectName)).toList(),
+              ),
+            ),
+            body: TabBarView(
+              children: subjects.entries.map((entry) {
+                final subjectName = entry.key;
+                final topics = entry.value;
+                return _SubjectMapView(
+                  key: ValueKey(subjectName), // Her sekmenin durumunu korumak için
+                  user: user,
+                  subjectName: subjectName,
+                  topics: topics,
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+      loading: () => Scaffold(
+          appBar: AppBar(title: const Text('Hakimiyet Haritası')),
+          body: const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor))
+      ),
+      error: (e, s) => Scaffold(
+          appBar: AppBar(title: const Text('Hakimiyet Haritası')),
+          body: Center(child: Text('Veriler yüklenirken bir hata oluştu: $e'))
       ),
     );
   }
+}
 
-  Widget _buildSubjectExpansionTile(BuildContext context, WidgetRef ref, UserModel user, String subjectName, List<SubjectTopic> topics) {
+// Her bir dersin haritasını gösteren, kendi içinde kaydırılabilen widget
+class _SubjectMapView extends ConsumerWidget {
+  final UserModel user;
+  final String subjectName;
+  final List<SubjectTopic> topics;
+
+  const _SubjectMapView({
+    super.key,
+    required this.user,
+    required this.subjectName,
+    required this.topics,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final performances = user.topicPerformances[subjectName] ?? {};
     int totalQuestions = 0;
     int totalCorrect = 0;
@@ -97,95 +130,78 @@ class CoachScreen extends ConsumerWidget {
     });
     final double overallMastery = totalQuestions == 0 ? 0.0 : totalCorrect / totalQuestions;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ExpansionTile(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(subjectName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TweenAnimationBuilder<double>(
-                    duration: const Duration(milliseconds: 400),
-                    curve: Curves.easeInOut,
-                    tween: Tween<double>(begin: 0, end: overallMastery),
-                    builder: (context, value, child) => LinearProgressIndicator(
-                      value: value,
-                      backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
-                      color: Color.lerp(AppTheme.accentColor, AppTheme.successColor, value),
-                      borderRadius: BorderRadius.circular(8),
-                      minHeight: 8,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'Hakimiyet: %${(overallMastery * 100).toStringAsFixed(0)}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.secondaryTextColor),
-                ),
-              ],
-            ),
-          ],
-        ),
-        children: topics.map((topic) {
-          final performance = performances[topic.name] ?? TopicPerformanceModel();
-          final mastery = performance.questionCount == 0 ? 0.0 : (performance.correctCount / performance.questionCount);
-
-          return ListTile(
-            title: Text(topic.name, style: const TextStyle(color: AppTheme.textColor)),
-            subtitle: _buildMasteryBar(mastery, performance),
-            onTap: () {
-              _showPerformanceInputDialog(context, ref, user.id, subjectName, topic.name, performance);
-            },
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildMasteryBar(double mastery, TopicPerformanceModel performance) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4.0),
-      child: Row(
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 5,
-            child: LinearProgressIndicator(
-              value: mastery,
-              backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.3),
-              color: Color.lerp(AppTheme.accentColor, AppTheme.successColor, mastery),
-              borderRadius: BorderRadius.circular(4),
-            ),
+          // --- DEVRİM: GENEL DURUM RADARI ---
+          _buildMasteryHeader(context, overallMastery),
+          const SizedBox(height: 24),
+          // --- DEVRİM: CANLI KONU HÜCRELERİ ---
+          Wrap(
+            spacing: 10.0,
+            runSpacing: 10.0,
+            children: topics.map((topic) {
+              final performance = performances[topic.name] ?? TopicPerformanceModel();
+              return _TopicBubble(
+                topic: topic,
+                performance: performance,
+                onTap: () => _showPerformanceInputDialog(context, ref, user.id, subjectName, topic.name, performance),
+              ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.8, 0.8));
+            }).toList(),
           ),
-          const SizedBox(width: 8),
-          // BİLGEAI DEVRİMİ: İstatistikler artık daha detaylı gösteriliyor.
-          Expanded(
-            flex: 4,
-            child: Text(
-              'D:${performance.correctCount} Y:${performance.wrongCount} B:${performance.blankCount}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.secondaryTextColor),
-              overflow: TextOverflow.ellipsis,
-            ),
-          )
         ],
       ),
     );
   }
 
+  Widget _buildMasteryHeader(BuildContext context, double overallMastery) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Genel Hakimiyet',
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.secondaryTextColor),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
+                tween: Tween<double>(begin: 0, end: overallMastery),
+                builder: (context, value, child) => LinearProgressIndicator(
+                  value: value,
+                  backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
+                  color: Color.lerp(AppTheme.accentColor, AppTheme.successColor, value),
+                  borderRadius: BorderRadius.circular(8),
+                  minHeight: 12,
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Text(
+              '%${(overallMastery * 100).toStringAsFixed(0)}',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   void _showPerformanceInputDialog(BuildContext context, WidgetRef ref, String userId, String subject, String topic, TopicPerformanceModel currentPerformance) {
+    // Bu fonksiyon, önceki versiyonda olduğu gibi işlevini mükemmel şekilde yerine getirdiği için değiştirilmedi.
     final correctController = TextEditingController();
     final wrongController = TextEditingController();
     final blankController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
-    // BİLGEAI DEVRİMİ: Dialog içindeki state yönetimi için (örn: toggle butonu)
     showDialog(
       context: context,
       builder: (context) {
-        // true: Üzerine Ekle, false: Değiştir
         bool isAddingMode = true;
 
         return StatefulBuilder(
@@ -283,6 +299,57 @@ class CoachScreen extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+}
+
+
+// Yeni ve geliştirilmiş Konu Hücresi Widget'ı
+class _TopicBubble extends StatelessWidget {
+  final SubjectTopic topic;
+  final TopicPerformanceModel performance;
+  final VoidCallback onTap;
+
+  const _TopicBubble({
+    required this.topic,
+    required this.performance,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Analiz için en az 5 soru çözülmüş olmalı
+    final double mastery = performance.questionCount < 5 ? -1 : (performance.correctCount / performance.questionCount);
+
+    final Color color = switch(mastery) {
+      < 0 => AppTheme.lightSurfaceColor, // Veri Yetersiz
+      >= 0 && < 0.4 => AppTheme.accentColor,  // Zayıf
+      >= 0.4 && < 0.7 => AppTheme.secondaryColor, // Orta
+      _ => AppTheme.successColor, // Güçlü
+    };
+
+    final String tooltipMessage = mastery < 0
+        ? "${topic.name}\n(Analiz için daha fazla veri gir)"
+        : "${topic.name}\nHakimiyet: %${(mastery * 100).toStringAsFixed(0)}\nD:${performance.correctCount} Y:${performance.wrongCount} B:${performance.blankCount}";
+
+    return Tooltip(
+      message: tooltipMessage,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: color, width: 1.5)
+          ),
+          child: Text(
+            topic.name,
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+          ),
+        ),
+      ),
     );
   }
 }
