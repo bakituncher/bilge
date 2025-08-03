@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
-import 'package:bilge_ai/data/models/journal_entry_model.dart';
 import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
@@ -27,14 +26,6 @@ final testsProvider = StreamProvider.autoDispose<List<TestModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
     return ref.read(firestoreServiceProvider).getTestResults(user.uid);
-  }
-  return Stream.value([]);
-});
-
-final journalEntriesProvider = StreamProvider.autoDispose<List<JournalEntry>>((ref) {
-  final user = ref.watch(authControllerProvider).value;
-  if (user != null) {
-    return ref.read(firestoreServiceProvider).getJournalEntries(user.uid);
   }
   return Stream.value([]);
 });
@@ -69,7 +60,6 @@ class FirestoreService {
 
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
-  CollectionReference<Map<String, dynamic>> get _journalCollection => _firestore.collection('journal');
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
 
   Future<void> createUserProfile(User user, String name) async {
@@ -126,28 +116,6 @@ class FirestoreService {
         .map((snapshot) => snapshot.docs
         .map((doc) => TestModel.fromSnapshot(doc))
         .toList());
-  }
-
-  Future<void> saveJournalEntry(JournalEntry entry) async {
-    if (entry.id.isEmpty) {
-      await _journalCollection.add(entry.toJson());
-    } else {
-      await _journalCollection.doc(entry.id).update(entry.toJson());
-    }
-  }
-
-  Stream<List<JournalEntry>> getJournalEntries(String userId) {
-    return _journalCollection
-        .where('userId', isEqualTo: userId)
-        .orderBy('date', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-        .map((doc) => JournalEntry.fromSnapshot(doc))
-        .toList());
-  }
-
-  Future<void> deleteJournalEntry(String entryId) async {
-    await _journalCollection.doc(entryId).delete();
   }
 
   Future<void> updateUserStreak(String userId) async {

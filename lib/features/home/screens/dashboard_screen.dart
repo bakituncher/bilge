@@ -60,7 +60,7 @@ class DashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 _buildActionCenter(context),
                 const SizedBox(height: 24),
-                _buildDestinyScroll(context, ref), // YENİ GÜNLÜK GÖREV WIDGET'I
+                _buildDestinyScroll(context, ref),
               ].animate(interval: 80.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
             );
           },
@@ -68,18 +68,6 @@ class DashboardScreen extends ConsumerWidget {
           error: (e, s) => Center(child: Text("Bir hata oluştu: $e")),
         ),
       ),
-    );
-  }
-
-  Widget _buildStatsRow(double avgNet, double bestNet, int streak) {
-    return Row(
-      children: [
-        Expanded(child: _StatCard(icon: Icons.track_changes_rounded, value: avgNet.toStringAsFixed(1), label: 'Ortalama Net', color: Colors.blueAccent)),
-        const SizedBox(width: 12),
-        Expanded(child: _StatCard(icon: Icons.emoji_events_rounded, value: bestNet.toStringAsFixed(1), label: 'En Yüksek Net', color: Colors.amber)),
-        const SizedBox(width: 12),
-        Expanded(child: _StatCard(icon: Icons.local_fire_department_rounded, value: streak.toString(), label: 'Günlük Seri', color: Colors.orangeAccent)),
-      ],
     );
   }
 
@@ -95,9 +83,9 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
         IconButton(
-          icon: const Icon(Icons.menu_book_rounded, color: AppTheme.secondaryTextColor, size: 28),
-          tooltip: 'Başarı Günlüğüm',
-          onPressed: () => context.go('/home/journal'),
+          icon: const Icon(Icons.history_edu_rounded, color: AppTheme.secondaryTextColor, size: 28),
+          tooltip: 'Bilgelik Kütüphanesi',
+          onPressed: () => context.go('/library'),
         ),
       ],
     );
@@ -121,6 +109,18 @@ class DashboardScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStatsRow(double avgNet, double bestNet, int streak) {
+    return Row(
+      children: [
+        Expanded(child: _StatCard(icon: Icons.track_changes_rounded, value: avgNet.toStringAsFixed(1), label: 'Ortalama Net', color: Colors.blueAccent)),
+        const SizedBox(width: 12),
+        Expanded(child: _StatCard(icon: Icons.emoji_events_rounded, value: bestNet.toStringAsFixed(1), label: 'En Yüksek Net', color: Colors.amber)),
+        const SizedBox(width: 12),
+        Expanded(child: _StatCard(icon: Icons.local_fire_department_rounded, value: streak.toString(), label: 'Günlük Seri', color: Colors.orangeAccent)),
+      ],
     );
   }
 
@@ -232,7 +232,6 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  // --- BİN YILLIK UZMAN DOKUNUŞU: YENİ GÜNLÜK GÖREV BÖLÜMÜ ---
   Widget _buildDestinyScroll(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final user = ref.watch(userProfileProvider).value;
@@ -347,7 +346,6 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-// BİN YILLIK UZMAN DOKUNUŞU: YENİ GÖREV KARTI WIDGET'I
 class _DestinyTaskCard extends StatefulWidget {
   final String task;
   final bool isCompleted;
@@ -439,7 +437,6 @@ class _DestinyTaskCardState extends State<_DestinyTaskCard> {
     );
   }
 }
-
 
 class _StatCard extends StatelessWidget {
   final IconData icon;

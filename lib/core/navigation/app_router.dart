@@ -1,11 +1,9 @@
 // lib/core/navigation/app_router.dart
 import 'package:bilge_ai/data/models/test_model.dart';
-import 'package:bilge_ai/data/models/journal_entry_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/features/auth/screens/login_screen.dart';
 import 'package:bilge_ai/features/auth/screens/register_screen.dart';
 import 'package:bilge_ai/features/coach/screens/coach_screen.dart';
-import 'package:bilge_ai/features/coach/screens/subject_detail_screen.dart';
 import 'package:bilge_ai/features/home/screens/test_detail_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,8 +15,6 @@ import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'package:bilge_ai/features/home/screens/add_test_screen.dart';
 import 'package:bilge_ai/features/onboarding/screens/exam_selection_screen.dart';
-import 'package:bilge_ai/features/journal/screens/journal_screen.dart';
-import 'package:bilge_ai/features/journal/screens/add_edit_journal_screen.dart';
 import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
 import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
@@ -28,6 +24,7 @@ import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_
 import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart';
 import 'package:bilge_ai/features/coach/screens/update_topic_performance_screen.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
+import 'package:bilge_ai/features/home/screens/library_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -44,35 +41,27 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     redirect: (BuildContext context, GoRouterState state) {
       final authState = ref.read(authControllerProvider);
       final userProfileState = ref.read(userProfileProvider);
-
       final bool loggedIn = authState.value != null;
       final String location = state.matchedLocation;
 
       if (!loggedIn) {
         return location == '/login' || location == '/register' ? null : '/login';
       }
-
       if (userProfileState.isLoading) {
-        return null; // Yüklenirken bekle
+        return null;
       }
-
       if(userProfileState.hasValue && userProfileState.value != null) {
         final user = userProfileState.value!;
-        final onboardingCompleted = user.onboardingCompleted;
-        final examSelected = user.selectedExam != null && user.selectedExam!.isNotEmpty;
-
-        if (!onboardingCompleted) {
+        if (!user.onboardingCompleted) {
           return location == '/onboarding' ? null : '/onboarding';
         }
-        if (!examSelected) {
+        if (user.selectedExam == null || user.selectedExam!.isEmpty) {
           return location == '/exam-selection' ? null : '/exam-selection';
         }
-
         if (location == '/login' || location == '/register' || location == '/onboarding' || location == '/exam-selection') {
           return '/home';
         }
       }
-
       return null;
     },
     routes: [
@@ -80,6 +69,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/register', builder: (c, s) => const RegisterScreen()),
       GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
       GoRoute(path: '/exam-selection', builder: (c, s) => const ExamSelectionScreen()),
+      GoRoute(path: '/library', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const LibraryScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return ScaffoldWithNavBar(navigationShell: navigationShell);
@@ -107,20 +97,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     },
                   ),
                   GoRoute(path: 'pomodoro', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const PomodoroScreen()),
-                  GoRoute(
-                      path: 'journal',
-                      parentNavigatorKey: rootNavigatorKey,
-                      builder: (context, state) => const JournalScreen(),
-                      routes: [
-                        GoRoute(path: 'add', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const AddEditJournalScreen()),
-                        GoRoute(
-                            path: 'edit',
-                            parentNavigatorKey: rootNavigatorKey,
-                            builder: (context, state) {
-                              final entry = state.extra as JournalEntry;
-                              return AddEditJournalScreen(entry: entry);
-                            }),
-                      ]),
                 ]),
           ]),
           StatefulShellBranch(routes: [
@@ -128,13 +104,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 path: '/coach',
                 builder: (context, state) => const CoachScreen(),
                 routes: [
-                  GoRoute(
-                      path: 'subject-detail',
-                      parentNavigatorKey: rootNavigatorKey,
-                      builder: (context, state) {
-                        final subject = state.extra as String;
-                        return SubjectDetailScreen(subject: subject);
-                      }),
                   GoRoute(
                     path: 'update-topic-performance',
                     parentNavigatorKey: rootNavigatorKey,
