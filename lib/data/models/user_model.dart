@@ -109,7 +109,7 @@ class UserModel {
       'selectedExamSection': selectedExamSection,
       'testCount': testCount,
       'totalNetSum': totalNetSum,
-      // GÜNCELLENEN KOD: Artık `TopicPerformanceModel` içindeki `toMap` metodunu çağırarak
+      // GÜNCELLENEN KOD: Artık `TopicPerformanceModel` içindeki `toMap` metodunu çağırarak.
       // doğru şekilde JSON'a çevriliyor.
       'topicPerformances': topicPerformances.map(
             (subjectKey, topicMap) => MapEntry(
