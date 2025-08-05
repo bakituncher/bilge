@@ -1,6 +1,5 @@
 // lib/core/navigation/app_router.dart
 import 'package:bilge_ai/data/models/test_model.dart';
-import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/features/auth/screens/login_screen.dart';
 import 'package:bilge_ai/features/auth/screens/register_screen.dart';
@@ -26,7 +25,6 @@ import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart';
 import 'package:bilge_ai/features/coach/screens/update_topic_performance_screen.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/features/home/screens/library_screen.dart';
-import 'package:bilge_ai/features/strategic_planning/screens/command_center_screen.dart';
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -126,14 +124,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const AiHubScreen(),
                 routes: [
                   GoRoute(path: 'strategic-planning', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const StrategicPlanningScreen()),
-                  GoRoute(
-                    path: 'command-center',
-                    parentNavigatorKey: rootNavigatorKey,
-                    builder: (context, state) {
-                      final user = state.extra as UserModel;
-                      return CommandCenterScreen(user: user);
-                    },
-                  ),
                   GoRoute(path: 'weakness-workshop', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeaknessWorkshopScreen()),
                   GoRoute(path: 'motivation-chat', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const MotivationChatScreen()),
                 ]),
