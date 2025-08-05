@@ -128,7 +128,7 @@ class AiService {
     return _callGemini(prompt, expectJson: true);
   }
 
-  // YKS PROMPT GÜNCELLEMESİ - HATALI KISIM DÜZELTİLDİ
+  // YKS PROMPT GÜNCELLEMESİ - ARTIK YAPISAL VERİ İSTİYOR
   String _getYKSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson) {
     return """
       // KİMLİK:
@@ -156,7 +156,32 @@ class AiService {
 
       **JSON ÇIKTI FORMATI (BAŞKA HİÇBİR AÇIKLAMA OLMADAN, SADECE BU):**
       {
-        "longTermStrategy": "# YKS BİRİNCİLİK YEMİNİ: $daysUntilExam GÜNLÜK HAREKÂT PLANI\\n\\n## ⚔️ MOTTOMUZ: Başarı tesadüf değildir. Ter, disiplin ve fedakarlığın sonucudur. Rakiplerin uyurken sen tarih yazacaksın.\\n\\n## 1. AŞAMA: TEMEL HAKİMİYET ($daysUntilExam - ${daysUntilExam > 90 ? daysUntilExam - 60 : 30} Gün Arası)\\n- **AMAÇ:** TYT ve seçilen AYT alanındaki tüm ana konuların eksiksiz bir şekilde bitirilmesi ve her konudan en az 150 soru çözülerek temel oturtulması.\\n- **TAKTİK:** Her gün 1 TYT ve 1 AYT konusu bitirilecek. Günün yarısı konu çalışması, diğer yarısı ise sadece o gün öğrenilen konuların soru çözümü olacak. Hata analizi yapmadan uyumak yasaktır.\\n\\n## 2. AŞAMA: SERİ DENEME VE ZAYIFLIK İMHASI (${daysUntilExam > 90 ? daysUntilExam - 60 : 30} - 30 Gün Arası)\\n- **AMAÇ:** Deneme pratiği ile hız ve dayanıklılığı artırmak, en küçük zayıflıkları bile tespit edip yok etmek.\\n- **TAKTİK:** Haftada 2 Genel TYT, 1 Genel AYT denemesi. Kalan günlerde her dersten 2'şer branş denemesi çözülecek. Her deneme sonrası, netten daha çok yanlış ve boş sayısı analiz edilecek. Hata yapılan her konu, 100 soru ile cezalandırılacak.\\n\\n## 3. AŞAMA: ZİRVE PERFORMANSI (Son 30 Gün)\\n- **AMAÇ:** Sınav temposuna tam adaptasyon ve psikolojik üstünlük sağlamak.\\n- **TAKTİK:** Her gün 1 Genel Deneme (TYT/AYT sırayla). Sınav saatiyle birebir aynı saatte, aynı koşullarda yapılacak. Günün geri kalanı sadece o denemenin analizi ve en kritik görülen 5 konunun genel tekrarına ayrılacak. Yeni konu öğrenmek yasaktır.",
+        "longTermStrategy": {
+          "motto": "Başarı tesadüf değildir. Ter, disiplin ve fedakarlığın sonucudur. Rakiplerin uyurken sen tarih yazacaksın.",
+          "phases": [
+            {
+              "phaseNumber": 1,
+              "phaseTitle": "TEMEL HAKİMİYET (${daysUntilExam} - ${daysUntilExam > 90 ? daysUntilExam - 60 : 30} Gün Arası)",
+              "objective": "TYT ve seçilen AYT alanındaki tüm ana konuların eksiksiz bir şekilde bitirilmesi ve her konudan en az 150 soru çözülerek temelin oturtulması.",
+              "tactic": "Her gün 1 TYT ve 1 AYT konusu bitirilecek. Günün yarısı konu çalışması, diğer yarısı ise sadece o gün öğrenilen konuların soru çözümü olacak. Hata analizi yapmadan uyumak yasaktır.",
+              "exitCriteria": ["Tüm konular en az bir kez tekrarlandı", "Her konudan ortalama 150 soru çözüldü", "Konu hakimiyet haritasında %70 genel başarıya ulaşıldı"]
+            },
+            {
+              "phaseNumber": 2,
+              "phaseTitle": "SERİ DENEME VE ZAYIFLIK İMHASI (${daysUntilExam > 90 ? daysUntilExam - 60 : 30} - 30 Gün Arası)",
+              "objective": "Deneme pratiği ile hız ve dayanıklılığı artırmak, en küçük zayıflıkları bile tespit edip yok etmek.",
+              "tactic": "Haftada 2 Genel TYT, 1 Genel AYT denemesi. Kalan günlerde her dersten 2'şer branş denemesi çözülecek. Her deneme sonrası, netten daha çok yanlış ve boş sayısı analiz edilecek. Hata yapılan her konu, 100 soru ile cezalandırılacak.",
+              "exitCriteria": ["Haftalık deneme hedefine ulaşıldı", "En zayıf 10 konudaki hakimiyet %85'in üzerine çıkarıldı", "Ortalama deneme neti 15 puan artırıldı"]
+            },
+            {
+              "phaseNumber": 3,
+              "phaseTitle": "ZİRVE PERFORMANSI (Son 30 Gün)",
+              "objective": "Sınav temposuna tam adaptasyon ve psikolojik üstünlük sağlamak.",
+              "tactic": "Her gün 1 Genel Deneme (TYT/AYT sırayla). Sınav saatiyle birebir aynı saatte, aynı koşullarda yapılacak. Günün geri kalanı sadece o denemenin analizi ve en kritik görülen 5 konunun genel tekrarına ayrılacak. Yeni konu öğrenmek yasaktır.",
+              "exitCriteria": ["Sınav gününe kadar en az 20 genel deneme çözüldü", "Net ortalaması hedefe ulaştı veya hedefe çok yakın."]
+            }
+          ]
+        },
         "weeklyPlan": {
           "planTitle": "${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)}. HAFTA: SINIRLARI ZORLAMA",
           "strategyFocus": "Bu haftanın stratejisi: Zayıflıkların kökünü kazımak. Direnmek faydasız. Uygula.",
@@ -198,6 +223,7 @@ class AiService {
     """;
   }
 
+  // LGS PROMPT GÜNCELLEMESİ
   String _getLGSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson) {
     return """
       // KİMLİK:
@@ -223,7 +249,32 @@ class AiService {
 
       **JSON ÇIKTI FORMATI (AÇIKLAMA YOK, SADECE BU):**
       {
-        "longTermStrategy": "# LGS FETİH PLANI: $daysUntilExam GÜN\\n\\n## ⚔️ MOTTOMUZ: Başarı, en çok çalışanındır. Rakiplerin yorulunca sen başlayacaksın.\\n\\n## 1. AŞAMA: TEMEL HAKİMİYETİ (Kalan Gün > 90)\\n- **AMAÇ:** 8. Sınıf konularında tek bir eksik kalmayacak. Özellikle Matematik ve Fen Bilimleri'nde tam hakimiyet sağlanacak.\\n- **TAKTİK:** Her gün okuldan sonra en zayıf 2 konuyu bitir. Her konu için 70 yeni nesil soru çöz. Yanlışsız biten test, bitmiş sayılmaz; analizi yapılmış test bitmiş sayılır.\\n\\n## 2. AŞAMA: SORU CANAVARI (90 > Kalan Gün > 30)\\n- **AMAÇ:** Piyasada çözülmedik nitelikli yeni nesil soru bırakmamak.\\n- **TAKTİK:** Her gün 3 farklı dersten 50'şer yeni nesil soru. Her gün 2 branş denemesi.\\n\\n## 3. AŞAMA: ŞAMPİYONLUK PROVASI (Kalan Gün < 30)\\n- **AMAÇ:** Sınav gününü sıradanlaştırmak.\\n- **TAKTİK:** Her gün 1 LGS Genel Denemesi. Süre ve optik form ile. Sınav sonrası 3 saatlik analiz. Kalan zamanda nokta atışı konu imhası.",
+        "longTermStrategy": {
+           "motto": "Başarı, en çok çalışanındır. Rakiplerin yorulunca sen başlayacaksın.",
+           "phases": [
+              {
+                "phaseNumber": 1,
+                "phaseTitle": "TEMEL HAKİMİYET (Kalan Gün > 90)",
+                "objective": "8. Sınıf konularında tek bir eksik kalmayacak. Özellikle Matematik ve Fen Bilimleri'nde tam hakimiyet sağlanacak.",
+                "tactic": "Her gün okuldan sonra en zayıf 2 konuyu bitir. Her konu için 70 yeni nesil soru çöz. Yanlışsız biten test, bitmiş sayılmaz; analizi yapılmış test bitmiş sayılır.",
+                "exitCriteria": ["Tüm 8. sınıf konuları bitirildi", "Soru bankalarındaki testlerin %80'i çözüldü"]
+              },
+              {
+                "phaseNumber": 2,
+                "phaseTitle": "SORU CANAVARI (90 > Kalan Gün > 30)",
+                "objective": "Piyasada çözülmedik nitelikli yeni nesil soru bırakmamak ve soru tipi ezberlemek.",
+                "tactic": "Her gün 3 farklı dersten 50'şer yeni nesil soru. Her gün 2 branş denemesi ve detaylı analizi.",
+                "exitCriteria": ["Haftada en az 1000 yeni nesil soru çözüldü", "Net ortalaması %15 artırıldı"]
+              },
+              {
+                "phaseNumber": 3,
+                "phaseTitle": "ŞAMPİYONLUK PROVASI (Kalan Gün < 30)",
+                "objective": "Sınav gününü sıradanlaştırmak ve zaman yönetimini mükemmelleştirmek.",
+                "tactic": "Her gün 1 LGS Genel Denemesi. Süre ve optik form ile. Sınav sonrası 3 saatlik analiz. Kalan zamanda nokta atışı konu imhası.",
+                "exitCriteria": ["Tüm denemelerde süre sorunu ortadan kalktı", "Netler hedeflenen lisenin puanına ulaştı"]
+              }
+           ]
+        },
         "weeklyPlan": {
           "planTitle": "${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)}. HAFTA: DİSİPLİN KAMPI (LGS)",
           "strategyFocus": "Okul sonrası hayatın bu hafta iptal edildi. Tek odak: Zayıf konuların imhası.",
@@ -261,6 +312,7 @@ class AiService {
     """;
   }
 
+  // KPSS PROMPT GÜNCELLEMESİ
   String _getKPSSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson) {
     return """
       // KİMLİK:
@@ -286,7 +338,32 @@ class AiService {
 
       **JSON ÇIKTI FORMATI (AÇIKLAMA YOK, SADECE BU):**
       {
-        "longTermStrategy": "# KPSS ATANMA EMRİ: $daysUntilExam GÜN\\n\\n## ⚔️ MOTTOMUZ: Geleceğin, bugünkü çabanla şekillenir. Fedakarlık olmadan zafer olmaz.\\n\\n## 1. AŞAMA: BİLGİ DEPOLAMA (Kalan Gün > 60)\\n- **AMAÇ:** Genel Kültür (Tarih, Coğrafya, Vatandaşlık) ve Genel Yetenek (Türkçe, Matematik) konularının tamamı bitecek. Ezberler yapılacak.\\n- **TAKTİK:** Her gün 1 GK, 1 GY konusu bitirilecek. Her konu sonrası 80 soru. Her gün 30 paragraf, 30 problem rutini yapılacak.\\n\\n## 2. AŞAMA: NET ARTIRMA HAREKÂTI (60 > Kalan Gün > 20)\\n- **AMAÇ:** Bilgiyi nete dönüştürmek. Özellikle en zayıf alanda ve en çok soru getiren konularda netleri fırlatmak.\\n- **TAKTİK:** Her gün 2 farklı alandan (örn: Tarih, Matematik) branş denemesi. Bol bol çıkmış soru analizi. Hata yapılan konulara anında 100 soru ile müdahale.\\n\\n## 3. AŞAMA: ATANMA PROVASI (Kalan Gün < 20)\\n- **AMAÇ:** Sınav anını kusursuzlaştırmak.\\n- **TAKTİK:** İki günde bir 1 KPSS Genel Yetenek - Genel Kültür denemesi. Deneme sonrası 5 saatlik detaylı analiz. Aradaki gün, denemede çıkan eksik konuların tamamen imhası.",
+        "longTermStrategy": {
+          "motto": "Geleceğin, bugünkü çabanla şekillenir. Fedakarlık olmadan zafer olmaz.",
+          "phases": [
+            {
+              "phaseNumber": 1,
+              "phaseTitle": "BİLGİ DEPOLAMA (Kalan Gün > 60)",
+              "objective": "Genel Kültür (Tarih, Coğrafya, Vatandaşlık) ve Genel Yetenek (Türkçe, Matematik) konularının tamamı bitecek. Ezberler yapılacak.",
+              "tactic": "Her gün 1 GK, 1 GY konusu bitirilecek. Her konu sonrası 80 soru. Her gün 30 paragraf, 30 problem rutini yapılacak.",
+              "exitCriteria": ["Tüm konular en az bir kez çalışıldı", "Genel Kültür derslerinde %75 konu hakimiyetine ulaşıldı"]
+            },
+            {
+              "phaseNumber": 2,
+              "phaseTitle": "NET ARTIRMA HAREKÂTI (60 > Kalan Gün > 20)",
+              "objective": "Bilgiyi nete dönüştürmek. Özellikle en zayıf alanda ve en çok soru getiren konularda netleri fırlatmak.",
+              "tactic": "Her gün 2 farklı alandan (örn: Tarih, Matematik) branş denemesi. Bol bol çıkmış soru analizi. Hata yapılan konulara anında 100 soru ile müdahale.",
+              "exitCriteria": ["Her dersten en az 10 branş denemesi çözüldü", "Genel net ortalaması 10 puan artırıldı"]
+            },
+            {
+              "phaseNumber": 3,
+              "phaseTitle": "ATANMA PROVASI (Kalan Gün < 20)",
+              "objective": "Sınav anını kusursuzlaştırmak ve memuriyeti garantilemek.",
+              "tactic": "İki günde bir 1 KPSS Genel Yetenek - Genel Kültür denemesi. Deneme sonrası 5 saatlik detaylı analiz. Aradaki gün, denemede çıkan eksik konuların tamamen imhası.",
+              "exitCriteria": ["Çözülen son 5 denemenin ortalaması, hedef puanın üzerinde.", "Sınav süresini etkin kullanma becerisi kazanıldı"]
+            }
+          ]
+        },
         "weeklyPlan": {
           "planTitle": "${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)}. HAFTA: ADANMIŞLIK (KPSS)",
           "strategyFocus": "Bu hafta iş ve özel hayat bahaneleri bir kenara bırakılıyor. Tek odak atanmak. Plan tavizsiz uygulanacak.",

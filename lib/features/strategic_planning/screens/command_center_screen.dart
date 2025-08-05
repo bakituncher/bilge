@@ -3,15 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
-import 'package:flutter_markdown/flutter_markdown.dart';
-
-// Strateji metnini ayrıştırmak için bir model
-class StrategyPhase {
-  final String title;
-  final String content;
-
-  StrategyPhase({required this.title, required this.content});
-}
+import 'package:bilge_ai/features/strategic_planning/models/strategic_plan_model.dart';
 
 class CommandCenterScreen extends StatefulWidget {
   final UserModel user;
@@ -22,191 +14,183 @@ class CommandCenterScreen extends StatefulWidget {
 }
 
 class _CommandCenterScreenState extends State<CommandCenterScreen> {
-  List<StrategyPhase> _phases = [];
+  StrategicPlan? _plan;
+  int _currentPhaseIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _parseStrategy(widget.user.longTermStrategy);
-  }
-
-  void _parseStrategy(String? strategyText) {
-    if (strategyText == null || strategyText.isEmpty) return;
-
-    final lines = strategyText.split('\n');
-    final List<StrategyPhase> parsedPhases = [];
-    StringBuffer contentBuffer = StringBuffer();
-    String? currentTitle;
-
-    final headerRegex = RegExp(r'^(#+)\s(.*)');
-
-    for (var line in lines) {
-      final match = headerRegex.firstMatch(line.trim());
-
-      if (match != null) {
-        if (currentTitle != null) {
-          parsedPhases.add(StrategyPhase(title: currentTitle, content: contentBuffer.toString().trim()));
-        }
-        currentTitle = match.group(2)?.trim();
-        contentBuffer.clear();
-      } else if (currentTitle != null) {
-        contentBuffer.writeln(line);
-      }
+    if (widget.user.longTermStrategy != null) {
+      _plan = StrategicPlan.fromJson(widget.user.longTermStrategy!);
+      // Burada normalde kullanıcının ilerlemesine göre mevcut aşama belirlenir.
+      // Şimdilik ilk aşamayı aktif gösteriyoruz.
+      _currentPhaseIndex = 0;
     }
-
-    if (currentTitle != null) {
-      parsedPhases.add(StrategyPhase(title: currentTitle, content: contentBuffer.toString().trim()));
-    }
-
-    setState(() {
-      _phases = parsedPhases;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    if (_plan == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Komuta Merkezi")),
+        body: const Center(
+          child: Text("Harekat Planı yüklenemedi veya oluşturulmamış."),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Komuta Merkezi"),
+        title: const Text("Harekât Karargahı"),
       ),
-      body: _phases.isEmpty
-          ? _buildFallbackView(widget.user.longTermStrategy ?? "Strateji metni bulunamadı.")
-          : ListView.builder(
+      body: ListView(
         padding: const EdgeInsets.all(16.0),
-        itemCount: _phases.length,
-        itemBuilder: (context, index) {
-          final phase = _phases[index];
-          // İçeriği olmayan başlıkları (örn: Motto) normal bir kart olarak gösteriyoruz.
-          if (phase.content.isEmpty) {
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  phase.title,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontStyle: FontStyle.italic,
-                    color: AppTheme.secondaryTextColor,
-                  ),
-                ),
-              ),
-            ).animate().fadeIn(delay: (100 * index).ms).slideY(begin: 0.2);
-          }
-          // İçeriği olanları genişletilebilir kart olarak gösteriyoruz.
-          return _StrategyPhaseCard(
-            phase: phase,
-            // İlk anlamlı içeriği olan paneli başlangıçta açık yap
-            initiallyExpanded: index == _phases.indexWhere((p) => p.content.isNotEmpty),
-          ).animate().fadeIn(delay: (100 * index).ms).slideY(begin: 0.2);
-        },
-      ),
-    );
-  }
-
-  Widget _buildFallbackView(String rawStrategy) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
         children: [
-          const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 48),
-          const SizedBox(height: 16),
-          Text(
-            "Strateji Formatı Okunamadı",
-            style: Theme.of(context).textTheme.headlineSmall,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Stratejinin ham metnini aşağıda görebilirsin:",
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
-            textAlign: TextAlign.center,
-          ),
-          const Divider(height: 32),
-          MarkdownBody(data: rawStrategy),
-        ],
+          _buildCommanderProfile(textTheme),
+          const SizedBox(height: 24),
+          _buildMottoCard(textTheme),
+          const SizedBox(height: 24),
+          _buildPhasesStepper(textTheme),
+        ].animate(interval: 100.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
       ),
     );
   }
-}
 
-// Genişletilebilir Kart Widget'ı
-class _StrategyPhaseCard extends StatefulWidget {
-  final StrategyPhase phase;
-  final bool initiallyExpanded;
-
-  const _StrategyPhaseCard({
-    required this.phase,
-    this.initiallyExpanded = false,
-  });
-
-  @override
-  State<_StrategyPhaseCard> createState() => _StrategyPhaseCardState();
-}
-
-class _StrategyPhaseCardState extends State<_StrategyPhaseCard> {
-  late bool _isExpanded;
-
-  @override
-  void initState() {
-    super.initState();
-    _isExpanded = widget.initiallyExpanded;
-  }
-  IconData _getIconForPhase(String title) {
-    if (title.contains("AŞAMA: 1") || title.contains("AŞAMA") && title.contains("1") || title.contains("HAKİMİYET")) {
-      return Icons.foundation_rounded;
-    } else if (title.contains("AŞAMA: 2") || title.contains("AŞAMA") && title.contains("2") || title.contains("HÜCUM") || title.contains("CANAVARI")) {
-      return Icons.military_tech_rounded;
-    } else if (title.contains("AŞAMA: 3") || title.contains("AŞAMA") && title.contains("3") || title.contains("ZAFER") || title.contains("PROVASI")) {
-      return Icons.emoji_events_rounded;
-    } else if (title.contains("MOTTO")) {
-      return Icons.flag_rounded;
-    }
-    return Icons.insights_rounded;
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildCommanderProfile(TextTheme textTheme) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: () => setState(() => _isExpanded = !_isExpanded),
-        child: Column(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
           children: [
-            ListTile(
-              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              leading: Icon(_getIconForPhase(widget.phase.title), color: AppTheme.secondaryColor, size: 32),
-              title: Text(
-                widget.phase.title,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              trailing: Icon(
-                _isExpanded ? Icons.expand_less : Icons.expand_more,
-                color: AppTheme.secondaryTextColor,
+            CircleAvatar(
+              radius: 30,
+              backgroundColor: AppTheme.lightSurfaceColor,
+              child: Text(
+                widget.user.name?.substring(0, 1).toUpperCase() ?? 'B',
+                style: textTheme.headlineLarge?.copyWith(color: AppTheme.secondaryColor),
               ),
             ),
-            AnimatedSize(
-              duration: 300.ms,
-              curve: Curves.easeInOut,
-              child: Visibility(
-                visible: _isExpanded,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: MarkdownBody(
-                    data: widget.phase.content,
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                      p: const TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16, height: 1.5),
-                      listBullet: const TextStyle(color: AppTheme.textColor, fontSize: 16, height: 1.5),
-                      strong: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
-                ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.user.name ?? "İsimsiz Savaşçı", style: textTheme.titleLarge),
+                  const SizedBox(height: 4),
+                  Text("Rütbe: Kıdemli Stratejist", style: textTheme.bodyMedium?.copyWith(color: AppTheme.successColor)),
+                ],
               ),
             ),
+            const Icon(Icons.shield_moon_rounded, color: AppTheme.secondaryColor, size: 40),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildMottoCard(TextTheme textTheme) {
+    return Card(
+      color: AppTheme.primaryColor.withOpacity(0.5),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Text(
+          '"${_plan!.motto}"',
+          textAlign: TextAlign.center,
+          style: textTheme.titleMedium?.copyWith(
+            fontStyle: FontStyle.italic,
+            color: AppTheme.secondaryTextColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhasesStepper(TextTheme textTheme) {
+    return Stepper(
+      currentStep: _currentPhaseIndex,
+      onStepTapped: (step) => setState(() => _currentPhaseIndex = step),
+      controlsBuilder: (context, details) => const SizedBox.shrink(),
+      physics: const ClampingScrollPhysics(),
+      steps: _plan!.phases.map((phase) {
+        return Step(
+          title: Text(phase.phaseTitle, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          subtitle: const Text("Aşama Detayları"),
+          state: _currentPhaseIndex > phase.phaseNumber -1 ? StepState.complete :
+          _currentPhaseIndex == phase.phaseNumber -1 ? StepState.indexed : StepState.disabled,
+          isActive: _currentPhaseIndex >= phase.phaseNumber - 1,
+          content: _buildPhaseContent(phase, textTheme),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildPhaseContent(StrategyPhase phase, TextTheme textTheme) {
+    return Card(
+      color: Colors.transparent,
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow(Icons.flag_circle_rounded, "AMAÇ:", phase.objective, AppTheme.secondaryColor),
+            const Divider(height: 24),
+            _buildDetailRow(Icons.military_tech_rounded, "TAKTİK:", phase.tactic, AppTheme.successColor),
+            if (phase.exitCriteria.isNotEmpty) ...[
+              const Divider(height: 24),
+              _buildExitCriteria(phase.exitCriteria, textTheme),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String title, String content, Color color) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(content, style: TextStyle(color: AppTheme.secondaryTextColor, height: 1.5)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExitCriteria(List<String> criteria, TextTheme textTheme) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.exit_to_app_rounded, color: AppTheme.accentColor, size: 20),
+            const SizedBox(width: 12),
+            Text("AŞAMA BİTİŞ KRİTERLERİ:", style: TextStyle(color: AppTheme.accentColor, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        const SizedBox(height: 8),
+        ...criteria.map((criterion) => Padding(
+          padding: const EdgeInsets.only(left: 32.0, bottom: 8.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("• ", style: TextStyle(color: AppTheme.secondaryTextColor)),
+              Expanded(child: Text(criterion, style: TextStyle(color: AppTheme.secondaryTextColor, height: 1.5))),
+            ],
+          ),
+        )).toList(),
+      ],
     );
   }
 }
