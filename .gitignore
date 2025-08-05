@@ -37,6 +37,9 @@ lib/core/config/app_config.dart
 .pub/
 /build/
 
+# YENİ EKLENEN EMİR: pubspec.lock dosyası artık takip edilmeyecek.
+pubspec.lock
+
 # iOS/Cocoapods
 /ios/Pods/
 /ios/Podfile.lock
