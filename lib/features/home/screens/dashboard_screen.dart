@@ -242,11 +242,15 @@ class DashboardScreen extends ConsumerWidget {
     DailyPlan? todaysPlan;
     if (user?.weeklyPlan != null) {
       final plan = WeeklyPlan.fromJson(user!.weeklyPlan!);
-      todaysPlan = plan.plan.firstWhere((p) => p.day == dayOfWeek, orElse: () => DailyPlan(day: dayOfWeek, tasks: []));
+      todaysPlan = plan.plan.firstWhere((p) => p.day.toLowerCase() == dayOfWeek.toLowerCase(), orElse: () => DailyPlan(day: dayOfWeek, schedule: []));
     }
 
     final completedTasksToday = user?.completedDailyTasks[todayKey] ?? [];
-    final totalTasks = todaysPlan?.tasks.length ?? 0;
+
+    // ** KESİN ÇÖZÜM: Artık doğrudan 'schedule' listesiyle çalışıyoruz. 'tasks' veya 'toString()' gibi eski yapılar yok. **
+    final totalTasks = todaysPlan?.schedule.length ?? 0;
+
+    // Tamamlanan görevleri sayarken, benzersiz tanımlayıcıları kullanıyoruz.
     final completedCount = completedTasksToday.length;
     final progress = totalTasks > 0 ? completedCount / totalTasks : 0.0;
 
@@ -262,19 +266,23 @@ class DashboardScreen extends ConsumerWidget {
               children: [
                 _buildProgressHeader(context, progress, completedCount, totalTasks),
                 const Divider(height: 32, color: AppTheme.lightSurfaceColor),
-                if (todaysPlan == null || todaysPlan.tasks.isEmpty)
+                if (todaysPlan == null || todaysPlan.schedule.isEmpty)
                   _buildRestPrompt(context, isPlanGenerated: user?.weeklyPlan != null)
                 else
-                  ...todaysPlan.tasks.map((task) {
-                    final isCompleted = completedTasksToday.contains(task);
+                // ** KESİN ÇÖZÜM: 'todaysPlan.schedule' listesi üzerinden dönüyoruz. **
+                  ...todaysPlan.schedule.map((scheduleItem) {
+                    // ** KESİN ÇÖZÜM: Her görev için benzersiz bir kimlik oluşturuyoruz. **
+                    final taskIdentifier = "${scheduleItem.time}-${scheduleItem.activity}";
+                    final isCompleted = completedTasksToday.contains(taskIdentifier);
+
                     return _DestinyTaskCard(
-                      task: task,
+                      item: scheduleItem, // ** KESİN ÇÖZÜM: Artık tüm görev objesini iletiyoruz. **
                       isCompleted: isCompleted,
                       onToggle: () {
                         ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
                           userId: user!.id,
                           dateKey: todayKey,
-                          task: task,
+                          task: taskIdentifier, // ** KESİN ÇÖZÜM: Benzersiz kimliği kullanıyoruz. **
                           isCompleted: !isCompleted,
                         );
                       },
@@ -347,12 +355,13 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 class _DestinyTaskCard extends StatefulWidget {
-  final String task;
+  // ** KESİN ÇÖZÜM: Artık 'String task' yerine 'ScheduleItem item' alıyor. **
+  final ScheduleItem item;
   final bool isCompleted;
   final VoidCallback onToggle;
 
   const _DestinyTaskCard({
-    required this.task,
+    required this.item,
     required this.isCompleted,
     required this.onToggle,
   });
@@ -396,8 +405,9 @@ class _DestinyTaskCardState extends State<_DestinyTaskCard> {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
+                    // ** KESİN ÇÖZÜM: Artık hem saati hem de aktiviteyi gösteriyor. **
                     child: _buildRichTextFromMarkdown(
-                      widget.task,
+                      "**${widget.item.time}:** ${widget.item.activity}",
                       baseStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: widget.isCompleted ? AppTheme.secondaryTextColor : Colors.white,
                         decoration: widget.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,

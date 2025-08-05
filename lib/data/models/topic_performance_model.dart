@@ -22,6 +22,7 @@ class TopicPerformanceModel {
     );
   }
 
+  // YENİ EKLENEN KOD: Bu metot, nesnenin JSON'a çevrilmesini sağlar.
   Map<String, dynamic> toMap() {
     return {
       'questionCount': questionCount,

@@ -67,7 +67,7 @@ class AppTheme {
     ),
     elevatedButtonTheme: ElevatedButtonThemeData(style: _buttonStyle),
     inputDecorationTheme: _inputDecorationTheme,
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       elevation: 0,
       color: cardColor,
       shape: RoundedRectangleBorder(

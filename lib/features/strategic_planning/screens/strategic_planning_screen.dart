@@ -111,7 +111,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
                 loading: () => const CircularProgressIndicator(color: AppTheme.secondaryColor),
                 error: (e,s) => Column(
                   children: [
-                    Text("Hata: $e", style: const TextStyle(color: AppTheme.accentColor)),
+                    Text("Hata: ${e.toString()}", style: const TextStyle(color: AppTheme.accentColor)),
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(),
@@ -174,7 +174,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          Text("Bu Haftanın Harekat Planı", style: Theme.of(context).textTheme.headlineSmall),
+          Text(plan?.planTitle ?? "Bu Haftanın Harekat Planı", style: Theme.of(context).textTheme.headlineSmall),
           const SizedBox(height: 8),
           if (plan != null)
             Card(
@@ -183,18 +183,51 @@ class StrategicPlanningScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(plan.strategyFocus, style: const TextStyle(fontStyle: FontStyle.italic, color: AppTheme.secondaryTextColor)),
+                    Text(plan.strategyFocus, style: const TextStyle(fontStyle: FontStyle.italic, color: AppTheme.secondaryTextColor, fontSize: 16)),
                     const Divider(height: 24, color: AppTheme.lightSurfaceColor),
-                    ...plan.plan.map((d) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(d.day, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16)),
-                          ...d.tasks.map((t) => Text("- $t", style: const TextStyle(color: AppTheme.textColor, height: 1.5)))
-                        ],
-                      ),
-                    ))
+                    // DEVRİM GÜNCELLEMESİ: Artık ultra detaylı planı gösterecek yapı.
+                    ...plan.plan.map((dailyPlan) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              dailyPlan.day,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.secondaryColor, fontSize: 18),
+                            ),
+                            const SizedBox(height: 8),
+                            if (dailyPlan.schedule.isNotEmpty)
+                              ...dailyPlan.schedule.map((item) {
+                                return Padding(
+                                  padding: const EdgeInsets.only(left: 8.0, bottom: 4.0),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "${item.time}:",
+                                        style: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          item.activity,
+                                          style: const TextStyle(color: AppTheme.secondaryTextColor, height: 1.4),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList()
+                            else
+                              Text(
+                                dailyPlan.rawScheduleString ?? "Bu gün için özel bir görev belirtilmemiş.",
+                                style: const TextStyle(color: AppTheme.secondaryTextColor, fontStyle: FontStyle.italic),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
                   ],
                 ),
               ),

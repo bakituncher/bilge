@@ -127,7 +127,9 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProv
     List<String> tasks = ["Genel Çalışma", "Konu Tekrarı", "Soru Çözümü"];
     if (user?.weeklyPlan != null) {
       final plan = WeeklyPlan.fromJson(user!.weeklyPlan!);
-      tasks.addAll(plan.plan.expand((day) => day.tasks));
+      // ** HATA DÜZELTİLDİ: Artık eski '.tasks' yerine yeni ve güçlü '.schedule' yapısını kullanıyoruz. **
+      // Her günün programındaki her bir aktiviteyi (ScheduleItem.activity) alıp listeye ekliyoruz.
+      tasks.addAll(plan.plan.expand((day) => day.schedule.map((item) => item.activity)));
     }
     tasks = tasks.toSet().toList();
 
@@ -327,7 +329,7 @@ class _TaskSelectionSheet extends StatelessWidget {
               child: ListView.builder(
                 controller: controller,
                 itemCount: tasks.length,
-                itemBuilder: (context, index) => ListTile(title: Text(tasks[index]), onTap: () => Navigator.of(context).pop(tasks[index])),
+                itemBuilder: (context, index) => ListTile(title: Text(tasks[index], maxLines: 2, overflow: TextOverflow.ellipsis,), onTap: () => Navigator.of(context).pop(tasks[index])),
               ),
             ),
           ],
