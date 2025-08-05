@@ -6,8 +6,6 @@ import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
-final selectedExamProvider = StateProvider<ExamType?>((ref) => null);
-
 class ExamSelectionScreen extends ConsumerWidget {
   const ExamSelectionScreen({super.key});
 
@@ -15,23 +13,19 @@ class ExamSelectionScreen extends ConsumerWidget {
     final exam = ExamData.getExamByType(examType);
     final userId = ref.read(authControllerProvider).value!.uid;
 
-    if (examType == ExamType.lgs || exam.sections.length == 1) {
+    // Eğer sınav LGS veya KPSS gibi tek bölümlüyse, direkt kaydet.
+    // GoRouter yönlendirmeyi otomatik olarak halledecek.
+    if (exam.sections.length == 1) {
       await ref.read(firestoreServiceProvider).saveExamSelection(
         userId: userId,
         examType: examType,
         sectionName: exam.sections.first.name,
       );
-
-      // ✅ GÜVENLİK DÜZELTMESİ: İşlem bittikten sonra widget'ın hala "canlı" olup olmadığını kontrol et.
-      // Bu, "Cannot use 'ref' after the widget was disposed" hatasını çözer.
-      if (context.mounted) {
-        // ignore: unused_result
-        ref.refresh(userProfileProvider);
-      }
       return;
     }
 
-    final bool? selectionMade = await showModalBottomSheet<bool>(
+    // YKS gibi çok bölümlü sınavlar için seçim menüsünü göster.
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
@@ -48,17 +42,30 @@ class ExamSelectionScreen extends ConsumerWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                ...exam.sections.map(
+                ...exam.sections
+                // TYT'yi listeden çıkarıyoruz çünkü o zaten seçili alanla birlikte geliyor.
+                    .where((section) => section.name != 'TYT')
+                    .map(
                       (section) => Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: ElevatedButton(
                       onPressed: () async {
+                        // **NİHAİ DÜZELTME: SADECE VERİTABANINI GÜNCELLE**
+                        // Artık Navigator.pop() komutu KULLANMIYORUZ.
+                        // Bu, GoRouter ile olan çakışmayı %100 engeller.
+                        // GoRouter, yönlendirmeyi yaparken bu menüyü kendi kapatacak.
                         await ref.read(firestoreServiceProvider).saveExamSelection(
                           userId: userId,
                           examType: examType,
                           sectionName: section.name,
                         );
-                        Navigator.of(ctx).pop(true);
+
+                        // Gerekirse menüyü yine de kapatmak için bu satır kullanılabilir,
+                        // ama en güvenlisi GoRouter'a bırakmaktır. Test için bu satırı
+                        // yorumdan çıkarabilirsiniz.
+                        // if (ctx.mounted) {
+                        //    Navigator.of(ctx).pop();
+                        // }
                       },
                       child: Text(section.name),
                     ),
@@ -70,12 +77,6 @@ class ExamSelectionScreen extends ConsumerWidget {
         );
       },
     );
-
-    // ✅ GÜVENLİK DÜZELTMESİ: Aynı kontrol burada da geçerli.
-    if (selectionMade == true && context.mounted) {
-      // ignore: unused_result
-      ref.refresh(userProfileProvider);
-    }
   }
 
   @override

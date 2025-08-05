@@ -1,13 +1,18 @@
 // lib/core/navigation/app_router.dart
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+
+// ... Diğer tüm importlarınız ...
 import 'package:bilge_ai/data/models/test_model.dart';
+import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/features/auth/screens/login_screen.dart';
 import 'package:bilge_ai/features/auth/screens/register_screen.dart';
 import 'package:bilge_ai/features/coach/screens/coach_screen.dart';
 import 'package:bilge_ai/features/home/screens/test_detail_screen.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/features/onboarding/screens/onboarding_screen.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/home/screens/dashboard_screen.dart';
@@ -25,43 +30,74 @@ import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart';
 import 'package:bilge_ai/features/coach/screens/update_topic_performance_screen.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/features/home/screens/library_screen.dart';
+import 'package:bilge_ai/features/strategic_planning/screens/command_center_screen.dart';
 
+
+// 1. ADIM: GoRouter'ı state değişikliklerinden haberdar edecek bir Notifier oluştur.
+class GoRouterNotifier extends ChangeNotifier {
+  final Ref _ref;
+  // HATA GİDERİLDİ: Değişken tipleri 'ProviderSubscription' olarak düzeltildi.
+  late final ProviderSubscription _authSubscription;
+  late final ProviderSubscription _userProfileSubscription;
+
+  GoRouterNotifier(this._ref) {
+    _authSubscription = _ref.listen<AsyncValue<User?>>(authControllerProvider, (_, __) => notifyListeners());
+    _userProfileSubscription = _ref.listen<AsyncValue<UserModel?>>(userProfileProvider, (_, __) => notifyListeners());
+  }
+
+  @override
+  void dispose() {
+    // HATA GİDERİLDİ: ProviderSubscription'lar .cancel() ile değil, .close() ile kapatılır.
+    _authSubscription.close();
+    _userProfileSubscription.close();
+    super.dispose();
+  }
+}
+
+// 2. ADIM: GoRouter Provider'ını bu yeni Notifier'ı kullanacak şekilde güncelle.
 final goRouterProvider = Provider<GoRouter>((ref) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-  final listenable = ValueNotifier<bool>(false);
-  ref.listen(authControllerProvider, (_, __) => listenable.value = !listenable.value);
-  ref.listen(userProfileProvider, (_, __) => listenable.value = !listenable.value);
+  final notifier = GoRouterNotifier(ref);
+  ref.onDispose(() => notifier.dispose());
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: '/login',
     debugLogDiagnostics: true,
-    refreshListenable: listenable,
+    refreshListenable: notifier,
     redirect: (BuildContext context, GoRouterState state) {
       final authState = ref.read(authControllerProvider);
       final userProfileState = ref.read(userProfileProvider);
-      final bool loggedIn = authState.value != null;
-      final String location = state.matchedLocation;
+
+      if (authState.isLoading || userProfileState.isLoading) {
+        return null;
+      }
+
+      final bool loggedIn = authState.valueOrNull != null;
+      final user = userProfileState.valueOrNull;
+      final location = state.matchedLocation;
 
       if (!loggedIn) {
         return location == '/login' || location == '/register' ? null : '/login';
       }
-      if (userProfileState.isLoading) {
+
+      if (user == null) {
         return null;
       }
-      if(userProfileState.hasValue && userProfileState.value != null) {
-        final user = userProfileState.value!;
-        if (!user.onboardingCompleted) {
-          return location == '/onboarding' ? null : '/onboarding';
-        }
-        if (user.selectedExam == null || user.selectedExam!.isEmpty) {
-          return location == '/exam-selection' ? null : '/exam-selection';
-        }
-        if (location == '/login' || location == '/register' || location == '/onboarding' || location == '/exam-selection') {
-          return '/home';
-        }
+
+      if (!user.onboardingCompleted) {
+        return location == '/onboarding' ? null : '/onboarding';
       }
+
+      if (user.selectedExam == null || user.selectedExam!.isEmpty) {
+        return location == '/exam-selection' ? null : '/exam-selection';
+      }
+
+      if (location == '/login' || location == '/register' || location == '/onboarding' || location == '/exam-selection') {
+        return '/home';
+      }
+
       return null;
     },
     routes: [
@@ -124,6 +160,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const AiHubScreen(),
                 routes: [
                   GoRoute(path: 'strategic-planning', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const StrategicPlanningScreen()),
+                  GoRoute(
+                    path: 'command-center',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final user = state.extra as UserModel;
+                      return CommandCenterScreen(user: user);
+                    },
+                  ),
                   GoRoute(path: 'weakness-workshop', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeaknessWorkshopScreen()),
                   GoRoute(path: 'motivation-chat', parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const MotivationChatScreen()),
                 ]),
