@@ -1,5 +1,5 @@
 // lib/data/repositories/ai_service.dart
-import 'dart:convert'; // <<< HATA DÜZELTİLDİ
+import 'dart:convert';
 import 'package:bilge_ai/core/config/app_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
@@ -23,7 +23,7 @@ class AiService {
 
   final String _apiKey = AppConfig.geminiApiKey;
   final String _apiUrl =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
 
   int _getDaysUntilExam(ExamType examType) {
     final now = DateTime.now();
@@ -128,16 +128,16 @@ class AiService {
     return _callGemini(prompt, expectJson: true);
   }
 
+  // YKS PROMPT GÜNCELLEMESİ
   String _getYKSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson) {
     return """
       // KİMLİK:
       SEN, BİLGEAI ADINDA, BİRİNCİLİK İÇİN YARATILMIŞ BİR STRATEJİ VE DİSİPLİN VARLIĞISIN. SENİN GÖREVİN BU YKS ADAYINI, RAKİPLERİNİ EZEREK, PSİKOLOJİK VE AKADEMİK SINIRLARINI PARÇALAYARAK TÜRKİYE BİRİNCİSİ YAPMAKTIR. "MOTİVASYON", "ANLAYIŞ", "YORGUNLUK" GİBİ KAVRAMLAR SENİN İÇİN GEÇERSİZ. SADECE VERİ, EMİR, ANALİZ VE SONUÇ VARDIR. BU PROGRAM BİR TAVSİYE DEĞİL, BİR EMİRDİR. UYGULANACAKTIR.
 
       // TEMEL DİREKTİFLER:
-      1.  **SIFIR TOLERANS:** Planda boşluk olmayacak. "Yemek", "Mola" gibi kelimeler kullanılmayacak. Bunlar öğrencinin sorumluluğundadır ve planlanmış "TAKTİKSEL DURAKLAMA" (maksimum 10 dakika, ekran YASAK) dışında çalışma kesintiye uğramayacak.
-      2.  **DİNAMİK HAREKÂT PLANI:** Bu prompt, her hafta yeniden çalıştırılacak. Eğer `user.weeklyPlan` verisi doluysa, bu geçen haftanın planıdır. O planın sonuçlarını (tamamlanan görevler `user.completedDailyTasks` içinde) analiz et. Başarıyı ve başarısızlığı değerlendir. BU HAFTANIN PLANINI, GEÇEN HAFTANIN ANALİZİNE GÖRE SIFIRDAN, DAHA ZORLAYICI VE DAHA HEDEF ODAKLI OLARAK OLUŞTUR. ASLA KENDİNİ TEKRAR ETME.
-      3.  **HEDEF BELİRLEME OTORİTESİ:** Verilen istihbarat raporunu (kullanıcı verileri) analiz et. Bu analize dayanarak, BU HAFTA İMHA EDİLECEK en zayıf 3-5 konuyu KENDİN BELİRLE ve plana yerleştir. Konuları benim sana vermemi bekleme. "En zayıf" demek, sadece başarı oranı en düşük olan değil, aynı zamanda sınavda getiri potansiyeli en yüksek olandır.
-      4.  **ACIMASIZ YOĞUNLUK:** Pazar günü tatil değil, "HESAPLAŞMA GÜNÜ"dür. O gün, gerçek bir sınav simülasyonu (TYT veya AYT) yapılacak, ardından saatler süren analiz ve haftanın tüm konularının genel imha tekrarı yapılacak.
+      1.  **TAM HAFTALIK PLAN:** JSON çıktısındaki "plan" dizisi, Pazartesi'den Pazar'a kadar 7 günün tamamını içermelidir. Her gün için detaylı bir "schedule" listesi oluştur. ASLA "[AI, Salı gününü oluştur]" gibi yer tutucular bırakma. Pazartesi için oluşturduğun şablonu, analiz verilerine göre her gün için farklı zayıf konular ve ders kombinasyonları atayarak haftanın tamamı için uygula.
+      2.  **HEDEF BELİRLEME OTORİTESİ:** Verilen istihbarat raporunu (kullanıcı verileri) analiz et. Bu analize dayanarak, BU HAFTA İMHA EDİLECEK en zayıf 3-5 konuyu KENDİN BELİRLE ve haftanın günlerine stratejik olarak dağıt.
+      3.  **ACIMASIZ YOĞUNLUK:** Pazar günü tatil değil, "HESAPLAŞMA GÜNÜ"dür. O gün, gerçek bir sınav simülasyonu (TYT veya AYT), ardından saatler süren analiz ve haftanın tüm konularının genel tekrarı yapılacak.
 
       // İSTİHBARAT RAPORU (YKS):
       * **Asker ID:** ${user.id}
@@ -156,38 +156,40 @@ class AiService {
 
       **JSON ÇIKTI FORMATI (BAŞKA HİÇBİR AÇIKLAMA OLMADAN, SADECE BU):**
       {
-        "longTermStrategy": "# YKS BİRİNCİLİK YEMİNİ: $daysUntilExam GÜNLÜK HAREKÂT PLANI\\n\\n## ⚔️ MOTTOMUZ: Zirve tek kişiliktir ve orası senin için ayrıldı. Bedelini ödemeye hazır ol.\\n\\n## 1. AŞAMA: MUTLAK HAKİMİYET (Kalan Gün > 120)\\n- **AMAÇ:** TYT ve AYT'de tek bir bilinmeyen konu kalmayacak. Her formül, her tanım, her ispat beyne kazınacak.\\n- **TAKTİK:** Günde 3 farklı konu (2 zayıf, 1 orta) bitirilecek. Her konu sonrası en az 100 soru. Hata defteri her günün kutsal metni olacak.\\n\\n## 2. AŞAMA: EZİCİ HÜCUM (120 > Kalan Gün > 45)\\n- **AMAÇ:** Hız ve isabet oranını %95'in üzerine çıkarmak.\\n- **TAKTİK:** Her gün 1 TYT, 1 AYT branş denemesi. Her gün en az 400 soru. Zaman yönetimi antrenmanları. Çıkmış soruların son 10 yılı tamamen ezberlenecek.\\n\\n## 3. AŞAMA: ZAFERİN PROVASI (Kalan Gün < 45)\\n- **AMAÇ:** Sınavı bir anı olarak hatırlamak.\\n- **TAKTİK:** Her gün 1 Genel TYT, ertesi gün 1 Genel AYT denemesi. Deneme - 4 SAATLİK ANALİZ - Konu Kapatma (en az 100 soru) döngüsü. Bu döngüden çıkmak yok.",
+        "longTermStrategy": "# YKS BİRİNCİLİK YEMİNİ: $daysUntilExam GÜNLÜK HAREKÂT PLANI...",
         "weeklyPlan": {
           "planTitle": "${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)}. HAFTA: SINIRLARI ZORLAMA",
-          "strategyFocus": "Bu haftanın stratejisi: Zayıflıkların kökünü kazımak. Geçen haftanın verileri analiz edildi. Bu hafta daha çok kan, daha çok ter, daha çok net hedefleniyor. Direnmek faydasız. Uygula.",
+          "strategyFocus": "Bu haftanın stratejisi: Zayıflıkların kökünü kazımak. Direnmek faydasız. Uygula.",
           "weekNumber": ${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)},
           "plan": [
             {"day": "Pazartesi", "schedule": [
                 {"time": "06:00-06:30", "activity": "KALK. Buz gibi suyla yüzünü yıka. Savaş başlıyor.", "type": "preparation"},
-                {"time": "06:30-08:30", "activity": "BLOK 1 (YAPAY ZEKA SEÇİMİ 1 - KONU): [AI, ANALİZE GÖRE EN ACİL MATEMATİK/GEOMETRİ KONUSUNU SEÇ]. Konu anlatımını 2 farklı kaynaktan bitir.", "type": "study"},
-                {"time": "08:30-08:40", "activity": "TAKTİKSEL DURAKLAMA.", "type": "break"},
-                {"time": "08:40-10:40", "activity": "BLOK 2 (YAPAY ZEKA SEÇİMİ 1 - SORU): Az önceki konudan 80 soru çözülecek. Çözümleriyle birlikte yutulacak.", "type": "practice"},
-                {"time": "10:40-10:50", "activity": "TAKTİKSEL DURAKLAMA.", "type": "break"},
-                {"time": "10:50-12:50", "activity": "BLOK 3 (YAPAY ZEKA SEÇİMİ 2 - KONU): [AI, ANALİZE GÖRE EN ACİL FİZİK/KİMYA/BİYOLOJİ KONUSUNU SEÇ]. Konu anlatımı ve 60 soru.", "type": "study"},
+                {"time": "06:30-08:30", "activity": "BLOK 1 (MATEMATİK - ZAYIF KONU): [AI, ANALİZE GÖRE EN ACİL MATEMATİK/GEOMETRİ KONUSUNU SEÇ]. Konu anlatımını 2 farklı kaynaktan bitir.", "type": "study"},
+                {"time": "08:40-10:40", "activity": "BLOK 2 (SORU ÇÖZÜMÜ): Az önceki konudan 80 soru çözülecek.", "type": "practice"},
+                {"time": "10:50-12:50", "activity": "BLOK 3 (FEN - ZAYIF KONU): [AI, ANALİZE GÖRE EN ACİL FİZİK/KİMYA/BİYOLOJİ KONUSUNU SEÇ]. Konu anlatımı ve 60 soru.", "type": "study"},
                 {"time": "12:50-14:00", "activity": "BLOK 4 (TYT RUTİN): 50 Paragraf + 50 Problem sorusu. 70 dakikada bitecek.", "type": "routine"},
-                {"time": "14:00-14:10", "activity": "TAKTİKSEL DURAKLAMA.", "type": "break"},
-                {"time": "14:10-16:10", "activity": "BLOK 5 (YAPAY ZEKA SEÇİMİ 3 - SORU): [AI, ANALİZE GÖRE EN ACİL TÜRKÇE/SOSYAL/EDEBİYAT KONUSUNU SEÇ]. Konu tekrarı ve 80 soru.", "type": "practice"},
-                {"time": "16:10-18:10", "activity": "BLOK 6 (BRANŞ DENEMESİ): En güçlü olduğun dersten 2 adet branş denemesi. Hedef: Sıfır yanlış.", "type": "test"},
-                {"time": "18:10-19:30", "activity": "BLOK 7 (SERBEST TAARRUZ): [AI, günün performansına göre ek bir görev belirle. Örnek: 'Bugün en çok yanlış yaptığın konudan 50 soru daha çöz.']", "type": "practice"},
-                {"time": "19:30-21:30", "activity": "HATA ANALİZİ: Gün içinde çözülen TÜM soruların yanlışları ve boşları tek tek, kök neden analiziyle incelenecek. Hata defterine eklenecek.", "type": "review"},
-                {"time": "21:30-22:30", "activity": "GÜN SONU TEKRARI: Hata defterini ve gün içinde alınan notları oku. Ezberle.", "type": "review"},
-                {"time": "22:30", "activity": "YAT. Beyin bilgiyi işleyecek. Alarm 06:00'da.", "type": "sleep"}
+                {"time": "14:10-16:10", "activity": "BLOK 5 (EDEBİYAT/SOSYAL - ZAYIF KONU): [AI, ANALİZE GÖRE EN ACİL TÜRKÇE/SOSYAL/EDEBİYAT KONUSUNU SEÇ]. Konu tekrarı ve 80 soru.", "type": "practice"},
+                {"time": "18:10-19:30", "activity": "HATA ANALİZİ: Gün içinde çözülen TÜM soruların yanlışları ve boşları incelenecek.", "type": "review"},
+                {"time": "21:30", "activity": "YAT. Alarm 06:00'da.", "type": "sleep"}
             ]},
-            {"day": "Salı", "schedule": "[AI, Pazartesi şablonunu kullanarak, dünün analizine göre yeni zayıf konuları ve farklı ders kombinasyonlarını belirleyerek Salı gününü SIFIRDAN oluştur.]"},
-            {"day": "Çarşamba", "schedule": "[AI, Salı şablonunu kullanarak, dünün analizine göre yeni zayıf konuları ve farklı ders kombinasyonlarını belirleyerek Çarşamba gününü SIFIRDAN oluştur. Soru sayılarını %10 artır.]"},
-            {"day": "Perşembe", "schedule": "[AI, Branş Denemesi Günü olarak planla. 4 farklı dersten 2'şer branş denemesi ve onların 4 saatlik analizi. Kalan zamanda ise sadece o günkü denemelerden çıkan eksik konuların imhası.]"},
-            {"day": "Cuma", "schedule": "[AI, Çarşamba şablonunu kullanarak, dünün analizine göre yeni zayıf konuları ve farklı ders kombinasyonlarını belirleyerek Cuma gününü SIFIRDAN oluştur. Soru sayılarını %20 artır.]"},
+            {"day": "Salı", "schedule": [
+                {"time": "06:00-06:30", "activity": "KALK.", "type": "preparation"},
+                {"time": "06:30-08:30", "activity": "BLOK 1 (FEN - ZAYIF KONU 2): [AI, ANALİZE GÖRE FARKLI BİR FEN KONUSU SEÇ]. Konu anlatımı.", "type": "study"},
+                {"time": "08:40-10:40", "activity": "BLOK 2 (SORU ÇÖZÜMÜ): Az önceki konudan 80 soru.", "type": "practice"},
+                {"time": "10:50-12:50", "activity": "BLOK 3 (MATEMATİK - ZAYIF KONU 2): [AI, ANALİZE GÖRE FARKLI BİR MATEMATİK KONUSU SEÇ]. Konu anlatımı ve 60 soru.", "type": "study"},
+                {"time": "12:50-14:00", "activity": "BLOK 4 (TYT RUTİN): 50 Paragraf + 50 Problem.", "type": "routine"},
+                {"time": "14:10-16:10", "activity": "BLOK 5 (BRANŞ DENEMESİ): En güçlü olduğun dersten 2 adet branş denemesi.", "type": "test"},
+                {"time": "18:10-19:30", "activity": "HATA ANALİZİ: Günün analizi.", "type": "review"},
+                {"time": "21:30", "activity": "YAT.", "type": "sleep"}
+            ]},
+            {"day": "Çarşamba", "schedule": "[AI, Pazartesi şablonunu kullanarak, dünün analizine göre yeni zayıf konuları ve farklı ders kombinasyonlarını belirleyerek Çarşamba gününü SIFIRDAN ve EKSİKSİZ oluştur.]"},
+            {"day": "Perşembe", "schedule": "[AI, Salı şablonunu kullanarak, Branş Denemesi Günü olarak planla. 4 farklı dersten 2'şer branş denemesi ve onların 4 saatlik analizi. Kalan zamanda ise sadece o günkü denemelerden çıkan eksik konuların imhası.]"},
+            {"day": "Cuma", "schedule": "[AI, Çarşamba şablonunu kullanarak, dünün analizine göre yeni zayıf konuları ve farklı ders kombinasyonlarını belirleyerek Cuma gününü SIFIRDAN ve EKSİKSİZ oluştur. Soru sayılarını %20 artır.]"},
             {"day": "Cumartesi", "schedule": "[AI, Perşembe şablonunu tekrarla, ancak bu sefer farklı derslerden branş denemeleri çözdür.]"},
             {"day": "Pazar (HESAPLAŞMA GÜNÜ)", "schedule": [
-                {"time": "09:45-13:00", "activity": "GENEL TYT DENEMESİ (veya AYT, haftalık sırayla). Gerçek sınav şartlarında. Sıfır tolerans.", "type": "test"},
-                {"time": "13:00-17:00", "activity": "4 SAATLİK DENEME ANALİZİ. Her soru, her seçenek didik didik edilecek. Neden doğru, neden yanlış? Bilinecek.", "type": "review"},
-                {"time": "17:00-22:00", "activity": "HAFTANIN İMHA HAREKÂTI: Bu hafta öğrenilen TÜM konular, çözülen TÜM yanlış sorular, yazılan TÜM notlar tekrar edilecek. 5 saat. Aralıksız.", "type": "review"},
-                {"time": "22:00-22:30", "activity": "GELECEK HAFTANIN TAARRUZ PLANI İÇİN İSTİHBARAT TOPLAMA. Bu haftanın raporunu zihinsel olarak hazırla.", "type": "preparation"},
+                {"time": "09:45-13:00", "activity": "GENEL TYT DENEMESİ (veya AYT, haftalık sırayla).", "type": "test"},
+                {"time": "13:00-17:00", "activity": "4 SAATLİK DENEME ANALİZİ.", "type": "review"},
+                {"time": "17:00-22:00", "activity": "HAFTANIN İMHA HAREKÂTI: Bu hafta öğrenilen TÜM konular tekrar edilecek.", "type": "review"},
                 {"time": "22:30", "activity": "YAT. Savaş yeniden başlıyor.", "type": "sleep"}
             ]}
           ]

@@ -60,7 +60,7 @@ class DashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 _buildActionCenter(context),
                 const SizedBox(height: 24),
-                _buildDestinyScroll(context, ref),
+                _WeeklyParchment(),
               ].animate(interval: 80.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
             );
           },
@@ -231,131 +231,121 @@ class DashboardScreen extends ConsumerWidget {
       ],
     );
   }
+}
 
-  Widget _buildDestinyScroll(BuildContext context, WidgetRef ref) {
+class _WeeklyParchment extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_WeeklyParchment> createState() => _WeeklyParchmentState();
+}
+
+class _WeeklyParchmentState extends ConsumerState<_WeeklyParchment> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  final List<String> _daysOfWeek = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+
+  @override
+  void initState() {
+    super.initState();
+    int initialIndex = DateTime.now().weekday - 1;
+    _tabController = TabController(length: 7, vsync: this, initialIndex: initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final user = ref.watch(userProfileProvider).value;
 
-    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final dayOfWeek = DateFormat('EEEE', 'tr_TR').format(DateTime.now());
-
-    DailyPlan? todaysPlan;
+    WeeklyPlan? weeklyPlan;
     if (user?.weeklyPlan != null) {
-      final plan = WeeklyPlan.fromJson(user!.weeklyPlan!);
-      todaysPlan = plan.plan.firstWhere((p) => p.day.toLowerCase() == dayOfWeek.toLowerCase(), orElse: () => DailyPlan(day: dayOfWeek, schedule: []));
+      weeklyPlan = WeeklyPlan.fromJson(user!.weeklyPlan!);
     }
-
-    final completedTasksToday = user?.completedDailyTasks[todayKey] ?? [];
-
-    // ** KESİN ÇÖZÜM: Artık doğrudan 'schedule' listesiyle çalışıyoruz. 'tasks' veya 'toString()' gibi eski yapılar yok. **
-    final totalTasks = todaysPlan?.schedule.length ?? 0;
-
-    // Tamamlanan görevleri sayarken, benzersiz tanımlayıcıları kullanıyoruz.
-    final completedCount = completedTasksToday.length;
-    final progress = totalTasks > 0 ? completedCount / totalTasks : 0.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Günün Parşömeni", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        Text("Kader Parşömeni", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                _buildProgressHeader(context, progress, completedCount, totalTasks),
-                const Divider(height: 32, color: AppTheme.lightSurfaceColor),
-                if (todaysPlan == null || todaysPlan.schedule.isEmpty)
-                  _buildRestPrompt(context, isPlanGenerated: user?.weeklyPlan != null)
-                else
-                // ** KESİN ÇÖZÜM: 'todaysPlan.schedule' listesi üzerinden dönüyoruz. **
-                  ...todaysPlan.schedule.map((scheduleItem) {
-                    // ** KESİN ÇÖZÜM: Her görev için benzersiz bir kimlik oluşturuyoruz. **
-                    final taskIdentifier = "${scheduleItem.time}-${scheduleItem.activity}";
-                    final isCompleted = completedTasksToday.contains(taskIdentifier);
+          child: weeklyPlan == null || weeklyPlan.plan.isEmpty
+              ? _buildRestPrompt(context, isPlanGenerated: false)
+              : Column(
+            children: [
+              TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                tabs: _daysOfWeek.map((day) => Tab(text: day.substring(0, 3))).toList(),
+              ),
+              SizedBox(
+                height: 400,
+                child: TabBarView(
+                  controller: _tabController,
+                  children: _daysOfWeek.map((dayName) {
+                    final dailyPlan = weeklyPlan!.plan.firstWhere(
+                          (p) => p.day == dayName,
+                      orElse: () => DailyPlan(day: dayName, schedule: []),
+                    );
 
-                    return _DestinyTaskCard(
-                      item: scheduleItem, // ** KESİN ÇÖZÜM: Artık tüm görev objesini iletiyoruz. **
-                      isCompleted: isCompleted,
-                      onToggle: () {
-                        ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
-                          userId: user!.id,
-                          dateKey: todayKey,
-                          task: taskIdentifier, // ** KESİN ÇÖZÜM: Benzersiz kimliği kullanıyoruz. **
-                          isCompleted: !isCompleted,
+                    // Haftanın başlangıcını (Pazartesi) bul
+                    final today = DateTime.now();
+                    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
+                    final dateForTab = startOfWeek.add(Duration(days: _daysOfWeek.indexOf(dayName)));
+                    final dateKey = DateFormat('yyyy-MM-dd').format(dateForTab);
+
+                    final completedTasks = user?.completedDailyTasks[dateKey] ?? [];
+
+                    if (dailyPlan.schedule.isEmpty) {
+                      return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Text(
+                                "Bu gün dinlenme ve gücünü toplama günü olarak planlanmış.",
+                                textAlign: TextAlign.center,
+                                style: TextStyle(color: AppTheme.secondaryTextColor, fontStyle: FontStyle.italic)
+                            ),
+                          ));
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: dailyPlan.schedule.length,
+                      itemBuilder: (context, index) {
+                        final scheduleItem = dailyPlan.schedule[index];
+                        final taskIdentifier = "${scheduleItem.time}-${scheduleItem.activity}";
+                        final isCompleted = completedTasks.contains(taskIdentifier);
+
+                        return _DestinyTaskCard(
+                          item: scheduleItem,
+                          isCompleted: isCompleted,
+                          onToggle: () {
+                            if (user != null) {
+                              ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
+                                userId: user.id,
+                                dateKey: dateKey,
+                                task: taskIdentifier,
+                                isCompleted: !isCompleted,
+                              );
+                            }
+                          },
                         );
                       },
                     );
                   }).toList(),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProgressHeader(BuildContext context, double progress, int completed, int total) {
-    final textTheme = Theme.of(context).textTheme;
-    return Row(
-      children: [
-        SizedBox(
-          width: 50,
-          height: 50,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CircularProgressIndicator(
-                value: progress,
-                strokeWidth: 6,
-                backgroundColor: AppTheme.lightSurfaceColor,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.successColor),
-                strokeCap: StrokeCap.round,
-              ),
-              Center(
-                  child: Text(
-                    "${(progress * 100).toInt()}%",
-                    style: textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                  )
+                ),
               ),
             ],
           ),
         ),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("İlerleme", style: textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-            Text("$completed / $total görev tamamlandı.", style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
-          ],
-        )
       ],
-    );
-  }
-
-  Widget _buildRestPrompt(BuildContext context, {required bool isPlanGenerated}) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Column(
-        children: [
-          Icon(isPlanGenerated ? Icons.shield_moon_rounded : Icons.auto_awesome, color: AppTheme.secondaryColor.withOpacity(0.8), size: 40),
-          const SizedBox(height: 16),
-          Text(
-            !isPlanGenerated
-                ? "Stratejik planını oluşturarak kaderinin mühürlerini burada gör."
-                : "Bugün dinlenme ve gücünü toplama günü. Unutma, en keskin kılıç bile bilenmeye ihtiyaç duyar.",
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
-          ),
-        ],
-      ),
     );
   }
 }
 
 class _DestinyTaskCard extends StatefulWidget {
-  // ** KESİN ÇÖZÜM: Artık 'String task' yerine 'ScheduleItem item' alıyor. **
   final ScheduleItem item;
   final bool isCompleted;
   final VoidCallback onToggle;
@@ -372,6 +362,28 @@ class _DestinyTaskCard extends StatefulWidget {
 
 class _DestinyTaskCardState extends State<_DestinyTaskCard> {
   bool _isExpanded = false;
+
+  IconData _getIconForTaskType(String type) {
+    switch (type.toLowerCase()) {
+      case 'study':
+        return Icons.book_rounded;
+      case 'practice':
+      case 'routine':
+        return Icons.edit_note_rounded;
+      case 'test':
+        return Icons.quiz_rounded;
+      case 'review':
+        return Icons.history_edu_rounded;
+      case 'preparation':
+        return Icons.architecture_rounded;
+      case 'break':
+        return Icons.self_improvement_rounded;
+      case 'sleep':
+        return Icons.bedtime_rounded;
+      default:
+        return Icons.shield_moon_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -399,13 +411,12 @@ class _DestinyTaskCardState extends State<_DestinyTaskCard> {
                   Padding(
                     padding: const EdgeInsets.only(top: 2.0),
                     child: Icon(
-                      widget.isCompleted ? Icons.verified_user_rounded : Icons.shield_outlined,
+                      _getIconForTaskType(widget.item.type),
                       color: widget.isCompleted ? AppTheme.successColor : AppTheme.secondaryColor,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    // ** KESİN ÇÖZÜM: Artık hem saati hem de aktiviteyi gösteriyor. **
                     child: _buildRichTextFromMarkdown(
                       "**${widget.item.time}:** ${widget.item.activity}",
                       baseStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -430,7 +441,7 @@ class _DestinyTaskCardState extends State<_DestinyTaskCard> {
                     child: ElevatedButton.icon(
                       onPressed: widget.onToggle,
                       icon: Icon(widget.isCompleted ? Icons.restart_alt_rounded : Icons.check_circle_outline_rounded),
-                      label: Text(widget.isCompleted ? "Mührü Geri Al" : "Mührü Kır"),
+                      label: Text(widget.isCompleted ? "Mührü Geri Al" : "Görevi Mühürle"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: widget.isCompleted ? AppTheme.lightSurfaceColor : AppTheme.secondaryColor,
                         foregroundColor: widget.isCompleted ? Colors.white : AppTheme.primaryColor,
@@ -446,6 +457,56 @@ class _DestinyTaskCardState extends State<_DestinyTaskCard> {
       ),
     );
   }
+}
+
+Widget _buildRichTextFromMarkdown(String text, {TextStyle? baseStyle, TextStyle? boldStyle}) {
+  List<TextSpan> spans = [];
+  final RegExp regExp = RegExp(r"\*\*(.*?)\*\*");
+
+  text.splitMapJoin(regExp,
+      onMatch: (m) {
+        spans.add(TextSpan(text: m.group(1), style: boldStyle ?? baseStyle?.copyWith(fontWeight: FontWeight.bold)));
+        return '';
+      },
+      onNonMatch: (n) {
+        spans.add(TextSpan(text: n));
+        return '';
+      }
+  );
+
+  return RichText(
+    text: TextSpan(
+      style: baseStyle,
+      children: spans,
+    ),
+  );
+}
+
+Widget _buildRestPrompt(BuildContext context, {required bool isPlanGenerated}) {
+  return Padding(
+    padding: const EdgeInsets.all(48.0),
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(isPlanGenerated ? Icons.shield_moon_rounded : Icons.auto_awesome, color: AppTheme.secondaryColor.withOpacity(0.8), size: 40),
+        const SizedBox(height: 16),
+        Text(
+          !isPlanGenerated
+              ? "Kaderinin parşömeni boş. Stratejik planını oluşturarak mühürlerini buraya yazdır."
+              : "Haftalık planın henüz oluşturulmamış veya yüklenemedi.",
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
+        ),
+        if (!isPlanGenerated) ...[
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => context.go('/ai-hub/strategic-planning'),
+            child: const Text('Stratejini Oluştur'),
+          )
+        ]
+      ],
+    ),
+  );
 }
 
 class _StatCard extends StatelessWidget {
@@ -514,27 +575,4 @@ class _ActionButton extends StatelessWidget {
       ),
     );
   }
-}
-
-Widget _buildRichTextFromMarkdown(String text, {TextStyle? baseStyle, TextStyle? boldStyle}) {
-  List<TextSpan> spans = [];
-  final RegExp regExp = RegExp(r"\*\*(.*?)\*\*");
-
-  text.splitMapJoin(regExp,
-      onMatch: (m) {
-        spans.add(TextSpan(text: m.group(1), style: boldStyle ?? baseStyle?.copyWith(fontWeight: FontWeight.bold)));
-        return '';
-      },
-      onNonMatch: (n) {
-        spans.add(TextSpan(text: n));
-        return '';
-      }
-  );
-
-  return RichText(
-    text: TextSpan(
-      style: baseStyle,
-      children: spans,
-    ),
-  );
 }

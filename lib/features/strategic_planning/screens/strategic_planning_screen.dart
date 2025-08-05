@@ -1,13 +1,15 @@
 // lib/features/strategic_planning/screens/strategic_planning_screen.dart
 import 'dart:convert';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart'; // <<< EKSİK OLAN VE TÜM HATALARA NEDEN OLAN IMPORT
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/repositories/ai_service.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
+import 'package:bilge_ai/data/models/user_model.dart';
 
 enum Pacing { relaxed, moderate, intense }
 
@@ -73,6 +75,29 @@ class StrategicPlanningScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;
     final generationState = ref.watch(strategyGenerationProvider);
+
+    ref.listen<AsyncValue<void>>(strategyGenerationProvider, (_, state) {
+      if (state.isLoading) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const Center(
+            child: CircularProgressIndicator(color: AppTheme.secondaryColor),
+          ),
+        );
+      } else if (state.hasError) {
+        if(Navigator.of(context).canPop()) {
+          Navigator.pop(context);
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: ${state.error.toString()}')),
+        );
+      } else if (state.hasValue) {
+        if(Navigator.of(context).canPop()) {
+          Navigator.pop(context);
+        }
+      }
+    });
 
     if (user?.longTermStrategy != null && !generationState.isLoading) {
       return _buildStrategyDisplay(context, ref);
@@ -156,20 +181,64 @@ class StrategicPlanningScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text("Stratejik Koçluk")),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: const Text("Stratejiyi Yenile"),
+                content: const Text("Mevcut stratejin ve haftalık planın silinerek tamamen yeni bir plan oluşturulacak. Emin misin?"),
+                actions: <Widget>[
+                  TextButton(
+                    child: const Text("İptal"),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                  TextButton(
+                    child: const Text("Yeniden Oluştur"),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      ref.read(strategyGenerationProvider.notifier).generatePlan();
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        },
+        label: const Text("Yeniden Oluştur"),
+        icon: const Icon(Icons.refresh_rounded),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text("Büyük Strateji", style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
           Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: MarkdownBody(
-                  data: user.longTermStrategy ?? "Strateji bulunamadı.",
-                  styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                      p: const TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16, height: 1.5),
-                      h2: const TextStyle(color: AppTheme.secondaryColor, fontSize: 22)
-                  )
+            elevation: 4,
+            shadowColor: AppTheme.secondaryColor.withOpacity(0.2),
+            child: InkWell(
+              onTap: () => context.go('/ai-hub/command-center', extra: user),
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Row(
+                  children: [
+                    const Icon(Icons.map_rounded, size: 40, color: AppTheme.secondaryColor),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Komuta Merkezi", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text("Uzun vadeli zafer stratejini ve harekât aşamalarını görüntüle.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
+                  ],
+                ),
               ),
             ),
           ),
@@ -185,7 +254,6 @@ class StrategicPlanningScreen extends ConsumerWidget {
                   children: [
                     Text(plan.strategyFocus, style: const TextStyle(fontStyle: FontStyle.italic, color: AppTheme.secondaryTextColor, fontSize: 16)),
                     const Divider(height: 24, color: AppTheme.lightSurfaceColor),
-                    // DEVRİM GÜNCELLEMESİ: Artık ultra detaylı planı gösterecek yapı.
                     ...plan.plan.map((dailyPlan) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 16.0),
@@ -234,6 +302,8 @@ class StrategicPlanningScreen extends ConsumerWidget {
             )
           else
             const Card(child: Padding(padding: EdgeInsets.all(16), child: Text("Haftalık plan yüklenemedi."))),
+
+          const SizedBox(height: 80),
         ],
       ).animate().fadeIn(),
     );
