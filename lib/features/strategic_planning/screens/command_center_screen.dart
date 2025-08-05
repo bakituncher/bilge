@@ -23,7 +23,6 @@ class CommandCenterScreen extends StatefulWidget {
 
 class _CommandCenterScreenState extends State<CommandCenterScreen> {
   List<StrategyPhase> _phases = [];
-  int _openPanelIndex = 0; // Başlangıçta ilk panel açık
 
   @override
   void initState() {
@@ -31,40 +30,31 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
     _parseStrategy(widget.user.longTermStrategy);
   }
 
-  // --- YENİ VE DAHA AKILLI AYRIŞTIRICI FONKSİYON ---
   void _parseStrategy(String? strategyText) {
     if (strategyText == null || strategyText.isEmpty) return;
 
-    // Markdown metnini satırlara ayır
     final lines = strategyText.split('\n');
     final List<StrategyPhase> parsedPhases = [];
     StringBuffer contentBuffer = StringBuffer();
     String? currentTitle;
 
-    // REGEX: Başında bir veya daha fazla '#' ve bir boşluk olan satırları bulur.
-    // Bu sayede AI, #, ## veya ### kullansa bile başlıkları yakalarız.
     final headerRegex = RegExp(r'^(#+)\s(.*)');
 
     for (var line in lines) {
       final match = headerRegex.firstMatch(line.trim());
 
-      // Eğer satır bir başlık ise
       if (match != null) {
         if (currentTitle != null) {
-          // Önceki bölümü listeye ekle
           parsedPhases.add(StrategyPhase(title: currentTitle, content: contentBuffer.toString().trim()));
         }
-        // Yeni bölümü başlat
-        currentTitle = match.group(2)?.trim(); // Sadece başlık metnini al
+        currentTitle = match.group(2)?.trim();
         contentBuffer.clear();
       } else if (currentTitle != null) {
-        // Eğer başlık değilse, içeriğe ekle
         contentBuffer.writeln(line);
       }
     }
 
-    // Döngü bittikten sonra kalan son bölümü de ekle
-    if (currentTitle != null && contentBuffer.isNotEmpty) {
+    if (currentTitle != null) {
       parsedPhases.add(StrategyPhase(title: currentTitle, content: contentBuffer.toString().trim()));
     }
 
@@ -73,12 +63,101 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
     });
   }
 
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Komuta Merkezi"),
+      ),
+      body: _phases.isEmpty
+          ? _buildFallbackView(widget.user.longTermStrategy ?? "Strateji metni bulunamadı.")
+          : ListView.builder(
+        padding: const EdgeInsets.all(16.0),
+        itemCount: _phases.length,
+        itemBuilder: (context, index) {
+          final phase = _phases[index];
+          // İçeriği olmayan başlıkları (örn: Motto) normal bir kart olarak gösteriyoruz.
+          if (phase.content.isEmpty) {
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Text(
+                  phase.title,
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontStyle: FontStyle.italic,
+                    color: AppTheme.secondaryTextColor,
+                  ),
+                ),
+              ),
+            ).animate().fadeIn(delay: (100 * index).ms).slideY(begin: 0.2);
+          }
+          // İçeriği olanları genişletilebilir kart olarak gösteriyoruz.
+          return _StrategyPhaseCard(
+            phase: phase,
+            // İlk anlamlı içeriği olan paneli başlangıçta açık yap
+            initiallyExpanded: index == _phases.indexWhere((p) => p.content.isNotEmpty),
+          ).animate().fadeIn(delay: (100 * index).ms).slideY(begin: 0.2);
+        },
+      ),
+    );
+  }
+
+  Widget _buildFallbackView(String rawStrategy) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 48),
+          const SizedBox(height: 16),
+          Text(
+            "Strateji Formatı Okunamadı",
+            style: Theme.of(context).textTheme.headlineSmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Stratejinin ham metnini aşağıda görebilirsin:",
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
+            textAlign: TextAlign.center,
+          ),
+          const Divider(height: 32),
+          MarkdownBody(data: rawStrategy),
+        ],
+      ),
+    );
+  }
+}
+
+// Genişletilebilir Kart Widget'ı
+class _StrategyPhaseCard extends StatefulWidget {
+  final StrategyPhase phase;
+  final bool initiallyExpanded;
+
+  const _StrategyPhaseCard({
+    required this.phase,
+    this.initiallyExpanded = false,
+  });
+
+  @override
+  State<_StrategyPhaseCard> createState() => _StrategyPhaseCardState();
+}
+
+class _StrategyPhaseCardState extends State<_StrategyPhaseCard> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.initiallyExpanded;
+  }
   IconData _getIconForPhase(String title) {
     if (title.contains("AŞAMA: 1") || title.contains("AŞAMA") && title.contains("1") || title.contains("HAKİMİYET")) {
       return Icons.foundation_rounded;
-    } else if (title.contains("AŞAMA: 2") || title.contains("AŞAMA") && title.contains("2") || title.contains("HÜCUM")) {
+    } else if (title.contains("AŞAMA: 2") || title.contains("AŞAMA") && title.contains("2") || title.contains("HÜCUM") || title.contains("CANAVARI")) {
       return Icons.military_tech_rounded;
-    } else if (title.contains("AŞAMA: 3") || title.contains("AŞAMA") && title.contains("3") || title.contains("ZAFER")) {
+    } else if (title.contains("AŞAMA: 3") || title.contains("AŞAMA") && title.contains("3") || title.contains("ZAFER") || title.contains("PROVASI")) {
       return Icons.emoji_events_rounded;
     } else if (title.contains("MOTTO")) {
       return Icons.flag_rounded;
@@ -88,92 +167,45 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Komuta Merkezi"),
-      ),
-      body: _phases.isEmpty
-      // --- HATA DURUMU İÇİN YENİ GÖRÜNÜM ---
-      // Eğer strateji ayrıştırılamazsa, ham metni gösteririz.
-          ? _buildFallbackView(widget.user.longTermStrategy ?? "Strateji metni bulunamadı.")
-          : ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: [
-          // Başlığı dinamik olarak ilk bölümden alıyoruz
-          if (_phases.isNotEmpty)
-            Text(
-              _phases.first.title,
-              textAlign: TextAlign.center,
-              style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.secondaryColor),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => setState(() => _isExpanded = !_isExpanded),
+        child: Column(
+          children: [
+            ListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              leading: Icon(_getIconForPhase(widget.phase.title), color: AppTheme.secondaryColor, size: 32),
+              title: Text(
+                widget.phase.title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              trailing: Icon(
+                _isExpanded ? Icons.expand_less : Icons.expand_more,
+                color: AppTheme.secondaryTextColor,
+              ),
             ),
-          const SizedBox(height: 24),
-          ExpansionPanelList(
-            elevation: 0,
-            dividerColor: AppTheme.lightSurfaceColor,
-            expansionCallback: (int index, bool isExpanded) {
-              setState(() {
-                // İlk başlığı (motto vb.) her zaman kapalı tut, diğerlerini aç/kapa
-                if (index == 0) return;
-                _openPanelIndex = isExpanded ? -1 : index;
-              });
-            },
-            children: _phases.skip(1).map<ExpansionPanel>((StrategyPhase phase) {
-              int index = _phases.indexOf(phase);
-              return ExpansionPanel(
-                backgroundColor: _openPanelIndex == index ? AppTheme.cardColor : Colors.transparent,
-                canTapOnHeader: true,
-                headerBuilder: (BuildContext context, bool isExpanded) {
-                  return ListTile(
-                    leading: Icon(_getIconForPhase(phase.title), color: AppTheme.secondaryColor),
-                    title: Text(
-                      phase.title,
-                      style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  );
-                },
-                body: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+            AnimatedSize(
+              duration: 300.ms,
+              curve: Curves.easeInOut,
+              child: Visibility(
+                visible: _isExpanded,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
                   child: MarkdownBody(
-                    data: phase.content,
+                    data: widget.phase.content,
                     styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
                       p: const TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16, height: 1.5),
                       listBullet: const TextStyle(color: AppTheme.textColor, fontSize: 16, height: 1.5),
+                      strong: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ),
                 ),
-                isExpanded: _openPanelIndex == index,
-              );
-            }).toList(),
-          ),
-        ].animate(interval: 100.ms).fadeIn().slideY(begin: 0.1),
-      ),
-    );
-  }
-
-  // Strateji ayrıştırılamazsa gösterilecek yedek widget
-  Widget _buildFallbackView(String rawStrategy) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.amber, size: 48),
-          const SizedBox(height: 16),
-          Text(
-            "Strateji Formatı Okunamadı",
-            style: Theme.of(context).textTheme.headlineSmall,
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            "Yapay zeka tarafından oluşturulan stratejinin formatı beklenenden farklı. Ancak endişelenme, ham strateji metnini aşağıda görebilirsin:",
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
-            textAlign: TextAlign.center,
-          ),
-          const Divider(height: 32),
-          MarkdownBody(data: rawStrategy),
-        ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
