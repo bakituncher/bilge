@@ -5,16 +5,16 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
-import 'package:bilge_ai/features/stats/screens/subject_stats_screen.dart'; // HATA DÜZELTİLDİ
+import 'package:bilge_ai/features/stats/screens/subject_stats_screen.dart';
 
-// UI/UX MUCİZESİ BAŞLIYOR. BU BİR EKRAN DEĞİL, BİR KOMUTA MERKEZİ.
+// --- DEVRİM GÜNCELLEMESİ: Özel ve animasyonlu sekme yönetimi için StateProvider ---
+final _selectedTabIndexProvider = StateProvider<int>((ref) => 0);
 
 class StatsScreen extends ConsumerWidget {
   const StatsScreen({super.key});
@@ -49,25 +49,38 @@ class StatsScreen extends ConsumerWidget {
             return _buildEmptyState(context, isCompletelyEmpty: true);
           }
 
-          return DefaultTabController(
-            length: sortedGroups.length,
-            child: Scaffold(
-              appBar: AppBar(
-                title: const Text('Performans Kalesi'),
-                bottom: TabBar(
-                  isScrollable: true,
-                  tabs: sortedGroups.map((entry) => Tab(text: entry.key)).toList(),
+          // Sekme sıfırlama mantığı
+          final selectedIndex = ref.watch(_selectedTabIndexProvider);
+          if (selectedIndex >= sortedGroups.length) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              ref.read(_selectedTabIndexProvider.notifier).state = 0;
+            });
+          }
+
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Performans Kalesi'),
+            ),
+            body: Column(
+              children: [
+                // --- DEVRİM GÜNCELLEMESİ: Eski TabBar yerine özel "Strateji Plakaları" ---
+                _FortressTabSelector(
+                  tabs: sortedGroups.map((e) => e.key).toList(),
                 ),
-              ),
-              body: TabBarView(
-                children: sortedGroups.map((entry) {
-                  return _AnalysisView(
-                    key: ValueKey(entry.key),
-                    tests: entry.value,
-                    user: user,
-                  );
-                }).toList(),
-              ),
+                Expanded(
+                  // --- DEVRİM GÜNCELLEMESİ: TabBarView yerine IndexedStack ---
+                  child: IndexedStack(
+                    index: ref.watch(_selectedTabIndexProvider),
+                    children: sortedGroups.map((entry) {
+                      return _AnalysisView(
+                        key: ValueKey(entry.key),
+                        tests: entry.value,
+                        user: user,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -125,6 +138,55 @@ class StatsScreen extends ConsumerWidget {
   }
 }
 
+// --- YENİ WIDGET: Özel Tasarım, Animasyonlu Sekme Sistemi ---
+class _FortressTabSelector extends ConsumerWidget {
+  final List<String> tabs;
+  const _FortressTabSelector({required this.tabs});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedIndex = ref.watch(_selectedTabIndexProvider);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: AppTheme.lightSurfaceColor.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: List.generate(tabs.length, (index) {
+            final isSelected = selectedIndex == index;
+            return Expanded(
+              child: GestureDetector(
+                onTap: () => ref.read(_selectedTabIndexProvider.notifier).state = index,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppTheme.secondaryColor : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    tabs[index],
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? AppTheme.primaryColor : AppTheme.secondaryTextColor,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+}
+
+
 class _AnalysisView extends StatelessWidget {
   final List<TestModel> tests;
   final UserModel user;
@@ -140,7 +202,7 @@ class _AnalysisView extends StatelessWidget {
     final analysis = PerformanceAnalysis(tests, user);
 
     return ListView(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
         _TitleWidget(title: 'Kader Tayfı', subtitle: 'Netlerinin ve doğruluğunun zamansal analizi'),
         _NetEvolutionChart(analysis: analysis),
@@ -158,7 +220,6 @@ class _AnalysisView extends StatelessWidget {
             subjectName: subjectEntry.key,
             analysis: subjectAnalysis,
             onTap: () {
-              // HATA DÜZELTİLDİ: Artık doğru şekilde yönlendirme yapılıyor.
               Navigator.push(
                 context,
                 MaterialPageRoute(
@@ -183,7 +244,7 @@ class _TitleWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16.0),
+      padding: const EdgeInsets.only(top: 16.0, bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -431,7 +492,6 @@ class _SubjectStatCard extends StatelessWidget {
 // =================================================================================
 // ||                    ACIMASIZ ANALİZ MOTORU KODU BAŞLANGICI                   ||
 // =================================================================================
-// YAPAY ZEKA KULLANILMADI. SAF, SOĞUK, HESAPLAMALI MANTIK.
 
 class TacticalAdvice {
   final String text;
@@ -467,21 +527,13 @@ class PerformanceAnalysis {
   final UserModel user;
   late List<TestModel> sortedTests;
   late List<FlSpot> netSpots;
-
-  // ZAFER ANITLARI
   late double warriorScore;
   late double accuracy;
   late double consistency;
   late double trend;
-
-  // FETİH HARİTASI
   late Map<String, double> subjectAverages;
   late List<MapEntry<String, double>> sortedSubjects;
-
-  // KOMUTAN EMİRLERİ
   late List<TacticalAdvice> tacticalAdvice;
-
-  // İÇ SİSTEMLER
   late Exam _examData;
 
   PerformanceAnalysis(this.tests, this.user) {
@@ -493,16 +545,13 @@ class PerformanceAnalysis {
     _examData = ExamData.getExamByType(ExamType.values.byName(user.selectedExam!));
     sortedTests = List.from(tests)..sort((a, b) => a.date.compareTo(b.date));
 
-    // TEMEL HESAPLAMALAR
     final allNets = sortedTests.map((t) => t.totalNet).toList();
     final totalQuestionsAttempted = sortedTests.map((t) => t.totalCorrect + t.totalWrong).sum;
     final totalCorrectAnswers = sortedTests.map((t) => t.totalCorrect).sum;
     if (totalQuestionsAttempted == 0 && totalCorrectAnswers > 0) throw Exception("Mantıksız veri: Cevaplanan soru 0 olamazken doğru sayısı 0'dan büyük.");
 
-
     final averageNet = allNets.average;
 
-    // 1. ZAFER ANITI: Tutarlılık Mührü
     if (averageNet.abs() > 0.001) {
       final double stdDev = sqrt(allNets.map((n) => pow(n - averageNet, 2)).sum / allNets.length);
       consistency = max(0, (1 - (stdDev / averageNet.abs())) * 100);
@@ -510,21 +559,16 @@ class PerformanceAnalysis {
       consistency = 0.0;
     }
 
-    // 2. ZAFER ANITI: İsabet Oranı
     accuracy = totalQuestionsAttempted > 0 ? (totalCorrectAnswers / totalQuestionsAttempted) * 100 : 0.0;
-
-    // 3. ZAFER ANITI: Yükseliş Hızı (Trend)
     trend = _calculateTrend(allNets);
     netSpots = List.generate(sortedTests.length, (i) => FlSpot(i.toDouble(), sortedTests[i].totalNet));
 
-    // 4. ZAFER ANITI: Savaşçı Skoru
     final netComponent = (averageNet / (sortedTests.first.totalQuestions * 1.0)) * 50;
     final accuracyComponent = (accuracy / 100) * 25;
     final consistencyComponent = (consistency / 100) * 15;
     final trendComponent = (atan(trend) / (pi / 2)) * 10;
     warriorScore = (netComponent + accuracyComponent + consistencyComponent + trendComponent).clamp(0, 100);
 
-    // FETİH HARİTASI HESAPLAMALARI
     final subjectNets = <String, List<double>>{};
     for (var test in sortedTests) {
       test.scores.forEach((subject, scores) {
@@ -540,8 +584,6 @@ class PerformanceAnalysis {
       subjectAverages = {};
       sortedSubjects = [];
     }
-
-    // KOMUTAN EMİRLERİ OLUŞTURMA
     tacticalAdvice = _generateTacticalAdvice();
   }
 
@@ -589,14 +631,12 @@ class PerformanceAnalysis {
     final strongestSubject = sortedSubjects.first.key;
     final weakestSubject = sortedSubjects.last.key;
 
-    // EMİR 1: GENEL DURUM
     if (warriorScore > 75) {
       adviceList.add(TacticalAdvice("MUHAREBE DURUMU: MÜKEMMEL. Kalen sarsılmaz, stratejin kusursuz. Zirveyi koru.", icon: Icons.workspace_premium, color: Colors.amber));
     } else {
       adviceList.add(TacticalAdvice("MUHAREBE DURUMU: İYİ. Güçlüsün ama zafiyetlerin var. Zayıf cepheleri güçlendirerek hakimiyetini pekiştir.", icon: Icons.shield_rounded, color: AppTheme.successColor));
     }
 
-    // EMİR 2: TAARRUZ HEDEFİ
     adviceList.add(TacticalAdvice("TAARRUZ EMRİ: '$weakestSubject' cephesi en zayıf halkan. Tüm gücünle bu hedefe yüklen. Bu kaleyi fethetmek, zaferi getirecek.", icon: Icons.radar_rounded, color: AppTheme.accentColor));
 
     return adviceList;
