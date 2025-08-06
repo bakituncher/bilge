@@ -13,85 +13,31 @@ import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/stats/screens/subject_stats_screen.dart';
 
-// --- DEVRİM GÜNCELLEMESİ: Özel ve animasyonlu sekme yönetimi için StateProvider ---
 final _selectedTabIndexProvider = StateProvider<int>((ref) => 0);
 
-class StatsScreen extends ConsumerWidget {
+class StatsScreen extends ConsumerStatefulWidget {
   const StatsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final testsAsyncValue = ref.watch(testsProvider);
-    final userAsyncValue = ref.watch(userProfileProvider);
+  ConsumerState<StatsScreen> createState() => _StatsScreenState();
+}
 
-    return userAsyncValue.when(
-      data: (user) => testsAsyncValue.when(
-        data: (tests) {
-          if (user == null || tests.isEmpty) {
-            return _buildEmptyState(context, isCompletelyEmpty: true);
-          }
+class _StatsScreenState extends ConsumerState<StatsScreen> {
+  late PageController _pageController;
 
-          final groupedTests = <String, List<TestModel>>{};
-          for (final test in tests) {
-            (groupedTests[test.sectionName] ??= []).add(test);
-          }
-
-          final sortedGroups = groupedTests.entries.toList()
-            ..sort((a, b) {
-              if (a.key == 'TYT') return -1;
-              if (b.key == 'TYT') return 1;
-              if (a.key.contains('Sayısal')) return -1;
-              if (b.key.contains('Sayısal')) return 1;
-              return a.key.compareTo(b.key);
-            });
-
-          if (sortedGroups.isEmpty) {
-            return _buildEmptyState(context, isCompletelyEmpty: true);
-          }
-
-          // Sekme sıfırlama mantığı
-          final selectedIndex = ref.watch(_selectedTabIndexProvider);
-          if (selectedIndex >= sortedGroups.length) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              ref.read(_selectedTabIndexProvider.notifier).state = 0;
-            });
-          }
-
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Performans Kalesi'),
-            ),
-            body: Column(
-              children: [
-                // --- DEVRİM GÜNCELLEMESİ: Eski TabBar yerine özel "Strateji Plakaları" ---
-                _FortressTabSelector(
-                  tabs: sortedGroups.map((e) => e.key).toList(),
-                ),
-                Expanded(
-                  // --- DEVRİM GÜNCELLEMESİ: TabBarView yerine IndexedStack ---
-                  child: IndexedStack(
-                    index: ref.watch(_selectedTabIndexProvider),
-                    children: sortedGroups.map((entry) {
-                      return _AnalysisView(
-                        key: ValueKey(entry.key),
-                        tests: entry.value,
-                        user: user,
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-        loading: () => _buildLoadingState(),
-        error: (err, stack) => _buildErrorState('Test verileri yüklenemedi: $err'),
-      ),
-      loading: () => _buildLoadingState(),
-      error: (err, stack) => _buildErrorState('Kullanıcı verisi yüklenemedi: $err'),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  // HATA DÜZELTİLDİ: Bu metotlar ana widget'ın state class'ına taşındı.
   Widget _buildLoadingState() {
     return Scaffold(
       appBar: AppBar(title: const Text('Performans Kalesi')),
@@ -136,9 +82,95 @@ class StatsScreen extends ConsumerWidget {
       ),
     );
   }
+
+
+  @override
+  Widget build(BuildContext context) {
+    final testsAsyncValue = ref.watch(testsProvider);
+    final userAsyncValue = ref.watch(userProfileProvider);
+
+    ref.listen(_selectedTabIndexProvider, (previous, next) {
+      if (_pageController.hasClients && _pageController.page?.round() != next) {
+        _pageController.animateToPage(
+          next,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
+
+    return userAsyncValue.when(
+      data: (user) => testsAsyncValue.when(
+        data: (tests) {
+          if (user == null || tests.isEmpty) {
+            return _buildEmptyState(context, isCompletelyEmpty: true);
+          }
+
+          final groupedTests = <String, List<TestModel>>{};
+          for (final test in tests) {
+            (groupedTests[test.sectionName] ??= []).add(test);
+          }
+
+          final sortedGroups = groupedTests.entries.toList()
+            ..sort((a, b) {
+              if (a.key == 'TYT') return -1;
+              if (b.key == 'TYT') return 1;
+              if (a.key.contains('Sayısal')) return -1;
+              if (b.key.contains('Sayısal')) return 1;
+              return a.key.compareTo(b.key);
+            });
+
+          if (sortedGroups.isEmpty) {
+            return _buildEmptyState(context, isCompletelyEmpty: true);
+          }
+
+          final selectedIndex = ref.watch(_selectedTabIndexProvider);
+          if (selectedIndex >= sortedGroups.length) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              ref.read(_selectedTabIndexProvider.notifier).state = 0;
+            });
+          }
+
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Performans Kalesi'),
+            ),
+            body: Column(
+              children: [
+                _FortressTabSelector(
+                  tabs: sortedGroups.map((e) => e.key).toList(),
+                ),
+                Expanded(
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: (index) {
+                      ref.read(_selectedTabIndexProvider.notifier).state = index;
+                    },
+                    children: sortedGroups.map((entry) {
+                      if(entry.value.length < 2) {
+                        return _buildEmptyState(context, sectionName: entry.key);
+                      }
+                      return _AnalysisView(
+                        key: ValueKey(entry.key),
+                        tests: entry.value,
+                        user: user,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+        loading: () => _buildLoadingState(),
+        error: (err, stack) => _buildErrorState('Test verileri yüklenemedi: $err'),
+      ),
+      loading: () => _buildLoadingState(),
+      error: (err, stack) => _buildErrorState('Kullanıcı verisi yüklenemedi: $err'),
+    );
+  }
 }
 
-// --- YENİ WIDGET: Özel Tasarım, Animasyonlu Sekme Sistemi ---
 class _FortressTabSelector extends ConsumerWidget {
   final List<String> tabs;
   const _FortressTabSelector({required this.tabs});
@@ -185,8 +217,6 @@ class _FortressTabSelector extends ConsumerWidget {
     );
   }
 }
-
-
 class _AnalysisView extends StatelessWidget {
   final List<TestModel> tests;
   final UserModel user;
@@ -195,9 +225,6 @@ class _AnalysisView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (tests.length < 2) {
-      return StatsScreen()._buildEmptyState(context, sectionName: tests.firstOrNull?.sectionName ?? '');
-    }
 
     final analysis = PerformanceAnalysis(tests, user);
 
@@ -287,7 +314,7 @@ class _NetEvolutionChart extends StatelessWidget {
                   getTooltipColor: (spot) => AppTheme.primaryColor.withOpacity(0.9),
                   getTooltipItems: (spots) => spots.map((spot) {
                     final test = analysis.sortedTests[spot.spotIndex];
-                    final accuracy = (test.totalCorrect / (test.totalCorrect + test.totalWrong)).isNaN ? 0.0 : (test.totalCorrect / (test.totalCorrect + test.totalWrong));
+                    final accuracy = (test.totalCorrect + test.totalWrong) == 0 ? 0.0 : (test.totalCorrect / (test.totalCorrect + test.totalWrong));
                     final text = '${test.testName}\n${DateFormat.yMd('tr').format(test.date)}\n${test.totalNet.toStringAsFixed(2)} Net (%${(accuracy * 100).toStringAsFixed(0)} isabet)';
                     return LineTooltipItem(text, const TextStyle(color: Colors.white, fontWeight: FontWeight.bold));
                   }).toList(),
@@ -303,7 +330,8 @@ class _NetEvolutionChart extends StatelessWidget {
                   dotData: FlDotData(
                     show: true,
                     getDotPainter: (spot, percent, barData, index) {
-                      final accuracy = (analysis.sortedTests[index].totalCorrect / (analysis.sortedTests[index].totalCorrect + analysis.sortedTests[index].totalWrong)).isNaN ? 0.0 : (analysis.sortedTests[index].totalCorrect / (analysis.sortedTests[index].totalCorrect + analysis.sortedTests[index].totalWrong));
+                      final test = analysis.sortedTests[index];
+                      final accuracy = (test.totalCorrect + test.totalWrong) == 0 ? 0.0 : (test.totalCorrect / (test.totalCorrect + test.totalWrong));
                       return FlDotCirclePainter(
                         radius: 6,
                         color: Color.lerp(AppTheme.accentColor, AppTheme.successColor, accuracy)!,
@@ -358,27 +386,58 @@ class _StatCard extends StatelessWidget {
   final Color color;
   const _StatCard({required this.label, required this.value, required this.icon, required this.color, required this.tooltip});
 
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(width: 10),
+            Text(label),
+          ],
+        ),
+        content: Text(tooltip, style: const TextStyle(color: AppTheme.secondaryTextColor, height: 1.5)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Anladım"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Card(
-      child: Tooltip(
-        message: tooltip,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(label, style: const TextStyle(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.bold)),
+                InkWell(
+                  onTap: () => _showInfoDialog(context),
+                  child: const Icon(Icons.info_outline, color: AppTheme.secondaryTextColor, size: 20),
+                ),
+              ],
+            ),
+            Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(label, style: const TextStyle(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.bold)),
+                  Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
                   Icon(icon, color: color, size: 24),
-                ],
-              ),
-              Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-            ],
-          ),
+                ]
+            )
+          ],
         ),
       ),
     );
@@ -434,8 +493,12 @@ class _SubjectStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double progress = analysis.questionCount > 0 ? (analysis.averageNet.clamp(-analysis.questionCount.toDouble(), analysis.questionCount.toDouble()) + analysis.questionCount) / (analysis.questionCount * 2) : 0.0;
-    final Color progressColor = Color.lerp(AppTheme.accentColor, AppTheme.successColor, progress)!;
+    // HATA DÜZELTİLDİ: Artık doğru ve yanıltıcı olmayan bir ilerleme hesaplaması var.
+    final double minNet = -(analysis.questionCount * analysis.penaltyCoefficient);
+    final double maxNet = analysis.questionCount.toDouble();
+    final double progress = (analysis.averageNet - minNet) / (maxNet - minNet);
+
+    final Color progressColor = Color.lerp(AppTheme.accentColor, AppTheme.successColor, progress.clamp(0.0, 1.0))!;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -474,7 +537,7 @@ class _SubjectStatCard extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: LinearProgressIndicator(
-                    value: progress,
+                    value: progress.clamp(0.0, 1.0),
                     minHeight: 8,
                     backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
                     valueColor: AlwaysStoppedAnimation<Color>(progressColor),
@@ -507,6 +570,7 @@ class SubjectAnalysis {
   final double worstNet;
   final double trend;
   final int questionCount;
+  final double penaltyCoefficient;
   final List<TestModel> subjectTests;
   final List<FlSpot> netSpots;
 
@@ -517,6 +581,7 @@ class SubjectAnalysis {
     required this.worstNet,
     required this.trend,
     required this.questionCount,
+    required this.penaltyCoefficient,
     required this.subjectTests,
     required this.netSpots,
   });
@@ -602,7 +667,7 @@ class PerformanceAnalysis {
   SubjectAnalysis getAnalysisForSubject(String subjectName) {
     final subjectTests = sortedTests.where((t) => t.scores.containsKey(subjectName)).toList();
     if (subjectTests.isEmpty) {
-      return SubjectAnalysis(subjectName: subjectName, averageNet: 0, bestNet: 0, worstNet: 0, trend: 0, questionCount: 0, subjectTests: [], netSpots: []);
+      return SubjectAnalysis(subjectName: subjectName, averageNet: 0, bestNet: 0, worstNet: 0, trend: 0, questionCount: 0, penaltyCoefficient: 0.25, subjectTests: [], netSpots: []);
     }
 
     final subjectNets = subjectTests.map((t) {
@@ -619,6 +684,7 @@ class PerformanceAnalysis {
       worstNet: subjectNets.reduce(min),
       trend: _calculateTrend(subjectNets),
       questionCount: getQuestionCountForSubject(subjectName),
+      penaltyCoefficient: subjectTests.first.penaltyCoefficient,
       subjectTests: subjectTests,
       netSpots: netSpots,
     );
