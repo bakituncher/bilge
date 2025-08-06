@@ -43,8 +43,10 @@ class AvailabilityScreen extends ConsumerWidget {
       availability: availability,
     );
 
-    if (context.canPop()) {
-      context.pop();
+    // **KALICI ÇÖZÜM BURADA:**
+    // Kurulum bitti, ana ekrana git.
+    if (context.mounted) {
+      context.go('/home');
     }
   }
 
@@ -61,7 +63,7 @@ class AvailabilityScreen extends ConsumerWidget {
             padding: const EdgeInsets.only(right: 8.0),
             child: TextButton(
               onPressed: () => _onSave(context, ref),
-              child: const Text("Kaydet"),
+              child: const Text("Kaydet ve Bitir"),
             ),
           )
         ],

@@ -17,7 +17,7 @@ import 'package:bilge_ai/shared/widgets/loading_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'package:bilge_ai/features/home/screens/add_test_screen.dart';
 import 'package:bilge_ai/features/onboarding/screens/exam_selection_screen.dart';
-import 'package:bilge_ai/features/onboarding/screens/availability_screen.dart'; // import eklendi
+import 'package:bilge_ai/features/onboarding/screens/availability_screen.dart';
 import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
 import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
@@ -50,7 +50,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
 
       final isLoading = authState.isLoading || (authState.hasValue && userProfileState.isLoading);
       if (isLoading) {
-        return location == '/loading' ? null : '/loading';
+        return '/loading';
       }
 
       final isLoggedIn = authState.hasValue && authState.value != null;
@@ -64,24 +64,32 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
-      // DÜZELTME: Bu ekranlar, onboarding sürecinin bir parçasıdır.
-      final onSetupScreen = location == '/onboarding' || location == '/exam-selection' || location == '/availability';
-
       if (userProfileState.hasValue) {
         final user = userProfileState.value!;
 
-        // Kullanıcı zaten bir kurulum ekranındaysa, onu rahat bırak, yönlendirme yapma.
-        if (onSetupScreen) return null;
+        // KURULUM SÜRECİ KONTROLÜ
+        // Eğer kurulum adımları tamamlanmadıysa, kullanıcıyı doğru adıma zorla.
+        if (!user.onboardingCompleted) {
+          return location == '/onboarding' ? null : '/onboarding';
+        }
+        if (user.selectedExam == null || user.selectedExam!.isEmpty) {
+          return location == '/exam-selection' ? null : '/exam-selection';
+        }
+        if (user.weeklyAvailability.isEmpty) {
+          return location == '/availability' ? null : '/availability';
+        }
 
-        if (!user.onboardingCompleted) return '/onboarding';
-        if (user.selectedExam == null || user.selectedExam!.isEmpty) return '/exam-selection';
-        if (user.weeklyAvailability.isEmpty) return '/availability';
+        // KURULUM TAMAMLANDI.
+        // Eğer kullanıcı kurulumu bitirmişse ve hala eski bir kurulum/giriş ekranındaysa
+        // onu ana ekrana yönlendir.
+        final onInitialSetupScreen = location == '/onboarding' || location == '/exam-selection';
+        if (onAuthScreen || onInitialSetupScreen || location == '/loading') {
+          return '/home';
+        }
       }
 
-      if (onAuthScreen || location == '/loading') {
-        return '/home';
-      }
-
+      // Yukarıdaki kurallara uymayan diğer tüm durumlarda (örneğin profilden takvime gitmek gibi)
+      // yönlendirmeye karışma ve izin ver.
       return null;
     },
     routes: [
@@ -90,7 +98,6 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/register', builder: (c, s) => const RegisterScreen()),
       GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
       GoRoute(path: '/exam-selection', builder: (c, s) => const ExamSelectionScreen()),
-      // Yönlendirme için parentNavigatorKey eklendi
       GoRoute(path: '/availability', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const AvailabilityScreen()),
       GoRoute(path: '/library', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const LibraryScreen()),
       StatefulShellRoute.indexedStack(

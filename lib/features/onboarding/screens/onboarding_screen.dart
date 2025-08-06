@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart'; // Yönlendirme için eklendi
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 
@@ -36,14 +37,19 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
           .toList();
 
       try {
-        // Toplanan veriler Firestore'a gönderilir.
         await ref.read(firestoreServiceProvider).updateOnboardingData(
           userId: userId,
           goal: _goalController.text.trim(),
           challenges: selectedChallenges,
           weeklyStudyGoal: _weeklyStudyGoal,
         );
-        // Yönlendirme (redirect) geri kalanını halledecektir.
+
+        // **KALICI ÇÖZÜM BURADA:**
+        // Veri kaydedildikten sonra, bir sonraki adıma manuel olarak git.
+        if (mounted) {
+          context.go('/exam-selection');
+        }
+
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -107,7 +113,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _saveProfile,
-                  child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Kaydet ve Başla'),
+                  child: _isLoading ? const CircularProgressIndicator(color: Colors.white) : const Text('Kaydet ve İlerle'),
                 ),
               ),
             ],

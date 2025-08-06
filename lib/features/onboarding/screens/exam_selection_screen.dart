@@ -1,6 +1,7 @@
 // lib/features/onboarding/screens/exam_selection_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart'; // Yönlendirme için eklendi
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
@@ -13,18 +14,17 @@ class ExamSelectionScreen extends ConsumerWidget {
     final exam = ExamData.getExamByType(examType);
     final userId = ref.read(authControllerProvider).value!.uid;
 
-    // Eğer sınav LGS veya KPSS gibi tek bölümlüyse, direkt kaydet.
-    // GoRouter yönlendirmeyi otomatik olarak halledecek.
     if (exam.sections.length == 1) {
       await ref.read(firestoreServiceProvider).saveExamSelection(
         userId: userId,
         examType: examType,
         sectionName: exam.sections.first.name,
       );
+      // **KALICI ÇÖZÜM BURADA:**
+      if (context.mounted) context.go('/availability');
       return;
     }
 
-    // YKS gibi çok bölümlü sınavlar için seçim menüsünü göster.
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -43,29 +43,19 @@ class ExamSelectionScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 16),
                 ...exam.sections
-                // TYT'yi listeden çıkarıyoruz çünkü o zaten seçili alanla birlikte geliyor.
                     .where((section) => section.name != 'TYT')
                     .map(
                       (section) => Padding(
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: ElevatedButton(
                       onPressed: () async {
-                        // **NİHAİ DÜZELTME: SADECE VERİTABANINI GÜNCELLE**
-                        // Artık Navigator.pop() komutu KULLANMIYORUZ.
-                        // Bu, GoRouter ile olan çakışmayı %100 engeller.
-                        // GoRouter, yönlendirmeyi yaparken bu menüyü kendi kapatacak.
                         await ref.read(firestoreServiceProvider).saveExamSelection(
                           userId: userId,
                           examType: examType,
                           sectionName: section.name,
                         );
-
-                        // Gerekirse menüyü yine de kapatmak için bu satır kullanılabilir,
-                        // ama en güvenlisi GoRouter'a bırakmaktır. Test için bu satırı
-                        // yorumdan çıkarabilirsiniz.
-                        // if (ctx.mounted) {
-                        //    Navigator.of(ctx).pop();
-                        // }
+                        // **KALICI ÇÖZÜM BURADA:**
+                        if (context.mounted) context.go('/availability');
                       },
                       child: Text(section.name),
                     ),

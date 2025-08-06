@@ -126,30 +126,37 @@ class ProfileScreen extends ConsumerWidget {
         data: (user) {
           if (user == null) return const Center(child: Text('Komutan bulunamadı.'));
 
-          final tests = testsAsync.valueOrNull ?? [];
-          final focusSessions = focusSessionsAsync.valueOrNull ?? [];
-          final testCount = tests.length;
-          final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
-          final badges = _generateBadges(user, testCount, avgNet, focusSessions);
-          final unlockedBadges = badges.where((b) => b.isUnlocked).toList();
-          final lockedBadges = badges.where((b) => !b.isUnlocked).toList();
+          // **KALICI ÇÖZÜM BURADA:** focusSessionsAsync'in durumunu kontrol ediyoruz.
+          // Hata varsa veya hala yükleniyorsa, bunu kullanıcıya gösteriyoruz.
+          return focusSessionsAsync.when(
+            data: (focusSessions) {
+              final tests = testsAsync.valueOrNull ?? [];
+              final testCount = tests.length;
+              final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
+              final badges = _generateBadges(user, testCount, avgNet, focusSessions);
+              final unlockedBadges = badges.where((b) => b.isUnlocked).toList();
+              final lockedBadges = badges.where((b) => !b.isUnlocked).toList();
 
-          return ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            children: [
-              _WarriorIDCard(user: user, title: _getWarriorTitle(testCount, avgNet)),
-              const SizedBox(height: 24),
-              _WarStats(testCount: testCount, avgNet: avgNet, streak: user.streak),
-              const SizedBox(height: 24),
-              _TimeManagementActions(),
-              const SizedBox(height: 12),
-              _StrategicActions(user: user),
-              const SizedBox(height: 32),
-              _HonorWall(unlockedBadges: unlockedBadges),
-              const SizedBox(height: 24),
-              _FutureVictories(lockedBadges: lockedBadges),
-              const SizedBox(height: 24),
-            ].animate(interval: 100.ms).fadeIn(duration: 500.ms).slideY(begin: 0.2),
+              return ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                children: [
+                  _WarriorIDCard(user: user, title: _getWarriorTitle(testCount, avgNet)),
+                  const SizedBox(height: 24),
+                  _WarStats(testCount: testCount, avgNet: avgNet, streak: user.streak),
+                  const SizedBox(height: 24),
+                  _TimeManagementActions(),
+                  const SizedBox(height: 12),
+                  _StrategicActions(user: user),
+                  const SizedBox(height: 32),
+                  _HonorWall(unlockedBadges: unlockedBadges),
+                  const SizedBox(height: 24),
+                  _FutureVictories(lockedBadges: lockedBadges),
+                  const SizedBox(height: 24),
+                ].animate(interval: 100.ms).fadeIn(duration: 500.ms).slideY(begin: 0.2),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+            error: (e, s) => Center(child: Text('Odaklanma verileri yüklenemedi: $e')),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
