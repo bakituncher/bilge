@@ -4,12 +4,14 @@ import 'package:bilge_ai/data/repositories/auth_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+// DEĞİŞİKLİK: .autoDispose kaldırıldı
 final authControllerProvider =
-StreamNotifierProvider.autoDispose<AuthController, User?>(() {
+StreamNotifierProvider<AuthController, User?>(() {
   return AuthController();
 });
 
-class AuthController extends AutoDisposeStreamNotifier<User?> {
+// DEĞİŞİKLİK: AutoDisposeStreamNotifier -> StreamNotifier
+class AuthController extends StreamNotifier<User?> {
   @override
   Stream<User?> build() {
     final authRepository = ref.watch(authRepositoryProvider);

@@ -11,12 +11,11 @@ import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
-  // FirebaseStorage bağımlılığı kaldırıldı.
   return FirestoreService(FirebaseFirestore.instance);
 });
 
-// ... (diğer provider'lar aynı kalacak)
-final userProfileProvider = StreamProvider.autoDispose<UserModel?>((ref) {
+// DEĞİŞİKLİK: .autoDispose kaldırıldı.
+final userProfileProvider = StreamProvider<UserModel?>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
     return ref.read(firestoreServiceProvider).getUserProfile(user.uid);
@@ -24,7 +23,8 @@ final userProfileProvider = StreamProvider.autoDispose<UserModel?>((ref) {
   return Stream.value(null);
 });
 
-final testsProvider = StreamProvider.autoDispose<List<TestModel>>((ref) {
+// DEĞİŞİKLİK: .autoDispose kaldırıldı.
+final testsProvider = StreamProvider<List<TestModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
     return ref.read(firestoreServiceProvider).getTestResults(user.uid);
@@ -57,14 +57,12 @@ final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
-  // _storage alanı kaldırıldı.
   FirestoreService(this._firestore);
 
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
 
-  // ... (createUserProfile, updateOnboardingData, getUserProfile, getAllUsers aynı kalacak)
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name);
     await _usersCollection.doc(user.uid).set(userProfile.toJson());
@@ -95,7 +93,6 @@ class FirestoreService {
     final snapshot = await _usersCollection.get();
     return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
   }
-
 
   Future<void> addTestResult(TestModel test) async {
     final userDocRef = _usersCollection.doc(test.userId);
@@ -135,7 +132,6 @@ class FirestoreService {
     });
   }
 
-  // ... (getTestResults aynı kalacak)
   Stream<List<TestModel>> getTestResults(String userId) {
     return _testsCollection
         .where('userId', isEqualTo: userId)
@@ -146,9 +142,6 @@ class FirestoreService {
         .toList());
   }
 
-  // uploadProfilePicture fonksiyonu kaldırıldı.
-
-  // ... (geri kalan tüm fonksiyonlar aynı kalacak)
   Future<void> saveExamSelection({
     required String userId,
     required ExamType examType,
