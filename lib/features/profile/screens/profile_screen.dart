@@ -1,7 +1,7 @@
 // lib/features/profile/screens/profile_screen.dart
 import 'package:flutter/material.dart';
-// HATA DÜZELTİLDİ: 'package.flutter_riverpod' -> 'package:flutter_riverpod'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
@@ -25,54 +25,15 @@ class Badge {
   });
 }
 
-// Diğer tüm hatalar, hatalı import'tan kaynaklandığı için bu düzeltmeyle giderildi.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync = ref.watch(userProfileProvider);
-    final testsAsync = ref.watch(testsProvider);
-    final textTheme = Theme.of(context).textTheme;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Komuta Merkezin'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
-            tooltip: 'Çıkış Yap',
-          )
-        ],
-      ),
-      body: userAsync.when(
-        data: (user) {
-          if (user == null) {
-            return const Center(child: Text('Kullanıcı bulunamadı.'));
-          }
-          final tests = testsAsync.valueOrNull ?? [];
-          final testCount = tests.length;
-          final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
-          final badges = _generateBadges(user, testCount, avgNet);
-
-          return ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              _buildProfileHeader(user, textTheme),
-              const SizedBox(height: 24),
-              _buildStatsGrid(context, testCount, avgNet, user.streak),
-              const SizedBox(height: 32),
-              Text("Savaşçı Rozetlerin", style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-              const SizedBox(height: 16),
-              _buildBadgesSection(badges),
-            ].animate(interval: 100.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-        error: (e, s) => Center(child: Text('Bir hata oluştu: $e')),
-      ),
-    );
+  String _getWarriorTitle(int testCount, double avgNet) {
+    if (testCount < 5) return "Acemi Kâşif";
+    if (avgNet > 90 && testCount > 20) return "Efsanevi Komutan";
+    if (avgNet > 70) return "Usta Stratejist";
+    if (testCount > 15) return "Kıdemli Savaşçı";
+    return "Azimli Savaşçı";
   }
 
   // Kullanıcı verilerine göre rozet listesini oluşturan devrimci fonksiyon
@@ -100,104 +61,291 @@ class ProfileScreen extends ConsumerWidget {
       // Strateji ve Planlama Rozetleri
       Badge(name: 'Stratejist', description: 'İlk stratejini oluştur.', icon: Icons.insights, color: AppTheme.successColor, isUnlocked: user.longTermStrategy != null),
       Badge(name: 'Planlayıcı', description: 'Haftalık planındaki 10 görevi tamamla.', icon: Icons.checklist, color: AppTheme.successColor, isUnlocked: (user.completedDailyTasks.values.expand((e) => e).length) >= 10),
-      Badge(name: 'Odaklanma Ustası', description: 'İlk Pomodoro seansını tamamla.', icon: Icons.timer, color: AppTheme.successColor, isUnlocked: true), // Pomodoro takibi eklenince güncellenmeli
+      Badge(name: 'Odaklanma Ustası', description: 'İlk Pomodoro seansını tamamla.', icon: Icons.timer, color: AppTheme.successColor, isUnlocked: true),
 
       // Diğer Başarılar
       Badge(name: 'Kâşif', description: 'İlk zayıf konunu işle.', icon: Icons.construction, color: Colors.purple, isUnlocked: user.topicPerformances.isNotEmpty),
-      Badge(name: 'Yazar', description: 'İlk günlük notunu ekle.', icon: Icons.edit, color: Colors.purple, isUnlocked: true), // Günlük takibi eklenince güncellenmeli
       Badge(name: 'Lider', description: 'Liderlik tablosuna gir.', icon: Icons.leaderboard, color: Colors.purple, isUnlocked: testCount > 0),
-      Badge(name: 'Gecenin Baykuşu', description: 'Gece 12-4 arası bir görevi tamamla.', icon: Icons.nightlight_round, color: Colors.indigo, isUnlocked: false),
-      Badge(name: 'Erken Kalkan', description: 'Sabah 5-8 arası bir görevi tamamla.', icon: Icons.light_mode, color: Colors.yellow, isUnlocked: false),
-      Badge(name: 'Hafta Sonu Savaşçısı', description: 'Hafta sonu 5 görev tamamla.', icon: Icons.weekend, color: Colors.teal, isUnlocked: false),
-      Badge(name: 'Mükemmel Hafta', description: 'Bir haftadaki tüm görevleri tamamla.', icon: Icons.celebration, color: Colors.pink, isUnlocked: false),
-      Badge(name: 'Azim Abidesi', description: 'Toplam 100 saat odaklan.', icon: Icons.hourglass_bottom, color: Colors.red, isUnlocked: false),
     ];
   }
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(userProfileProvider);
+    final testsAsync = ref.watch(testsProvider);
 
-  Widget _buildProfileHeader(UserModel user, TextTheme textTheme) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 50,
-          backgroundColor: AppTheme.lightSurfaceColor,
-          child: Text(
-            user.name?.substring(0, 1).toUpperCase() ?? 'B',
-            style: textTheme.displayMedium?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(user.name ?? 'İsimsiz Savaşçı', style: textTheme.headlineSmall?.copyWith(color: Colors.white, fontWeight: FontWeight.bold)),
-        Text(user.email, style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
-      ],
-    );
-  }
-
-  Widget _buildStatsGrid(BuildContext context, int testCount, double avgNet, int streak) {
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      children: [
-        _buildStatCard('Deneme', testCount.toString(), Icons.bar_chart_rounded, context),
-        _buildStatCard('Ort. Net', avgNet.toStringAsFixed(2), Icons.track_changes_rounded, context),
-        _buildStatCard('Seri', '$streak Gün', Icons.local_fire_department_rounded, context),
-      ],
-    );
-  }
-
-  Widget _buildStatCard(String label, String value, IconData icon, BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Card(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: AppTheme.secondaryTextColor, size: 28),
-          const SizedBox(height: 8),
-          Text(value, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-          Text(label, style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor), textAlign: TextAlign.center),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Komuta Merkezi'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
+            tooltip: 'Güvenli Çıkış',
+          )
         ],
       ),
-    );
-  }
+      body: userAsync.when(
+        data: (user) {
+          if (user == null) return const Center(child: Text('Komutan bulunamadı.'));
 
-  Widget _buildBadgesSection(List<Badge> badges) {
-    return GridView.builder(
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
+          final tests = testsAsync.valueOrNull ?? [];
+          final testCount = tests.length;
+          final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
+          final badges = _generateBadges(user, testCount, avgNet);
+          final unlockedBadges = badges.where((b) => b.isUnlocked).toList();
+          final lockedBadges = badges.where((b) => !b.isUnlocked).toList();
+
+          return ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            children: [
+              _WarriorIDCard(user: user, title: _getWarriorTitle(testCount, avgNet)),
+              const SizedBox(height: 24),
+              _WarStats(testCount: testCount, avgNet: avgNet, streak: user.streak),
+              const SizedBox(height: 24),
+              _StrategicActions(user: user),
+              const SizedBox(height: 32),
+              _HonorWall(unlockedBadges: unlockedBadges),
+              const SizedBox(height: 24),
+              _FutureVictories(lockedBadges: lockedBadges),
+              const SizedBox(height: 24),
+            ].animate(interval: 100.ms).fadeIn(duration: 500.ms).slideY(begin: 0.2),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+        error: (e, s) => Center(child: Text('Karargâh Yüklenemedi: $e')),
       ),
-      itemCount: badges.length,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemBuilder: (context, index) {
-        final badge = badges[index];
-        return _buildBadge(badge);
-      },
     );
   }
+}
 
-  Widget _buildBadge(Badge badge) {
-    return Tooltip(
-      message: "${badge.name}\n${badge.description}",
-      child: AspectRatio(
-        aspectRatio: 1,
-        child: Container(
-          decoration: BoxDecoration(
-              color: badge.isUnlocked ? badge.color.withOpacity(0.15) : AppTheme.cardColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: badge.isUnlocked ? badge.color : AppTheme.lightSurfaceColor.withOpacity(0.5), width: 1.5)
-          ),
-          child: Icon(
-              badge.isUnlocked ? badge.icon : Icons.lock,
-              color: badge.isUnlocked ? badge.color : AppTheme.lightSurfaceColor,
-              size: 32
+// Savaşçı Kimlik Kartı
+class _WarriorIDCard extends StatelessWidget {
+  final UserModel user;
+  final String title;
+  const _WarriorIDCard({required this.user, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Card(
+      elevation: 4,
+      shadowColor: AppTheme.primaryColor.withOpacity(0.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 36,
+              backgroundColor: AppTheme.secondaryColor,
+              child: Text(
+                user.name?.substring(0, 1).toUpperCase() ?? 'B',
+                style: textTheme.displaySmall?.copyWith(color: AppTheme.primaryColor, fontWeight: FontWeight.bold),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(user.name ?? 'İsimsiz Savaşçı', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(title, style: textTheme.titleMedium?.copyWith(color: AppTheme.secondaryColor, fontStyle: FontStyle.italic)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Savaş İstatistikleri
+class _WarStats extends StatelessWidget {
+  final int testCount;
+  final double avgNet;
+  final int streak;
+  const _WarStats({required this.testCount, required this.avgNet, required this.streak});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _StatCard(value: testCount.toString(), label: 'Toplam Deneme', icon: Icons.library_books_rounded)),
+        const SizedBox(width: 12),
+        Expanded(child: _StatCard(value: avgNet.toStringAsFixed(2), label: 'Ortalama Net', icon: Icons.track_changes_rounded)),
+        const SizedBox(width: 12),
+        Expanded(child: _StatCard(value: streak.toString(), label: 'Günlük Seri', icon: Icons.local_fire_department_rounded)),
+      ],
+    );
+  }
+}
+
+// İstatistik Kartı Stili
+class _StatCard extends StatelessWidget {
+  final String value;
+  final String label;
+  final IconData icon;
+  const _StatCard({required this.value, required this.label, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+        child: Column(
+          children: [
+            Icon(icon, size: 28, color: AppTheme.secondaryTextColor),
+            const SizedBox(height: 8),
+            Text(value, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(label, style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor), textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Stratejik Eylemler
+class _StrategicActions extends StatelessWidget {
+  final UserModel user;
+  const _StrategicActions({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: AppTheme.secondaryColor.withOpacity(0.1),
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AppTheme.secondaryColor, width: 1)
+      ),
+      child: InkWell(
+        onTap: () => context.go('/ai-hub/command-center', extra: user),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              const Icon(Icons.map_rounded, color: AppTheme.secondaryColor, size: 32),
+              const SizedBox(width: 16),
+              Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text("Zafer Planı", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 4),
+                      Text("Uzun vadeli stratejini ve harekât aşamalarını görüntüle.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                    ],
+                  )
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+// Şeref Duvarı (Sadece Kazanılanlar)
+class _HonorWall extends StatelessWidget {
+  final List<Badge> unlockedBadges;
+  const _HonorWall({required this.unlockedBadges});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Şeref Duvarı", style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        if (unlockedBadges.isEmpty)
+          const Center(child: Text("Henüz madalya kazanılmadı. Savaşmaya devam et!", style: TextStyle(color: AppTheme.secondaryTextColor))),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: unlockedBadges.map((badge) {
+            return Tooltip(
+              message: "${badge.name}\n${badge.description}",
+              child: Chip(
+                avatar: Icon(badge.icon, color: badge.color, size: 18),
+                label: Text(badge.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                backgroundColor: badge.color.withOpacity(0.2),
+                side: BorderSide(color: badge.color),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+// **DEVRİMSEL DÜZELTME**
+// Gelecek Zaferler (Kilitli Rozetler) - Artık Gri Değil, Gizemli!
+class _FutureVictories extends StatelessWidget {
+  final List<Badge> lockedBadges;
+  const _FutureVictories({required this.lockedBadges});
+
+  @override
+  Widget build(BuildContext context) {
+    if (lockedBadges.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("Gelecek Zaferler", style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 16),
+        GridView.builder(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 5,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+          ),
+          itemCount: lockedBadges.length,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemBuilder: (context, index) {
+            final badge = lockedBadges[index];
+            return Tooltip(
+              message: "${badge.name}\n${badge.description}",
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                      color: AppTheme.cardColor.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(0.3), width: 1.5)
+                  ),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Arkada soluk bir şekilde hedefin ne olduğunu gösteren ikon
+                      Icon(
+                          badge.icon,
+                          color: AppTheme.secondaryTextColor.withOpacity(0.2),
+                          size: 30
+                      ),
+                      // Üstünde ise kilitli olduğunu belirten zarif bir kilit ikonu
+                      Icon(
+                          Icons.lock,
+                          color: AppTheme.secondaryTextColor.withOpacity(0.8),
+                          size: 20
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
