@@ -10,6 +10,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 
+// Rozet modelimiz
 class Badge {
   final String name;
   final String description;
@@ -26,6 +27,7 @@ class Badge {
   });
 }
 
+// Odaklanma Ustası rozeti için bu provider'ı ekliyoruz
 final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
@@ -41,6 +43,7 @@ final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
+  // Çıkış yapma onayı
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
       context: context,
@@ -76,7 +79,7 @@ class ProfileScreen extends ConsumerWidget {
     return "Azimli Savaşçı";
   }
 
-  // DÜZELTME: focusSessions parametresi eklendi.
+  // Kullanıcı verilerine göre rozet listesini oluşturan devrimci fonksiyon
   List<Badge> _generateBadges(UserModel user, int testCount, double avgNet, List<FocusSessionModel> focusSessions) {
     return [
       Badge(name: 'İlk Adım', description: 'İlk denemeni ekle.', icon: Icons.flag, color: Colors.green, isUnlocked: testCount >= 1),
@@ -96,7 +99,7 @@ class ProfileScreen extends ConsumerWidget {
       Badge(name: 'Planlayıcı', description: 'Haftalık planındaki 10 görevi tamamla.', icon: Icons.checklist, color: AppTheme.successColor, isUnlocked: (user.completedDailyTasks.values.expand((e) => e).length) >= 10),
       Badge(name: 'Odaklanma Ustası', description: 'İlk Pomodoro seansını tamamla.', icon: Icons.timer, color: AppTheme.successColor, isUnlocked: focusSessions.isNotEmpty),
       Badge(name: 'Kâşif', description: 'İlk zayıf konunu işle.', icon: Icons.construction, color: Colors.purple, isUnlocked: user.topicPerformances.isNotEmpty),
-      Badge(name: 'Lider', description: 'Liderlik tablosuna gir.', icon: Icons.leaderboard, color: Colors.purple, isUnlocked: testCount > 0),
+      Badge(name: 'Lider', description: 'Liderlik tablosuna gir.', icon: Icons.leaderboard, color: Colors.purple, isUnlocked: user.engagementScore > 0),
     ];
   }
 
@@ -127,7 +130,6 @@ class ProfileScreen extends ConsumerWidget {
           final focusSessions = focusSessionsAsync.valueOrNull ?? [];
           final testCount = tests.length;
           final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
-          // DÜZELTME: focusSessions parametresi eklendi.
           final badges = _generateBadges(user, testCount, avgNet, focusSessions);
           final unlockedBadges = badges.where((b) => b.isUnlocked).toList();
           final lockedBadges = badges.where((b) => !b.isUnlocked).toList();
@@ -157,6 +159,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
+// Savaşçı Kimlik Kartı (GÜNCELLENDİ: Bilgelik Puanı eklendi)
 class _WarriorIDCard extends StatelessWidget {
   final UserModel user;
   final String title;
@@ -189,6 +192,18 @@ class _WarriorIDCard extends StatelessWidget {
                   Text(user.name ?? 'İsimsiz Savaşçı', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(title, style: textTheme.titleMedium?.copyWith(color: AppTheme.secondaryColor, fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 8), // YENİ EKLENDİ
+                  // YENİ WIDGET: Bilgelik Puanı Göstergesi
+                  Row(
+                    children: [
+                      const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${user.engagementScore} Bilgelik Puanı',
+                        style: textTheme.titleMedium?.copyWith(color: Colors.amber),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -199,6 +214,7 @@ class _WarriorIDCard extends StatelessWidget {
   }
 }
 
+// Savaş İstatistikleri
 class _WarStats extends StatelessWidget {
   final int testCount;
   final double avgNet;
@@ -239,6 +255,7 @@ class _WarStats extends StatelessWidget {
   }
 }
 
+// İstatistik Kartı Stili
 class _StatCard extends StatelessWidget {
   final String value;
   final String label;
@@ -270,6 +287,7 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+// Zaman Haritası Düzenleme Kartı
 class _TimeManagementActions extends StatelessWidget {
   const _TimeManagementActions();
 
@@ -304,6 +322,7 @@ class _TimeManagementActions extends StatelessWidget {
   }
 }
 
+// Stratejik Eylemler Kartı
 class _StrategicActions extends StatelessWidget {
   final UserModel user;
   const _StrategicActions({required this.user});
@@ -318,16 +337,24 @@ class _StrategicActions extends StatelessWidget {
       ),
       child: InkWell(
         onTap: () {
-          // Strateji oluşturmadan önce müsaitlik takvimini kontrol et
           if (user.weeklyAvailability.isEmpty || user.weeklyAvailability.values.every((list) => list.isEmpty)) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Lütfen önce "Zaman Haritanı Düzenle" bölümünden müsaitlik durumunuzu belirtin.'),
+              SnackBar(
+                content: const Text('Lütfen önce "Zaman Haritanı Düzenle" bölümünden müsaitlik durumunuzu belirtin.'),
                 backgroundColor: AppTheme.accentColor,
+                action: SnackBarAction(
+                  label: 'DÜZENLE',
+                  textColor: Colors.white,
+                  onPressed: () => context.push('/availability'),
+                ),
               ),
             );
           } else {
-            context.go('/ai-hub/strategic-planning');
+            if(user.longTermStrategy != null && user.weeklyPlan != null) {
+              context.push('/ai-hub/command-center', extra: user);
+            } else {
+              context.push('/ai-hub/strategic-planning');
+            }
           }
         },
         borderRadius: BorderRadius.circular(16),
@@ -342,7 +369,6 @@ class _StrategicActions extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text("Zafer Planı", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 4),
                       Text("Kişisel zafer planını oluştur veya görüntüle.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
                     ],
                   )
@@ -356,6 +382,7 @@ class _StrategicActions extends StatelessWidget {
   }
 }
 
+// Şeref Duvarı
 class _HonorWall extends StatelessWidget {
   final List<Badge> unlockedBadges;
   const _HonorWall({required this.unlockedBadges});
@@ -389,6 +416,7 @@ class _HonorWall extends StatelessWidget {
   }
 }
 
+// Gelecek Zaferler
 class _FutureVictories extends StatelessWidget {
   final List<Badge> lockedBadges;
   const _FutureVictories({required this.lockedBadges});
