@@ -18,6 +18,20 @@ class LibraryScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
+        // GARANTİLİ ÇÖZÜM: Geri butonunu manuel olarak ekliyoruz.
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          tooltip: 'Geri Dön',
+          onPressed: () {
+            // Önce geri gidilip gidilemeyeceğini kontrol et
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              // Geri gidilemiyorsa (örneğin doğrudan bu sayfa açıldıysa) ana panele git
+              context.go('/home');
+            }
+          },
+        ),
         title: const Text('Bilgelik Kütüphanesi'),
       ),
       body: testsAsync.when(
