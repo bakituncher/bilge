@@ -18,9 +18,10 @@ class UserModel {
   final double totalNetSum;
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
   final Map<String, List<String>> completedDailyTasks;
-  final String? studyPacing; // 'relaxed', 'moderate', 'intense'
+  final String? studyPacing;
   final String? longTermStrategy;
   final Map<String, dynamic>? weeklyPlan;
+  final Map<String, List<String>> weeklyAvailability; // YENİ EKLENDİ
 
   UserModel({
     required this.id,
@@ -41,6 +42,7 @@ class UserModel {
     this.studyPacing,
     this.longTermStrategy,
     this.weeklyPlan,
+    this.weeklyAvailability = const {}, // YENİ EKLENDİ
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -91,6 +93,11 @@ class UserModel {
       studyPacing: data['studyPacing'],
       longTermStrategy: data['longTermStrategy'],
       weeklyPlan: data['weeklyPlan'] as Map<String, dynamic>?,
+      weeklyAvailability: Map<String, List<String>>.from(
+        (data['weeklyAvailability'] ?? {}).map(
+              (key, value) => MapEntry(key, List<String>.from(value)),
+        ),
+      ),
     );
   }
 
@@ -109,8 +116,6 @@ class UserModel {
       'selectedExamSection': selectedExamSection,
       'testCount': testCount,
       'totalNetSum': totalNetSum,
-      // GÜNCELLENEN KOD: Artık `TopicPerformanceModel` içindeki `toMap` metodunu çağırarak..
-      // doğru şekilde JSON'a çevriliyor.
       'topicPerformances': topicPerformances.map(
             (subjectKey, topicMap) => MapEntry(
           subjectKey,
@@ -121,6 +126,7 @@ class UserModel {
       'studyPacing': studyPacing,
       'longTermStrategy': longTermStrategy,
       'weeklyPlan': weeklyPlan,
+      'weeklyAvailability': weeklyAvailability,
     };
   }
 }

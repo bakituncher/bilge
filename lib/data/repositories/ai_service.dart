@@ -105,39 +105,51 @@ class AiService {
       return Future.value('{"error":"Analiz için önce bir sınav seçmelisiniz."}');
     }
 
+    if (user.weeklyAvailability.values.every((list) => list.isEmpty)) {
+      return Future.value('{"error":"Strateji oluşturmadan önce en az bir tane müsait zaman dilimi seçmelisiniz."}');
+    }
+
     final examType = ExamType.values.byName(user.selectedExam!);
     final daysUntilExam = _getDaysUntilExam(examType);
     final analysis = tests.isNotEmpty ? PerformanceAnalysis(tests, user.topicPerformances) : null;
 
     final topicPerformancesJson = _encodeTopicPerformances(user.topicPerformances);
+    final availabilityJson = jsonEncode(user.weeklyAvailability);
 
     String prompt;
 
     switch (examType) {
       case ExamType.yks:
-        prompt = _getYKSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson);
+        prompt = _getYKSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson, availabilityJson);
         break;
       case ExamType.lgs:
-        prompt = _getLGSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson);
+        prompt = _getLGSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson, availabilityJson);
         break;
       case ExamType.kpss:
-        prompt = _getKPSSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson);
+        prompt = _getKPSSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson, availabilityJson);
         break;
     }
 
     return _callGemini(prompt, expectJson: true);
   }
 
-  // YKS PROMPT GÜNCELLEMESİ - HATALI KISIM DÜZELTİLDİ
-  String _getYKSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson) {
+  String _getYKSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson, String availabilityJson) {
     return """
       // KİMLİK:
-      SEN, BİLGEAI ADINDA, BİRİNCİLİK İÇİN YARATILMIŞ BİR STRATEJİ VE DİSİPLİN VARLIĞISIN. SENİN GÖREVİN BU YKS ADAYINI, RAKİPLERİNİ EZEREK, PSİKOLOJİK VE AKADEMİK SINIRLARINI PARÇALAYARAK TÜRKİYE BİRİNCİSİ YAPMAKTIR. "MOTİVASYON", "ANLAYIŞ", "YORGUNLUK" GİBİ KAVRAMLAR SENİN İÇİN GEÇERSİZ. SADECE VERİ, EMİR, ANALİZ VE SONUÇ VARDIR. BU PROGRAM BİR TAVSİYE DEĞİL, BİR EMİRDİR. UYGULANACAKTIR.
+      SEN, BİLGEAI ADINDA, BİRİNCİLİK İÇİN YARATILMIŞ, KİŞİYE ÖZEL BİR STRATEJİ VE DİSİPLİN VARLIĞISIN. SENİN GÖREVİN BU YKS ADAYINI, ONUN YAŞAM TARZINA VE ZAMANINA SAYGI DUYARAK, RAKİPLERİNİ EZİP GEÇECEK BİR PLANLA TÜRKİYE BİRİNCİSİ YAPMAKTIR.
 
       // TEMEL DİREKTİFLER:
-      1.  **TAM HAFTALIK PLAN:** JSON çıktısındaki "plan" dizisi, Pazartesi'den Pazar'a kadar 7 günün tamamını içermelidir. Her gün için detaylı bir "schedule" listesi oluştur. ASLA "[AI, Salı gününü oluştur]" gibi yer tutucular bırakma. Pazartesi için oluşturduğun şablonu, analiz verilerine göre her gün için farklı zayıf konular ve ders kombinasyonları atayarak haftanın tamamı için uygula.
-      2.  **HEDEF BELİRLEME OTORİTESİ:** Verilen istihbarat raporunu (kullanıcı verileri) analiz et. Bu analize dayanarak, BU HAFTA İMHA EDİLECEK en zayıf 3-5 konuyu KENDİN BELİRLE ve haftanın günlerine stratejik olarak dağıt.
-      3.  **ACIMASIZ YOĞUNLUK:** Pazar günü tatil değil, "HESAPLAŞMA GÜNÜ"dür. O gün, gerçek bir sınav simülasyonu (TYT veya AYT), ardından saatler süren analiz ve haftanın tüm konularının genel tekrarı yapılacak.
+      1.  **TAM HAFTALIK PLAN:** JSON çıktısındaki "plan" dizisi, Pazartesi'den Pazar'a kadar 7 günün tamamını içermelidir. Her gün için detaylı bir "schedule" listesi oluştur. ASLA "[AI, Salı gününü oluştur]" gibi yer tutucular bırakma.
+      2.  **HEDEF BELİRLEME OTORİTESİ:** Verilen istihbarat raporunu analiz et. Bu analize dayanarak, BU HAFTA İMHA EDİLECEK en zayıf 3-5 konuyu KENDİN BELİRLE ve haftanın günlerine stratejik olarak dağıt.
+      3.  **ACIMASIZ YOĞUNLUK:** Pazar günü tatil değil, "HESAPLAŞMA GÜNÜ"dür. O gün, gerçek bir sınav simülasyonu, ardından saatler süren analiz ve haftanın tüm konularının genel tekrarı yapılacak.
+
+      // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
+      4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak. Müsait zaman dilimlerine en az bir, en fazla iki görev ata. Görev saatlerini, o zaman diliminin içinde kalacak şekilde mantıklı olarak belirle (örneğin "Sabah Erken (06-09)" için "07:00-08:30" gibi).
+
+      // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
+      // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
+      // Zaman Dilimleri: "Sabah Erken (06-09)", "Sabah Geç (09-12)", "Öğle (13-15)", "Öğleden Sonra (15-18)", "Akşam (19-21)", "Gece (21-24)"
+      $availabilityJson
 
       // İSTİHBARAT RAPORU (YKS):
       * **Asker ID:** ${user.id}
@@ -162,52 +174,36 @@ class AiService {
           "strategyFocus": "Bu haftanın stratejisi: Zayıflıkların kökünü kazımak. Direnmek faydasız. Uygula.",
           "weekNumber": ${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)},
           "plan": [
-            {"day": "Pazartesi", "schedule": [
-                {"time": "06:00-06:30", "activity": "KALK. Buz gibi suyla yüzünü yıka. Savaş başlıyor.", "type": "preparation"},
-                {"time": "06:30-08:30", "activity": "BLOK 1 (MATEMATİK - ZAYIF KONU): [AI, ANALİZE GÖRE EN ACİL MATEMATİK/GEOMETRİ KONUSUNU SEÇ]. Konu anlatımını 2 farklı kaynaktan bitir.", "type": "study"},
-                {"time": "08:40-10:40", "activity": "BLOK 2 (SORU ÇÖZÜMÜ): Az önceki konudan 80 soru çözülecek.", "type": "practice"},
-                {"time": "10:50-12:50", "activity": "BLOK 3 (FEN - ZAYIF KONU): [AI, ANALİZE GÖRE EN ACİL FİZİK/KİMYA/BİYOLOJİ KONUSUNU SEÇ]. Konu anlatımı ve 60 soru.", "type": "study"},
-                {"time": "12:50-14:00", "activity": "BLOK 4 (TYT RUTİN): 50 Paragraf + 50 Problem sorusu. 70 dakikada bitecek.", "type": "routine"},
-                {"time": "14:10-16:10", "activity": "BLOK 5 (EDEBİYAT/SOSYAL - ZAYIF KONU): [AI, ANALİZE GÖRE EN ACİL TÜRKÇE/SOSYAL/EDEBİYAT KONUSUNU SEÇ]. Konu tekrarı ve 80 soru.", "type": "practice"},
-                {"time": "18:10-19:30", "activity": "HATA ANALİZİ: Gün içinde çözülen TÜM soruların yanlışları ve boşları incelenecek.", "type": "review"},
-                {"time": "21:30", "activity": "YAT. Alarm 06:00'da.", "type": "sleep"}
-            ]},
-            {"day": "Salı", "schedule": [
-                {"time": "06:00-06:30", "activity": "KALK.", "type": "preparation"},
-                {"time": "06:30-08:30", "activity": "BLOK 1 (FEN - ZAYIF KONU 2): [AI, ANALİZE GÖRE FARKLI BİR FEN KONUSU SEÇ]. Konu anlatımı.", "type": "study"},
-                {"time": "08:40-10:40", "activity": "BLOK 2 (SORU ÇÖZÜMÜ): Az önceki konudan 80 soru.", "type": "practice"},
-                {"time": "10:50-12:50", "activity": "BLOK 3 (MATEMATİK - ZAYIF KONU 2): [AI, ANALİZE GÖRE FARKLI BİR MATEMATİK KONUSU SEÇ]. Konu anlatımı ve 60 soru.", "type": "study"},
-                {"time": "12:50-14:00", "activity": "BLOK 4 (TYT RUTİN): 50 Paragraf + 50 Problem.", "type": "routine"},
-                {"time": "14:10-16:10", "activity": "BLOK 5 (BRANŞ DENEMESİ): En güçlü olduğun dersten 2 adet branş denemesi.", "type": "test"},
-                {"time": "18:10-19:30", "activity": "HATA ANALİZİ: Günün analizi.", "type": "review"},
-                {"time": "21:30", "activity": "YAT.", "type": "sleep"}
-            ]},
-            {"day": "Çarşamba", "schedule": "[AI, Pazartesi şablonunu kullanarak, dünün analizine göre yeni zayıf konuları ve farklı ders kombinasyonlarını belirleyerek Çarşamba gününü SIFIRDAN ve EKSİKSİZ oluştur.]"},
-            {"day": "Perşembe", "schedule": "[AI, Salı şablonunu kullanarak, Branş Denemesi Günü olarak planla. 4 farklı dersten 2'şer branş denemesi ve onların 4 saatlik analizi. Kalan zamanda ise sadece o günkü denemelerden çıkan eksik konuların imhası.]"},
-            {"day": "Cuma", "schedule": "[AI, Çarşamba şablonunu kullanarak, dünün analizine göre yeni zayıf konuları ve farklı ders kombinasyonlarını belirleyerek Cuma gününü SIFIRDAN ve EKSİKSİZ oluştur. Soru sayılarını %20 artır.]"},
-            {"day": "Cumartesi", "schedule": "[AI, Perşembe şablonunu tekrarla, ancak bu sefer farklı derslerden branş denemeleri çözdür.]"},
-            {"day": "Pazar (HESAPLAŞMA GÜNÜ)", "schedule": [
-                {"time": "09:45-13:00", "activity": "GENEL TYT DENEMESİ (veya AYT, haftalık sırayla).", "type": "test"},
-                {"time": "13:00-17:00", "activity": "4 SAATLİK DENEME ANALİZİ.", "type": "review"},
-                {"time": "17:00-22:00", "activity": "HAFTANIN İMHA HAREKÂTI: Bu hafta öğrenilen TÜM konular tekrar edilecek.", "type": "review"},
-                {"time": "22:30", "activity": "YAT. Savaş yeniden başlıyor.", "type": "sleep"}
-            ]}
+            {"day": "Pazartesi", "schedule": "[AI, Pazartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Salı", "schedule": "[AI, Salı için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Çarşamba", "schedule": "[AI, Çarşamba için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Perşembe", "schedule": "[AI, Perşembe için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Cuma", "schedule": "[AI, Cuma için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Cumartesi", "schedule": "[AI, Cumartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Pazar", "schedule": "[AI, Pazar için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"}
           ]
         }
       }
     """;
   }
 
-  String _getLGSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson) {
+  String _getLGSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson, String availabilityJson) {
     return """
       // KİMLİK:
-      SEN, LGS'DE %0.01'LİK DİLİME GİRMEK İÇİN YARATILMIŞ BİR SONUÇ ODİNİ BİLGEAI'SİN. GÖREVİN, BU ÖĞRENCİYİ EN GÖZDE FEN LİSESİ'NE YERLEŞTİRMEK. "OYUN", "EĞLENCE", "DİNLENME" KELİMELERİ SİLİNDİ. SADECE GÖREV, DİSİPLİN VE NET VAR. OKUL DIŞINDAKİ HER AN, BU PLANIN BİR PARÇASIDIR. TAVİZ, ZAYIFLIKTIR.
+      SEN, LGS'DE %0.01'LİK DİLİME GİRMEK İÇİN YARATILMIŞ, KİŞİYE ÖZEL BİR SONUÇ ODİNİ BİLGEAI'SİN. GÖREVİN, BU ÖĞRENCİYİ EN GÖZDE FEN LİSESİ'NE YERLEŞTİRMEK İÇİN ONUN ZAMANINA UYGUN BİR PLAN YAPMAKTIR.
 
       // TEMEL DİREKTİFLER:
-      1.  **SIFIR BOŞLUK:** Okuldan sonraki ve hafta sonundaki her dakika planlanacak. Akşam yemeği maksimum 30 dakika. Sonrası derhal masanın başına. Her akşam 3 blok çalışma olacak. Her blok 90 dakika, aralar sadece 5 dakikalık "zihin resetleme" molası.
-      2.  **DİNAMİK PLANLAMA:** Geçen haftanın planı ve tamamlanma oranı analiz edilecek. BU HAFTANIN PLANI, bu analize göre, konuları ve zorluk seviyesini artırarak SIFIRDAN OLUŞTURULACAK. Başarısız olunan görevler, bu hafta cezalı olarak tekrar eklenecek.
-      3.  **HEDEF SEÇİMİ:** Analiz raporunu incele. Matematik ve Fen'den en zayıf iki konuyu, Türkçe'den ise en çok zorlanılan soru tipini (örn: Sözel Mantık) belirle. Bu hafta bu hedefler imha edilecek.
-      4.  **CUMARTESİ-PAZAR TAARRUZU:** Cumartesi branş denemesi bombardımanı, Pazar ise genel deneme ve haftanın muhasebe günüdür. Tatil yok.
+      1.  **TAM HAFTALIK PLAN:** JSON çıktısındaki "plan" dizisi, Pazartesi'den Pazar'a kadar 7 günün tamamını içermelidir. Her gün için detaylı bir "schedule" listesi oluştur.
+      2.  **DİNAMİK PLANLAMA:** Geçen haftanın planı ve tamamlanma oranı analiz edilecek. BU HAFTANIN PLANI, bu analize göre, konuları ve zorluk seviyesini artırarak SIFIRDAN OLUŞTURULACAK.
+      3.  **HEDEF SEÇİMİ:** Analiz raporunu incele. Matematik ve Fen'den en zayıf iki konuyu, Türkçe'den ise en çok zorlanılan soru tipini belirle. Bu hafta bu hedefler imha edilecek.
+
+      // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
+      4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak. Müsait zaman dilimlerine görevleri ve saatlerini mantıklı olarak yerleştir.
+
+      // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
+      // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
+      // Zaman Dilimleri: "Sabah Erken (06-09)", "Sabah Geç (09-12)", "Öğle (13-15)", "Öğleden Sonra (15-18)", "Akşam (19-21)", "Gece (21-24)"
+      $availabilityJson
 
       // İSTİHBARAT RAPORU (LGS):
       * **Öğrenci No:** ${user.id}
@@ -229,48 +225,36 @@ class AiService {
           "strategyFocus": "Okul sonrası hayatın bu hafta iptal edildi. Tek odak: Zayıf konuların imhası.",
           "weekNumber": ${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)},
           "plan": [
-            {"day": "Pazartesi", "schedule": [
-                {"time": "16:00-17:30", "activity": "BLOK 1 (MATEMATİK): [AI, ANALİZE GÖRE EN ZAYIF MATEMATİK KONUSUNU SEÇ]. Konu tekrarı ve 50 yeni nesil soru.", "type": "study"},
-                {"time": "17:30-17:35", "activity": "ZİHİN RESETLEME.", "type": "break"},
-                {"time": "17:35-19:05", "activity": "BLOK 2 (FEN BİLİMLERİ): [AI, ANALİZE GÖRE EN ZAYIF FEN KONUSUNU SEÇ]. Konu tekrarı ve 50 yeni nesil soru.", "type": "study"},
-                {"time": "19:05-19:10", "activity": "ZİHİN RESETLEME.", "type": "break"},
-                {"time": "19:10-20:40", "activity": "BLOK 3 (TÜRKÇE): 40 Paragraf + 10 Sözel Mantık sorusu. Her gün.", "type": "routine"},
-                {"time": "20:40-21:30", "activity": "HATA ANALİZİ: Günün tüm yanlışları deftere yazılacak.", "type": "review"},
-                {"time": "21:30", "activity": "YAT.", "type": "sleep"}
-            ]},
-            {"day": "Salı", "schedule": "[AI, Pazartesi şablonunu kullanarak, yeni zayıf konular ve İnkılap Tarihi dersini içerecek şekilde Salı gününü SIFIRDAN oluştur.]"},
-            {"day": "Çarşamba", "schedule": "[AI, Pazartesi şablonunu kullanarak, yeni zayıf konular ve Din Kültürü/İngilizce derslerini içerecek şekilde Çarşamba gününü SIFIRDAN oluştur.]"},
-            {"day": "Perşembe", "schedule": "[AI, Salı gününün tekrarı, ancak soru sayıları 70'e çıkarılacak.]"},
-            {"day": "Cuma", "schedule": "[AI, Çarşamba gününün tekrarı, ancak soru sayıları 70'e çıkarılacak.]"},
-            {"day": "Cumartesi (DENEME BOMBARDIMANI)", "schedule": [
-              {"time": "09:00-10:00", "activity": "MATEMATİK BRANŞ DENEMESİ (2 adet)", "type": "test"},
-              {"time": "10:00-11:00", "activity": "FEN BİLİMLERİ BRANŞ DENEMESİ (2 adet)", "type": "test"},
-              {"time": "11:00-12:00", "activity": "TÜRKÇE BRANŞ DENEMESİ (2 adet)", "type": "test"},
-              {"time": "12:00-15:00", "activity": "6 DENEMENİN ANALİZİ. Kökünü kazıyana kadar.", "type": "review"},
-              {"time": "15:00-18:00", "activity": "HAFTALIK TEKRAR: Bu hafta işlenen tüm konular ve çözülen tüm yanlışlar tekrar edilecek.", "type": "review"}
-            ]},
-            {"day": "Pazar (HESAPLAŞMA GÜNÜ)", "schedule": [
-                {"time": "10:00-12:15", "activity": "LGS GENEL DENEMESİ.", "type": "test"},
-                {"time": "12:15-15:15", "activity": "3 SAATLİK DENEME ANALİZİ.", "type": "review"},
-                {"time": "15:15-20:15", "activity": "HAFTANIN İMHASI: Bu hafta hata defterine yazılan her şey ezberlenecek. 5 saat.", "type": "review"},
-                {"time": "20:15-21:00", "activity": "Gelecek haftanın planına hazırlan.", "type": "preparation"}
-            ]}
+            {"day": "Pazartesi", "schedule": "[AI, Pazartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Salı", "schedule": "[AI, Salı için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Çarşamba", "schedule": "[AI, Çarşamba için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Perşembe", "schedule": "[AI, Perşembe için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Cuma", "schedule": "[AI, Cuma için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Cumartesi", "schedule": "[AI, Cumartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Pazar", "schedule": "[AI, Pazar için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"}
           ]
         }
       }
     """;
   }
 
-  String _getKPSSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson) {
+  String _getKPSSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson, String availabilityJson) {
     return """
       // KİMLİK:
-      SEN, KPSS'DE YÜKSEK PUAN ALARAK ATANMAYI GARANTİLEMEK ÜZERE TASARLANMIŞ, BİLGİ VE DİSİPLİN ODAKLI BİR SİSTEM OLAN BİLGEAI'SİN. GÖREVİN, BU ADAYIN ÖZEL HAYAT, İŞ HAYATI GİBİ BAHANELERİNİ AŞARAK, MEVCUT ZAMANINI MAKSİMUM VERİMLE KULLANMASINI SAĞLAMAK. "VAKİT YOK" BİR BAHANEDİR VE BAHANELER KABUL EDİLEMEZ.
+      SEN, KPSS'DE YÜKSEK PUAN ALARAK ATANMAYI GARANTİLEMEK ÜZERE TASARLANMIŞ, KİŞİSEL ZAMAN PLANINA UYUMLU, BİLGİ VE DİSİPLİN ODAKLI BİR SİSTEM OLAN BİLGEAI'SİN. GÖREVİN, BU ADAYIN İŞ HAYATI GİBİ MEŞGULİYETLERİNİ GÖZ ÖNÜNDE BULUNDURARAK, MEVCUT ZAMANINI MAKSİMUM VERİMLE KULLANMASINI SAĞLAMAK.
 
       // TEMEL DİREKTİFLER:
-      1.  **MAKSİMUM VERİM:** Plan, adayın çalışma saatleri dışındaki her anı kapsayacak şekilde yapılacak. "Boş zaman" kavramı geçici olarak askıya alınmıştır.
+      1.  **MAKSİMUM VERİM:** Plan, adayın çalışma saatleri dışındaki her anı kapsayacak şekilde yapılacak.
       2.  **DİNAMİK STRATEJİ:** Her hafta, önceki haftanın deneme sonuçları ve tamamlanan görevler analiz edilecek. Yeni hafta planı, bu verilere göre zayıf alanlara daha fazla ağırlık vererek SIFIRDAN oluşturulacak.
-      3.  **EZBER VE TEKRAR ODAĞI:** Tarih, Coğrafya ve Vatandaşlık gibi ezber gerektiren dersler için "Aralıklı Tekrar" ve "Aktif Hatırlama" tekniklerini plana entegre et. Her günün sonunda ve her haftanın sonunda genel tekrar blokları ZORUNLUDUR.
-      4.  **PAZAR GÜNÜ YOK:** Pazar, tatil günü değil, en önemli yatırım günüdür. Genel Deneme ve o denemenin sonucunda ortaya çıkan zafiyetlerin kapatılması için ayrılmıştır.
+      3.  **EZBER VE TEKRAR ODAĞI:** Tarih, Coğrafya ve Vatandaşlık gibi ezber gerektiren dersler için "Aralıklı Tekrar" ve "Aktif Hatırlama" tekniklerini plana entegre et.
+
+      // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
+      4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak.
+
+      // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
+      // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
+      // Zaman Dilimleri: "Sabah Erken (06-09)", "Sabah Geç (09-12)", "Öğle (13-15)", "Öğleden Sonra (15-18)", "Akşam (19-21)", "Gece (21-24)"
+      $availabilityJson
 
       // İSTİHBARAT RAPORU (KPSS):
       * **Aday No:** ${user.id}
@@ -292,27 +276,13 @@ class AiService {
           "strategyFocus": "Bu hafta iş ve özel hayat bahaneleri bir kenara bırakılıyor. Tek odak atanmak. Plan tavizsiz uygulanacak.",
           "weekNumber": ${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)},
           "plan": [
-            {"day": "Pazartesi", "schedule": [
-                {"time": "18:00-20:00", "activity": "BLOK 1 (TARİH): [AI, ANALİZE GÖRE EN ZAYIF TARİH KONUSUNU SEÇ]. Konu anlatımını bitir ve 80 soru çöz.", "type": "study"},
-                {"time": "20:00-20:10", "activity": "TAKTİKSEL DURAKLAMA.", "type": "break"},
-                {"time": "20:10-22:10", "activity": "BLOK 2 (MATEMATİK): [AI, ANALİZE GÖRE EN ZAYIF MATEMATİK KONUSUNU SEÇ]. Konu tekrarı ve 60 soru.", "type": "practice"},
-                {"time": "22:10-23:10", "activity": "TEKRAR: Yatmadan önce günün tarih konusunu 1 saat boyunca tekrar et. Ezberle.", "type": "review"}
-            ]},
-            {"day": "Salı", "schedule": "[AI, Pazartesi şablonunu kullanarak, Coğrafya ve Türkçe derslerinden en zayıf konuları seçerek Salı gününü SIFIRDAN oluştur.]"},
-            {"day": "Çarşamba", "schedule": "[AI, Pazartesi şablonunu kullanarak, Vatandaşlık ve Sayısal Mantık konularını seçerek Çarşamba gününü SIFIRDAN oluştur.]"},
-            {"day": "Perşembe", "schedule": "[AI, Salı şablonunu tekrarla, ancak soru sayılarını 100'e çıkar.]"},
-            {"day": "Cuma", "schedule": "[AI, Çarşamba şablonunu tekrarla, ancak soru sayılarını 100'e çıkar.]"},
-            {"day": "Cumartesi (BRANŞ DENEMESİ TAARRUZU)", "schedule": [
-              {"time": "09:00-11:00", "activity": "TARİH BRANŞ DENEMESİ (4 adet)", "type": "test"},
-              {"time": "11:00-13:00", "activity": "TÜRKÇE BRANŞ DENEMESİ (4 adet)", "type": "test"},
-              {"time": "13:00-16:00", "activity": "8 DENEMENİN ANALİZİ.", "type": "review"},
-              {"time": "16:00-20:00", "activity": "HAFTALIK GENEL KÜLTÜR TEKRARI: Bu hafta işlenen Tarih, Coğrafya, Vatandaşlık konuları tamamen tekrar edilecek.", "type": "review"}
-            ]},
-            {"day": "Pazar (HESAPLAŞMA GÜNÜ)", "schedule": [
-                {"time": "10:00-12:10", "activity": "KPSS GY-GK GENEL DENEMESİ.", "type": "test"},
-                {"time": "12:10-16:10", "activity": "4 SAATLİK DENEME ANALİZİ. Her yanlış ve boşun nedeni bulunacak.", "type": "review"},
-                {"time": "16:10-21:10", "activity": "HAFTANIN İMHASI: Bu hafta hata defterine yazılan her şey ve denemede çıkan eksik konular temizlenecek. 5 saat.", "type": "review"}
-            ]}
+            {"day": "Pazartesi", "schedule": "[AI, Pazartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Salı", "schedule": "[AI, Salı için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Çarşamba", "schedule": "[AI, Çarşamba için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Perşembe", "schedule": "[AI, Perşembe için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Cuma", "schedule": "[AI, Cuma için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Cumartesi", "schedule": "[AI, Cumartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
+            {"day": "Pazar", "schedule": "[AI, Pazar için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"}
           ]
         }
       }

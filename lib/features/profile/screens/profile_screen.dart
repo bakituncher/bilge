@@ -1,4 +1,5 @@
 // lib/features/profile/screens/profile_screen.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,8 +8,8 @@ import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
+import 'package:bilge_ai/data/models/focus_session_model.dart';
 
-// Rozet modelimiz
 class Badge {
   final String name;
   final String description;
@@ -25,8 +26,47 @@ class Badge {
   });
 }
 
+final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>>((ref) {
+  final user = ref.watch(authControllerProvider).value;
+  if (user != null) {
+    return FirebaseFirestore.instance
+        .collection('focusSessions')
+        .where('userId', isEqualTo: user.uid)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => FocusSessionModel.fromSnapshot(doc)).toList());
+  }
+  return Stream.value([]);
+});
+
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
+
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text("Çıkış Yap"),
+          content: const Text("Oturumu sonlandırmak istediğinizden emin misiniz?"),
+          actions: <Widget>[
+            TextButton(
+              child: const Text("İptal", style: TextStyle(color: AppTheme.secondaryTextColor)),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text("Çıkış Yap", style: TextStyle(color: AppTheme.accentColor)),
+              onPressed: () {
+                Navigator.of(context).pop();
+                ref.read(authControllerProvider.notifier).signOut();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   String _getWarriorTitle(int testCount, double avgNet) {
     if (testCount < 5) return "Acemi Kâşif";
@@ -36,34 +76,25 @@ class ProfileScreen extends ConsumerWidget {
     return "Azimli Savaşçı";
   }
 
-  // Kullanıcı verilerine göre rozet listesini oluşturan devrimci fonksiyon
-  List<Badge> _generateBadges(UserModel user, int testCount, double avgNet) {
+  // DÜZELTME: focusSessions parametresi eklendi.
+  List<Badge> _generateBadges(UserModel user, int testCount, double avgNet, List<FocusSessionModel> focusSessions) {
     return [
-      // Deneme Sayısı Rozetleri
       Badge(name: 'İlk Adım', description: 'İlk denemeni ekle.', icon: Icons.flag, color: Colors.green, isUnlocked: testCount >= 1),
       Badge(name: 'Acemi Savaşçı', description: '5 deneme ekle.', icon: Icons.shield_outlined, color: Colors.green, isUnlocked: testCount >= 5),
       Badge(name: 'Deneyimli Savaşçı', description: '15 deneme ekle.', icon: Icons.shield, color: Colors.green, isUnlocked: testCount >= 15),
       Badge(name: 'Usta Savaşçı', description: '30 deneme ekle.', icon: Icons.military_tech_outlined, color: Colors.green, isUnlocked: testCount >= 30),
       Badge(name: 'Deneme Fatihi', description: '50 deneme ekle.', icon: Icons.military_tech, color: Colors.green, isUnlocked: testCount >= 50),
-
-      // Seri Rozetleri
       Badge(name: 'Kıvılcım', description: '3 günlük seri yakala.', icon: Icons.whatshot_outlined, color: Colors.orange, isUnlocked: user.streak >= 3),
       Badge(name: 'Ateşleyici', description: '7 günlük seri yakala.', icon: Icons.local_fire_department_outlined, color: Colors.orange, isUnlocked: user.streak >= 7),
       Badge(name: 'Alev Ustası', description: '14 günlük seri yakala.', icon: Icons.local_fire_department, color: Colors.orange, isUnlocked: user.streak >= 14),
       Badge(name: 'Durdurulamaz', description: '30 günlük seri yakala.', icon: Icons.wb_sunny, color: Colors.orange, isUnlocked: user.streak >= 30),
-
-      // Net Ortalaması Rozetleri
       Badge(name: 'Yükseliş', description: '50 Net ortalamasını geç.', icon: Icons.trending_up, color: Colors.blue, isUnlocked: avgNet > 50),
       Badge(name: 'Nişancı', description: '70 Net ortalamasını geç.', icon: Icons.gps_fixed, color: Colors.blue, isUnlocked: avgNet > 70),
       Badge(name: 'Usta Nişancı', description: '90 Net ortalamasını geç.', icon: Icons.gps_not_fixed, color: Colors.blue, isUnlocked: avgNet > 90),
       Badge(name: 'Bilge Nişancı', description: '100 Net ortalamasını geç.', icon: Icons.gps_fixed, color: Colors.blue, isUnlocked: avgNet > 100),
-
-      // Strateji ve Planlama Rozetleri
       Badge(name: 'Stratejist', description: 'İlk stratejini oluştur.', icon: Icons.insights, color: AppTheme.successColor, isUnlocked: user.longTermStrategy != null),
       Badge(name: 'Planlayıcı', description: 'Haftalık planındaki 10 görevi tamamla.', icon: Icons.checklist, color: AppTheme.successColor, isUnlocked: (user.completedDailyTasks.values.expand((e) => e).length) >= 10),
-      Badge(name: 'Odaklanma Ustası', description: 'İlk Pomodoro seansını tamamla.', icon: Icons.timer, color: AppTheme.successColor, isUnlocked: true),
-
-      // Diğer Başarılar
+      Badge(name: 'Odaklanma Ustası', description: 'İlk Pomodoro seansını tamamla.', icon: Icons.timer, color: AppTheme.successColor, isUnlocked: focusSessions.isNotEmpty),
       Badge(name: 'Kâşif', description: 'İlk zayıf konunu işle.', icon: Icons.construction, color: Colors.purple, isUnlocked: user.topicPerformances.isNotEmpty),
       Badge(name: 'Lider', description: 'Liderlik tablosuna gir.', icon: Icons.leaderboard, color: Colors.purple, isUnlocked: testCount > 0),
     ];
@@ -73,6 +104,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProfileProvider);
     final testsAsync = ref.watch(testsProvider);
+    final focusSessionsAsync = ref.watch(focusSessionsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -82,7 +114,7 @@ class ProfileScreen extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authControllerProvider.notifier).signOut(),
+            onPressed: () => _showLogoutDialog(context, ref),
             tooltip: 'Güvenli Çıkış',
           )
         ],
@@ -92,9 +124,11 @@ class ProfileScreen extends ConsumerWidget {
           if (user == null) return const Center(child: Text('Komutan bulunamadı.'));
 
           final tests = testsAsync.valueOrNull ?? [];
+          final focusSessions = focusSessionsAsync.valueOrNull ?? [];
           final testCount = tests.length;
           final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
-          final badges = _generateBadges(user, testCount, avgNet);
+          // DÜZELTME: focusSessions parametresi eklendi.
+          final badges = _generateBadges(user, testCount, avgNet, focusSessions);
           final unlockedBadges = badges.where((b) => b.isUnlocked).toList();
           final lockedBadges = badges.where((b) => !b.isUnlocked).toList();
 
@@ -105,6 +139,8 @@ class ProfileScreen extends ConsumerWidget {
               const SizedBox(height: 24),
               _WarStats(testCount: testCount, avgNet: avgNet, streak: user.streak),
               const SizedBox(height: 24),
+              _TimeManagementActions(),
+              const SizedBox(height: 12),
               _StrategicActions(user: user),
               const SizedBox(height: 32),
               _HonorWall(unlockedBadges: unlockedBadges),
@@ -121,7 +157,6 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-// Savaşçı Kimlik Kartı
 class _WarriorIDCard extends StatelessWidget {
   final UserModel user;
   final String title;
@@ -164,7 +199,6 @@ class _WarriorIDCard extends StatelessWidget {
   }
 }
 
-// Savaş İstatistikleri
 class _WarStats extends StatelessWidget {
   final int testCount;
   final double avgNet;
@@ -175,44 +209,101 @@ class _WarStats extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _StatCard(value: testCount.toString(), label: 'Toplam Deneme', icon: Icons.library_books_rounded)),
+        Expanded(
+          child: _StatCard(
+            value: testCount.toString(),
+            label: 'Toplam Deneme',
+            icon: Icons.library_books_rounded,
+            onTap: () => context.go('/library'),
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _StatCard(value: avgNet.toStringAsFixed(2), label: 'Ortalama Net', icon: Icons.track_changes_rounded)),
+        Expanded(
+          child: _StatCard(
+            value: avgNet.toStringAsFixed(2),
+            label: 'Ortalama Net',
+            icon: Icons.track_changes_rounded,
+            onTap: () => context.go('/home/stats'),
+          ),
+        ),
         const SizedBox(width: 12),
-        Expanded(child: _StatCard(value: streak.toString(), label: 'Günlük Seri', icon: Icons.local_fire_department_rounded)),
+        Expanded(
+          child: _StatCard(
+            value: streak.toString(),
+            label: 'Günlük Seri',
+            icon: Icons.local_fire_department_rounded,
+          ),
+        ),
       ],
     );
   }
 }
 
-// İstatistik Kartı Stili
 class _StatCard extends StatelessWidget {
   final String value;
   final String label;
   final IconData icon;
-  const _StatCard({required this.value, required this.label, required this.icon});
+  final VoidCallback? onTap;
+  const _StatCard({required this.value, required this.label, required this.icon, this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-        child: Column(
-          children: [
-            Icon(icon, size: 28, color: AppTheme.secondaryTextColor),
-            const SizedBox(height: 8),
-            Text(value, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(label, style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor), textAlign: TextAlign.center),
-          ],
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          child: Column(
+            children: [
+              Icon(icon, size: 28, color: AppTheme.secondaryTextColor),
+              const SizedBox(height: 8),
+              Text(value, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 4),
+              Text(label, style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor), textAlign: TextAlign.center),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// Stratejik Eylemler
+class _TimeManagementActions extends StatelessWidget {
+  const _TimeManagementActions();
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: () => context.push('/availability'),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              const Icon(Icons.edit_calendar_rounded, color: AppTheme.successColor, size: 32),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Zaman Haritanı Düzenle", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text("Haftalık müsaitlik durumunu güncelle.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StrategicActions extends StatelessWidget {
   final UserModel user;
   const _StrategicActions({required this.user});
@@ -226,7 +317,19 @@ class _StrategicActions extends StatelessWidget {
           side: const BorderSide(color: AppTheme.secondaryColor, width: 1)
       ),
       child: InkWell(
-        onTap: () => context.go('/ai-hub/command-center', extra: user),
+        onTap: () {
+          // Strateji oluşturmadan önce müsaitlik takvimini kontrol et
+          if (user.weeklyAvailability.isEmpty || user.weeklyAvailability.values.every((list) => list.isEmpty)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Lütfen önce "Zaman Haritanı Düzenle" bölümünden müsaitlik durumunuzu belirtin.'),
+                backgroundColor: AppTheme.accentColor,
+              ),
+            );
+          } else {
+            context.go('/ai-hub/strategic-planning');
+          }
+        },
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -240,7 +343,7 @@ class _StrategicActions extends StatelessWidget {
                     children: [
                       Text("Zafer Planı", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
-                      Text("Uzun vadeli stratejini ve harekât aşamalarını görüntüle.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                      Text("Kişisel zafer planını oluştur veya görüntüle.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
                     ],
                   )
               ),
@@ -253,7 +356,6 @@ class _StrategicActions extends StatelessWidget {
   }
 }
 
-// Şeref Duvarı (Sadece Kazanılanlar)
 class _HonorWall extends StatelessWidget {
   final List<Badge> unlockedBadges;
   const _HonorWall({required this.unlockedBadges});
@@ -287,8 +389,6 @@ class _HonorWall extends StatelessWidget {
   }
 }
 
-// **DEVRİMSEL DÜZELTME**
-// Gelecek Zaferler (Kilitli Rozetler) - Artık Gri Değil, Gizemli!
 class _FutureVictories extends StatelessWidget {
   final List<Badge> lockedBadges;
   const _FutureVictories({required this.lockedBadges});
@@ -326,13 +426,11 @@ class _FutureVictories extends StatelessWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Arkada soluk bir şekilde hedefin ne olduğunu gösteren ikon
                       Icon(
                           badge.icon,
                           color: AppTheme.secondaryTextColor.withOpacity(0.2),
                           size: 30
                       ),
-                      // Üstünde ise kilitli olduğunu belirten zarif bir kilit ikonu
                       Icon(
                           Icons.lock,
                           color: AppTheme.secondaryTextColor.withOpacity(0.8),

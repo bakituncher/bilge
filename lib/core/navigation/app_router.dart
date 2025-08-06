@@ -17,6 +17,7 @@ import 'package:bilge_ai/shared/widgets/loading_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'package:bilge_ai/features/home/screens/add_test_screen.dart';
 import 'package:bilge_ai/features/onboarding/screens/exam_selection_screen.dart';
+import 'package:bilge_ai/features/onboarding/screens/availability_screen.dart'; // import eklendi
 import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
 import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
@@ -33,8 +34,6 @@ import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 final goRouterProvider = Provider<GoRouter>((ref) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-  // DÜZELTME: Hatalı GoRouterRefreshStream yerine,
-  // basit ve çalışan ValueNotifier yöntemi kullanıldı.
   final listenable = ValueNotifier<bool>(false);
   ref.listen(authControllerProvider, (_, __) => listenable.value = !listenable.value);
   ref.listen(userProfileProvider, (_, __) => listenable.value = !listenable.value);
@@ -43,7 +42,7 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     navigatorKey: rootNavigatorKey,
     initialLocation: '/loading',
     debugLogDiagnostics: true,
-    refreshListenable: listenable, // DÜZELTME: Artık bu dinleyiciyi kullanıyoruz.
+    refreshListenable: listenable,
     redirect: (BuildContext context, GoRouterState state) {
       final authState = ref.read(authControllerProvider);
       final userProfileState = ref.read(userProfileProvider);
@@ -65,18 +64,21 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
+      // DÜZELTME: Bu ekranlar, onboarding sürecinin bir parçasıdır.
+      final onSetupScreen = location == '/onboarding' || location == '/exam-selection' || location == '/availability';
+
       if (userProfileState.hasValue) {
         final user = userProfileState.value!;
 
-        if (!user.onboardingCompleted) {
-          return location == '/onboarding' ? null : '/onboarding';
-        }
-        if (user.selectedExam == null || user.selectedExam!.isEmpty) {
-          return location == '/exam-selection' ? null : '/exam-selection';
-        }
+        // Kullanıcı zaten bir kurulum ekranındaysa, onu rahat bırak, yönlendirme yapma.
+        if (onSetupScreen) return null;
+
+        if (!user.onboardingCompleted) return '/onboarding';
+        if (user.selectedExam == null || user.selectedExam!.isEmpty) return '/exam-selection';
+        if (user.weeklyAvailability.isEmpty) return '/availability';
       }
 
-      if (onAuthScreen || location == '/loading' || location == '/onboarding' || location == '/exam-selection') {
+      if (onAuthScreen || location == '/loading') {
         return '/home';
       }
 
@@ -88,6 +90,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/register', builder: (c, s) => const RegisterScreen()),
       GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingScreen()),
       GoRoute(path: '/exam-selection', builder: (c, s) => const ExamSelectionScreen()),
+      // Yönlendirme için parentNavigatorKey eklendi
+      GoRoute(path: '/availability', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const AvailabilityScreen()),
       GoRoute(path: '/library', parentNavigatorKey: rootNavigatorKey, builder: (c, s) => const LibraryScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -167,4 +171,3 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-

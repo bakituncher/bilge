@@ -7,6 +7,7 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
+// HATA DÜZELTİLDİ: Yanlış import satırı kaldırıldı ve doğrusu eklendi.
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 
@@ -14,7 +15,6 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService(FirebaseFirestore.instance);
 });
 
-// DEĞİŞİKLİK: .autoDispose kaldırıldı.
 final userProfileProvider = StreamProvider<UserModel?>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
@@ -23,7 +23,6 @@ final userProfileProvider = StreamProvider<UserModel?>((ref) {
   return Stream.value(null);
 });
 
-// DEĞİŞİKLİK: .autoDispose kaldırıldı.
 final testsProvider = StreamProvider<List<TestModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
@@ -88,26 +87,21 @@ class FirestoreService {
 
   Future<void> addTestResult(TestModel test) async {
     final userDocRef = _usersCollection.doc(test.userId);
-
     await _firestore.runTransaction((transaction) async {
       final userSnapshot = await transaction.get(userDocRef);
       if (!userSnapshot.exists) {
         throw Exception("Kullanıcı bulunamadı!");
       }
       final user = UserModel.fromSnapshot(userSnapshot as DocumentSnapshot<Map<String, dynamic>>);
-
       final newTestRef = _testsCollection.doc();
       transaction.set(newTestRef, test.toJson());
-
       transaction.update(userDocRef, {
         'testCount': FieldValue.increment(1),
         'totalNetSum': FieldValue.increment(test.totalNet),
       });
-
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final lastUpdate = user.lastStreakUpdate;
-
       if (lastUpdate == null) {
         transaction.update(userDocRef, {'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
       } else {
@@ -147,7 +141,6 @@ class FirestoreService {
   }) async {
     final userDocRef = _usersCollection.doc(userId);
     final fieldPath = 'topicPerformances.$subject.$topic';
-
     await userDocRef.update({
       fieldPath: performance.toMap(),
     });
@@ -165,9 +158,17 @@ class FirestoreService {
   }) async {
     final userDocRef = _usersCollection.doc(userId);
     final fieldPath = 'completedDailyTasks.$dateKey';
-
     await userDocRef.update({
       fieldPath: isCompleted ? FieldValue.arrayUnion([task]) : FieldValue.arrayRemove([task]),
+    });
+  }
+
+  Future<void> updateWeeklyAvailability({
+    required String userId,
+    required Map<String, List<String>> availability,
+  }) async {
+    await _usersCollection.doc(userId).update({
+      'weeklyAvailability': availability,
     });
   }
 
