@@ -13,7 +13,6 @@ import 'package:bilge_ai/features/onboarding/screens/onboarding_screen.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/home/screens/dashboard_screen.dart';
 import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
-// YENİ EKLENDİ: LoadingScreen importu
 import 'package:bilge_ai/shared/widgets/loading_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'package:bilge_ai/features/home/screens/add_test_screen.dart';
@@ -34,60 +33,56 @@ import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 final goRouterProvider = Provider<GoRouter>((ref) {
   final rootNavigatorKey = GlobalKey<NavigatorState>();
 
+  // DÜZELTME: Hatalı GoRouterRefreshStream yerine,
+  // basit ve çalışan ValueNotifier yöntemi kullanıldı.
   final listenable = ValueNotifier<bool>(false);
   ref.listen(authControllerProvider, (_, __) => listenable.value = !listenable.value);
   ref.listen(userProfileProvider, (_, __) => listenable.value = !listenable.value);
 
   return GoRouter(
     navigatorKey: rootNavigatorKey,
-    // DEĞİŞİKLİK: Uygulama artık her zaman yükleme ekranında başlayacak.
     initialLocation: '/loading',
     debugLogDiagnostics: true,
-    refreshListenable: listenable,
-    // DEĞİŞİKLİK: Yönlendirme mantığı tamamen yeniden yazıldı.
+    refreshListenable: listenable, // DÜZELTME: Artık bu dinleyiciyi kullanıyoruz.
     redirect: (BuildContext context, GoRouterState state) {
-      final authState = ref.watch(authControllerProvider);
-      final userProfileState = ref.watch(userProfileProvider);
+      final authState = ref.read(authControllerProvider);
+      final userProfileState = ref.read(userProfileProvider);
       final location = state.matchedLocation;
 
-      // 1. Veriler hala yükleniyorsa, yükleme ekranında kalmaya devam et.
-      // Sadece authState değil, userProfile'ın da yüklenmesini bekliyoruz.
-      if (authState.isLoading || (authState.hasValue && userProfileState.isLoading)) {
+      final isLoading = authState.isLoading || (authState.hasValue && userProfileState.isLoading);
+      if (isLoading) {
         return location == '/loading' ? null : '/loading';
       }
 
       final isLoggedIn = authState.hasValue && authState.value != null;
+      final onAuthScreen = location == '/login' || location == '/register';
 
-      // 2. Kullanıcı giriş yapmamışsa, login/register harici bir yere gidemez.
       if (!isLoggedIn) {
-        return location == '/login' || location == '/register' ? null : '/login';
+        return onAuthScreen ? null : '/login';
       }
 
-      // 3. Kullanıcı giriş yapmış ama profil bilgisi henüz yoksa (Firestore'dan gelmediyse) bekle.
-      if (!userProfileState.hasValue || userProfileState.value == null) {
-        return location == '/loading' ? null : '/loading';
+      if (userProfileState.hasError) {
+        return '/login';
       }
 
-      final user = userProfileState.value!;
+      if (userProfileState.hasValue) {
+        final user = userProfileState.value!;
 
-      // 4. Onboarding adımlarını kontrol et.
-      if (!user.onboardingCompleted) {
-        return location == '/onboarding' ? null : '/onboarding';
-      }
-      if (user.selectedExam == null || user.selectedExam!.isEmpty) {
-        return location == '/exam-selection' ? null : '/exam-selection';
+        if (!user.onboardingCompleted) {
+          return location == '/onboarding' ? null : '/onboarding';
+        }
+        if (user.selectedExam == null || user.selectedExam!.isEmpty) {
+          return location == '/exam-selection' ? null : '/exam-selection';
+        }
       }
 
-      // 5. Her şey tamamsa ve kullanıcı hala başlangıç ekranlarındaysa, ana sayfaya yönlendir.
-      if (location == '/loading' || location == '/login' || location == '/register' || location == '/onboarding' || location == '/exam-selection') {
+      if (onAuthScreen || location == '/loading' || location == '/onboarding' || location == '/exam-selection') {
         return '/home';
       }
 
-      // 6. Diğer tüm durumlarda yönlendirme yapma, kullanıcının istediği sayfada kalmasına izin ver.
       return null;
     },
     routes: [
-      // YENİ EKLENDİ: Yükleme ekranı için route
       GoRoute(path: '/loading', builder: (c, s) => const LoadingScreen()),
       GoRoute(path: '/login', builder: (c, s) => const LoginScreen()),
       GoRoute(path: '/register', builder: (c, s) => const RegisterScreen()),
@@ -172,3 +167,4 @@ final goRouterProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
+

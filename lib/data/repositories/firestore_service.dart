@@ -14,7 +14,8 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService(FirebaseFirestore.instance);
 });
 
-final userProfileProvider = StreamProvider.autoDispose<UserModel?>((ref) {
+// DEĞİŞİKLİK: .autoDispose kaldırıldı.
+final userProfileProvider = StreamProvider<UserModel?>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
     return ref.read(firestoreServiceProvider).getUserProfile(user.uid);
@@ -22,7 +23,8 @@ final userProfileProvider = StreamProvider.autoDispose<UserModel?>((ref) {
   return Stream.value(null);
 });
 
-final testsProvider = StreamProvider.autoDispose<List<TestModel>>((ref) {
+// DEĞİŞİKLİK: .autoDispose kaldırıldı.
+final testsProvider = StreamProvider<List<TestModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
     return ref.read(firestoreServiceProvider).getTestResults(user.uid);
@@ -33,9 +35,7 @@ final testsProvider = StreamProvider.autoDispose<List<TestModel>>((ref) {
 final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((ref) async {
   final firestoreService = ref.watch(firestoreServiceProvider);
   final allUsers = await firestoreService.getAllUsers();
-
   final leaderboardEntries = <LeaderboardEntry>[];
-
   for (final user in allUsers) {
     if (user.name != null && user.name!.isNotEmpty && user.testCount > 0) {
       leaderboardEntries.add(LeaderboardEntry(
@@ -46,16 +46,12 @@ final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((
       ));
     }
   }
-
   leaderboardEntries.sort((a, b) => b.averageNet.compareTo(a.averageNet));
-
   return leaderboardEntries;
 });
 
-
 class FirestoreService {
   final FirebaseFirestore _firestore;
-
   FirestoreService(this._firestore);
 
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
@@ -82,10 +78,7 @@ class FirestoreService {
   }
 
   Stream<UserModel> getUserProfile(String userId) {
-    return _usersCollection
-        .doc(userId)
-        .snapshots()
-        .map((doc) => UserModel.fromSnapshot(doc));
+    return _usersCollection.doc(userId).snapshots().map((doc) => UserModel.fromSnapshot(doc));
   }
 
   Future<List<UserModel>> getAllUsers() async {
@@ -97,53 +90,42 @@ class FirestoreService {
     final userDocRef = _usersCollection.doc(test.userId);
 
     await _firestore.runTransaction((transaction) async {
+      final userSnapshot = await transaction.get(userDocRef);
+      if (!userSnapshot.exists) {
+        throw Exception("Kullanıcı bulunamadı!");
+      }
+      final user = UserModel.fromSnapshot(userSnapshot as DocumentSnapshot<Map<String, dynamic>>);
+
       final newTestRef = _testsCollection.doc();
       transaction.set(newTestRef, test.toJson());
+
       transaction.update(userDocRef, {
         'testCount': FieldValue.increment(1),
         'totalNetSum': FieldValue.increment(test.totalNet),
       });
-    });
 
-    await updateUserStreak(test.userId);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final lastUpdate = user.lastStreakUpdate;
+
+      if (lastUpdate == null) {
+        transaction.update(userDocRef, {'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
+      } else {
+        final lastUpdateDate = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
+        if (!today.isAtSameMomentAs(lastUpdateDate)) {
+          final yesterday = today.subtract(const Duration(days: 1));
+          if (lastUpdateDate.isAtSameMomentAs(yesterday)) {
+            transaction.update(userDocRef, {'streak': FieldValue.increment(1), 'lastStreakUpdate': Timestamp.fromDate(today)});
+          } else {
+            transaction.update(userDocRef, {'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
+          }
+        }
+      }
+    });
   }
 
   Stream<List<TestModel>> getTestResults(String userId) {
-    return _testsCollection
-        .where('userId', isEqualTo: userId)
-        .orderBy('date', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-        .map((doc) => TestModel.fromSnapshot(doc))
-        .toList());
-  }
-
-  Future<void> updateUserStreak(String userId) async {
-    final userDocRef = _usersCollection.doc(userId);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-
-    final userSnapshot = await userDocRef.get();
-    if (!userSnapshot.exists) return;
-
-    final user = UserModel.fromSnapshot(userSnapshot);
-    final lastUpdate = user.lastStreakUpdate;
-
-    if (lastUpdate == null) {
-      await userDocRef.update({'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
-    } else {
-      final lastUpdateDate = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
-      if (today.isAtSameMomentAs(lastUpdateDate)) {
-        return;
-      }
-
-      final yesterday = today.subtract(const Duration(days: 1));
-      if (lastUpdateDate.isAtSameMomentAs(yesterday)) {
-        await userDocRef.update({'streak': FieldValue.increment(1), 'lastStreakUpdate': Timestamp.fromDate(today)});
-      } else {
-        await userDocRef.update({'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
-      }
-    }
+    return _testsCollection.where('userId', isEqualTo: userId).orderBy('date', descending: true).snapshots().map((snapshot) => snapshot.docs.map((doc) => TestModel.fromSnapshot(doc)).toList());
   }
 
   Future<void> saveExamSelection({
@@ -177,7 +159,7 @@ class FirestoreService {
 
   Future<void> updateDailyTaskCompletion({
     required String userId,
-    required String dateKey, // Format: "YYYY-MM-DD"
+    required String dateKey,
     required String task,
     required bool isCompleted,
   }) async {
@@ -185,9 +167,7 @@ class FirestoreService {
     final fieldPath = 'completedDailyTasks.$dateKey';
 
     await userDocRef.update({
-      fieldPath: isCompleted
-          ? FieldValue.arrayUnion([task])
-          : FieldValue.arrayRemove([task]),
+      fieldPath: isCompleted ? FieldValue.arrayUnion([task]) : FieldValue.arrayRemove([task]),
     });
   }
 
