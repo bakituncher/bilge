@@ -16,12 +16,13 @@ class UserModel {
   final String? selectedExamSection;
   final int testCount;
   final double totalNetSum;
+  final int engagementScore; // YENİ EKLENDİ: Bilgelik Puanı
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
   final Map<String, List<String>> completedDailyTasks;
   final String? studyPacing;
   final String? longTermStrategy;
   final Map<String, dynamic>? weeklyPlan;
-  final Map<String, List<String>> weeklyAvailability; // YENİ EKLENDİ
+  final Map<String, List<String>> weeklyAvailability;
 
   UserModel({
     required this.id,
@@ -37,12 +38,13 @@ class UserModel {
     this.selectedExamSection,
     this.testCount = 0,
     this.totalNetSum = 0.0,
+    this.engagementScore = 0, // YENİ EKLENDİ
     this.topicPerformances = const {},
     this.completedDailyTasks = const {},
     this.studyPacing,
     this.longTermStrategy,
     this.weeklyPlan,
-    this.weeklyAvailability = const {}, // YENİ EKLENDİ
+    this.weeklyAvailability = const {},
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -88,6 +90,7 @@ class UserModel {
       selectedExamSection: data['selectedExamSection'],
       testCount: data['testCount'] ?? 0,
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
+      engagementScore: data['engagementScore'] ?? 0, // YENİ EKLENDİ
       topicPerformances: safeTopicPerformances,
       completedDailyTasks: safeCompletedTasks,
       studyPacing: data['studyPacing'],
@@ -116,6 +119,7 @@ class UserModel {
       'selectedExamSection': selectedExamSection,
       'testCount': testCount,
       'totalNetSum': totalNetSum,
+      'engagementScore': engagementScore, // YENİ EKLENDİ
       'topicPerformances': topicPerformances.map(
             (subjectKey, topicMap) => MapEntry(
           subjectKey,

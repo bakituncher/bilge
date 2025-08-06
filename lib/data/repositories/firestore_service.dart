@@ -7,7 +7,6 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
-// HATA DÜZELTİLDİ: Yanlış import satırı kaldırıldı ve doğrusu eklendi.
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 
@@ -31,21 +30,26 @@ final testsProvider = StreamProvider<List<TestModel>>((ref) {
   return Stream.value([]);
 });
 
+// GÜNCELLENDİ: LeaderboardProvider artık engagementScore'a göre sıralama yapıyor.
 final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((ref) async {
   final firestoreService = ref.watch(firestoreServiceProvider);
   final allUsers = await firestoreService.getAllUsers();
+
   final leaderboardEntries = <LeaderboardEntry>[];
+
   for (final user in allUsers) {
-    if (user.name != null && user.name!.isNotEmpty && user.testCount > 0) {
+    if (user.name != null && user.name!.isNotEmpty && user.engagementScore > 0) {
       leaderboardEntries.add(LeaderboardEntry(
         userId: user.id,
         userName: user.name!,
-        averageNet: user.totalNetSum / user.testCount,
+        score: user.engagementScore,
         testCount: user.testCount,
       ));
     }
   }
-  leaderboardEntries.sort((a, b) => b.averageNet.compareTo(a.averageNet));
+
+  leaderboardEntries.sort((a, b) => b.score.compareTo(a.score));
+
   return leaderboardEntries;
 });
 
@@ -85,13 +89,18 @@ class FirestoreService {
     return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
   }
 
+  // YENİ FONKSİYON: Kullanıcının bilgelik puanını artırır.
+  Future<void> updateEngagementScore(String userId, int pointsToAdd) async {
+    final userDocRef = _usersCollection.doc(userId);
+    await userDocRef.update({'engagementScore': FieldValue.increment(pointsToAdd)});
+  }
+
+  // GÜNCELLENDİ: Artık test ekleyince puan da veriyor.
   Future<void> addTestResult(TestModel test) async {
     final userDocRef = _usersCollection.doc(test.userId);
     await _firestore.runTransaction((transaction) async {
       final userSnapshot = await transaction.get(userDocRef);
-      if (!userSnapshot.exists) {
-        throw Exception("Kullanıcı bulunamadı!");
-      }
+      if (!userSnapshot.exists) throw Exception("Kullanıcı bulunamadı!");
       final user = UserModel.fromSnapshot(userSnapshot as DocumentSnapshot<Map<String, dynamic>>);
       final newTestRef = _testsCollection.doc();
       transaction.set(newTestRef, test.toJson());
@@ -116,6 +125,7 @@ class FirestoreService {
         }
       }
     });
+    await updateEngagementScore(test.userId, 50); // Deneme ekleme: 50 Puan
   }
 
   Stream<List<TestModel>> getTestResults(String userId) {
@@ -146,8 +156,10 @@ class FirestoreService {
     });
   }
 
+  // GÜNCELLENDİ: Artık odaklanma tamamlanınca puan da veriyor.
   Future<void> addFocusSession(FocusSessionModel session) async {
     await _focusSessionsCollection.add(session.toMap());
+    await updateEngagementScore(session.userId, 25); // Pomodoro: 25 Puan
   }
 
   Future<void> updateDailyTaskCompletion({
@@ -161,6 +173,9 @@ class FirestoreService {
     await userDocRef.update({
       fieldPath: isCompleted ? FieldValue.arrayUnion([task]) : FieldValue.arrayRemove([task]),
     });
+    if(isCompleted) {
+      await updateEngagementScore(userId, 10); // Görev tamamlama: 10 Puan
+    }
   }
 
   Future<void> updateWeeklyAvailability({
@@ -183,5 +198,6 @@ class FirestoreService {
       'longTermStrategy': longTermStrategy,
       'weeklyPlan': weeklyPlan,
     });
+    await updateEngagementScore(userId, 100); // Strateji oluşturma: 100 Puan
   }
 }
