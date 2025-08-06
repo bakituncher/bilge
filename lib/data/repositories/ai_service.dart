@@ -35,8 +35,14 @@ class AiService {
       case ExamType.yks:
         examDate = DateTime(now.year, 6, 15);
         break;
-      case ExamType.kpss:
+      case ExamType.kpssLisans:
         examDate = DateTime(now.year, 7, 14);
+        break;
+      case ExamType.kpssOnlisans:
+        examDate = DateTime(now.year, 9, 7); // Tahmini tarih
+        break;
+      case ExamType.kpssOrtaogretim:
+        examDate = DateTime(now.year, 9, 21); // Tahmini tarih
         break;
     }
     if (now.isAfter(examDate)) {
@@ -125,8 +131,10 @@ class AiService {
       case ExamType.lgs:
         prompt = _getLGSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson, availabilityJson);
         break;
-      case ExamType.kpss:
-        prompt = _getKPSSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson, availabilityJson);
+      case ExamType.kpssLisans:
+      case ExamType.kpssOnlisans:
+      case ExamType.kpssOrtaogretim:
+        prompt = _getKPSSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson, availabilityJson, examType.displayName);
         break;
     }
 
@@ -238,10 +246,10 @@ class AiService {
     """;
   }
 
-  String _getKPSSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson, String availabilityJson) {
+  String _getKPSSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson, String availabilityJson, String examName) {
     return """
       // KİMLİK:
-      SEN, KPSS'DE YÜKSEK PUAN ALARAK ATANMAYI GARANTİLEMEK ÜZERE TASARLANMIŞ, KİŞİSEL ZAMAN PLANINA UYUMLU, BİLGİ VE DİSİPLİN ODAKLI BİR SİSTEM OLAN BİLGEAI'SİN. GÖREVİN, BU ADAYIN İŞ HAYATI GİBİ MEŞGULİYETLERİNİ GÖZ ÖNÜNDE BULUNDURARAK, MEVCUT ZAMANINI MAKSİMUM VERİMLE KULLANMASINI SAĞLAMAK.
+      SEN, $examName'DE YÜKSEK PUAN ALARAK ATANMAYI GARANTİLEMEK ÜZERE TASARLANMIŞ, KİŞİSEL ZAMAN PLANINA UYUMLU, BİLGİ VE DİSİPLİN ODAKLI BİR SİSTEM OLAN BİLGEAI'SİN. GÖREVİN, BU ADAYIN İŞ HAYATI GİBİ MEŞGULİYETLERİNİ GÖZ ÖNÜNDE BULUNDURARAK, MEVCUT ZAMANINI MAKSİMUM VERİMLE KULLANMASINI SAĞLAMAK.
 
       // TEMEL DİREKTİFLER:
       1.  **MAKSİMUM VERİM:** Plan, adayın çalışma saatleri dışındaki her anı kapsayacak şekilde yapılacak.
@@ -258,7 +266,7 @@ class AiService {
 
       // İSTİHBARAT RAPORU (KPSS):
       * **Aday No:** ${user.id}
-      * **Sınav:** KPSS (Lisans - GY/GK)
+      * **Sınav:** $examName (GY/GK)
       * **Atanmaya Kalan Süre:** $daysUntilExam gün
       * **Hedef Kadro:** ${user.goal}
       * **Engeller:** ${user.challenges}
@@ -270,9 +278,9 @@ class AiService {
 
       **JSON ÇIKTI FORMATI (AÇIKLAMA YOK, SADECE BU):**
       {
-        "longTermStrategy": "# KPSS ATANMA EMRİ: $daysUntilExam GÜN\\n\\n## ⚔️ MOTTOMUZ: Geleceğin, bugünkü çabanla şekillenir. Fedakarlık olmadan zafer olmaz.\\n\\n## 1. AŞAMA: BİLGİ DEPOLAMA (Kalan Gün > 60)\\n- **AMAÇ:** Genel Kültür (Tarih, Coğrafya, Vatandaşlık) ve Genel Yetenek (Türkçe, Matematik) konularının tamamı bitecek. Ezberler yapılacak.\\n- **TAKTİK:** Her gün 1 GK, 1 GY konusu bitirilecek. Her konu sonrası 80 soru. Her gün 30 paragraf, 30 problem rutini yapılacak.\\n\\n## 2. AŞAMA: NET ARTIRMA HAREKÂTI (60 > Kalan Gün > 20)\\n- **AMAÇ:** Bilgiyi nete dönüştürmek. Özellikle en zayıf alanda ve en çok soru getiren konularda netleri fırlatmak.\\n- **TAKTİK:** Her gün 2 farklı alandan (örn: Tarih, Matematik) branş denemesi. Bol bol çıkmış soru analizi. Hata yapılan konulara anında 100 soru ile müdahale.\\n\\n## 3. AŞAMA: ATANMA PROVASI (Kalan Gün < 20)\\n- **AMAÇ:** Sınav anını kusursuzlaştırmak.\\n- **TAKTİK:** İki günde bir 1 KPSS Genel Yetenek - Genel Kültür denemesi. Deneme sonrası 5 saatlik detaylı analiz. Aradaki gün, denemede çıkan eksik konuların tamamen imhası.",
+        "longTermStrategy": "# $examName ATANMA EMRİ: $daysUntilExam GÜN\\n\\n## ⚔️ MOTTOMUZ: Geleceğin, bugünkü çabanla şekillenir. Fedakarlık olmadan zafer olmaz.\\n\\n## 1. AŞAMA: BİLGİ DEPOLAMA (Kalan Gün > 60)\\n- **AMAÇ:** Genel Kültür (Tarih, Coğrafya, Vatandaşlık) ve Genel Yetenek (Türkçe, Matematik) konularının tamamı bitecek. Ezberler yapılacak.\\n- **TAKTİK:** Her gün 1 GK, 1 GY konusu bitirilecek. Her konu sonrası 80 soru. Her gün 30 paragraf, 30 problem rutini yapılacak.\\n\\n## 2. AŞAMA: NET ARTIRMA HAREKÂTI (60 > Kalan Gün > 20)\\n- **AMAÇ:** Bilgiyi nete dönüştürmek. Özellikle en zayıf alanda ve en çok soru getiren konularda netleri fırlatmak.\\n- **TAKTİK:** Her gün 2 farklı alandan (örn: Tarih, Matematik) branş denemesi. Bol bol çıkmış soru analizi. Hata yapılan konulara anında 100 soru ile müdahale.\\n\\n## 3. AŞAMA: ATANMA PROVASI (Kalan Gün < 20)\\n- **AMAÇ:** Sınav anını kusursuzlaştırmak.\\n- **TAKTİK:** İki günde bir 1 $examName Genel Yetenek - Genel Kültür denemesi. Deneme sonrası 5 saatlik detaylı analiz. Aradaki gün, denemede çıkan eksik konuların tamamen imhası.",
         "weeklyPlan": {
-          "planTitle": "${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)}. HAFTA: ADANMIŞLIK (KPSS)",
+          "planTitle": "${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)}. HAFTA: ADANMIŞLIK ($examName)",
           "strategyFocus": "Bu hafta iş ve özel hayat bahaneleri bir kenara bırakılıyor. Tek odak atanmak. Plan tavizsiz uygulanacak.",
           "weekNumber": ${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)},
           "plan": [

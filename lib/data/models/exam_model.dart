@@ -1,7 +1,13 @@
 // lib/data/models/exam_model.dart
 
 // Sınav türlerini tanımlayan enum
-enum ExamType { yks, lgs, kpss }
+enum ExamType {
+  yks,
+  lgs,
+  kpssLisans,
+  kpssOnlisans,
+  kpssOrtaogretim,
+}
 
 extension ExamTypeExtension on ExamType {
   String get displayName {
@@ -10,8 +16,12 @@ extension ExamTypeExtension on ExamType {
         return 'YKS';
       case ExamType.lgs:
         return 'LGS';
-      case ExamType.kpss:
-        return 'KPSS';
+      case ExamType.kpssLisans:
+        return 'KPSS Lisans';
+      case ExamType.kpssOnlisans:
+        return 'KPSS Önlisans';
+      case ExamType.kpssOrtaogretim:
+        return 'KPSS Ortaöğretim';
     }
   }
 }
@@ -57,8 +67,92 @@ class Exam {
 
 // Sınav verilerinin merkezi (TÜM SINAVLAR VE GÜNCEL KONULAR EKLENDİ)
 class ExamData {
+  // KPSS için ortak ders ve konu yapısı
+  static final Map<String, SubjectDetails> _kpssGyGkSubjects = {
+    'Türkçe (Genel Yetenek)': SubjectDetails(questionCount: 30, topics: [
+      SubjectTopic(name: 'Sözcükte Anlam'),
+      SubjectTopic(name: 'Cümlede Anlam'),
+      SubjectTopic(name: 'Paragrafta Anlam'),
+      SubjectTopic(name: 'Sözel Mantık'),
+      SubjectTopic(name: 'Ses Bilgisi'),
+      SubjectTopic(name: 'Yazım Kuralları'),
+      SubjectTopic(name: 'Noktalama İşaretleri'),
+      SubjectTopic(name: 'Yapı Bilgisi'),
+      SubjectTopic(name: 'Sözcük Türleri'),
+      SubjectTopic(name: 'Cümlenin Öğeleri'),
+      SubjectTopic(name: 'Cümle Türleri'),
+      SubjectTopic(name: 'Anlatım Bozuklukları'),
+    ]),
+    'Matematik (Genel Yetenek)':
+    SubjectDetails(questionCount: 30, topics: [
+      SubjectTopic(name: 'Temel Kavramlar ve Sayılar'),
+      SubjectTopic(name: 'Bölme-Bölünebilme, Asal Çarpanlar'),
+      SubjectTopic(name: 'EBOB-EKOK'),
+      SubjectTopic(name: 'Rasyonel ve Ondalıklı Sayılar'),
+      SubjectTopic(name: 'Basit Eşitsizlikler ve Mutlak Değer'),
+      SubjectTopic(name: 'Üslü ve Köklü İfadeler'),
+      SubjectTopic(name: 'Çarpanlara Ayırma ve Özdeşlikler'),
+      SubjectTopic(name: 'Denklem Çözme ve Oran-Orantı'),
+      SubjectTopic(name: 'Sayı, Kesir, Yaş Problemleri'),
+      SubjectTopic(name: 'İşçi, Havuz, Hız Problemleri'),
+      SubjectTopic(name: 'Yüzde, Kâr-Zarar, Faiz, Karışım Problemleri'),
+      SubjectTopic(name: 'Kümeler, Fonksiyonlar, İşlem, Modüler Aritmetik'),
+      SubjectTopic(name: 'Permütasyon, Kombinasyon, Olasılık'),
+      SubjectTopic(name: 'Tablo ve Grafik Yorumlama'),
+      SubjectTopic(name: 'Sayısal Mantık'),
+      SubjectTopic(name: 'Geometri (Açılar, Üçgenler, Dörtgenler, Çember, Analitik, Katı Cisimler)'),
+    ]),
+    'Tarih (Genel Kültür)': SubjectDetails(questionCount: 27, topics: [
+      SubjectTopic(name: 'İslamiyet Öncesi Türk Tarihi'),
+      SubjectTopic(name: 'İlk Müslüman Türk Devletleri ve Beylikleri'),
+      SubjectTopic(name: 'Osmanlı Devleti Siyasi Tarihi'),
+      SubjectTopic(name: 'Osmanlı Devleti Kültür ve Medeniyeti'),
+      SubjectTopic(name: '20. Yüzyılda Osmanlı Devleti'),
+      SubjectTopic(name: 'Milli Mücadele Hazırlık Dönemi'),
+      SubjectTopic(name: 'Kurtuluş Savaşı (Cepheler)'),
+      SubjectTopic(name: 'Atatürk İlke ve İnkılapları'),
+      SubjectTopic(name: 'Atatürk Dönemi İç Politika'),
+      SubjectTopic(name: 'Atatürk Dönemi Dış Politika'),
+      SubjectTopic(name: 'Çağdaş Türk ve Dünya Tarihi'),
+    ]),
+    'Coğrafya (Genel Kültür)':
+    SubjectDetails(questionCount: 18, topics: [
+      SubjectTopic(name: 'Türkiye\'nin Coğrafi Konumu'),
+      SubjectTopic(name: 'Türkiye\'nin Yer Şekilleri'),
+      SubjectTopic(name: 'Türkiye\'nin İklimi ve Bitki Örtüsü'),
+      SubjectTopic(name: 'Türkiye\'de Nüfus, Yerleşme ve Göç'),
+      SubjectTopic(name: 'Türkiye\'de Tarım'),
+      SubjectTopic(name: 'Türkiye\'de Hayvancılık'),
+      SubjectTopic(name: 'Türkiye\'de Madenler ve Enerji Kaynakları'),
+      SubjectTopic(name: 'Türkiye\'de Sanayi'),
+      SubjectTopic(name: 'Türkiye\'de Ticaret'),
+      SubjectTopic(name: 'Türkiye\'de Ulaşım'),
+      SubjectTopic(name: 'Türkiye\'de Turizm'),
+      SubjectTopic(name: 'Türkiye\'nin Coğrafi Bölgeleri'),
+    ]),
+    'Vatandaşlık (Genel Kültür)':
+    SubjectDetails(questionCount: 9, topics: [
+      SubjectTopic(name: 'Temel Hukuk Kavramları'),
+      SubjectTopic(name: 'Anayasa Hukukuna Giriş'),
+      SubjectTopic(name: '1982 Anayasası (Temel İlkeler, Hak ve Hürriyetler)'),
+      SubjectTopic(name: 'Yasama'),
+      SubjectTopic(name: 'Yürütme'),
+      SubjectTopic(name: 'Yargı'),
+      SubjectTopic(name: 'İdare Hukuku'),
+      SubjectTopic(name: 'İnsan Hakları Hukuku'),
+    ]),
+    'Güncel Bilgiler (Genel Kültür)':
+    SubjectDetails(questionCount: 6, topics: [
+      SubjectTopic(name: 'Türkiye ve Dünya ile İlgili Genel, Kültürel ve Güncel Sosyoekonomik Konular'),
+      SubjectTopic(name: 'Bilimsel ve Teknolojik Gelişmeler'),
+      SubjectTopic(name: 'Uluslararası Kuruluşlar ve Anlaşmalar'),
+      SubjectTopic(name: 'Sanat ve Spor Alanındaki Gelişmeler'),
+    ]),
+  };
+
+
   static final List<Exam> exams = [
-    // LGS Tanımı (Tüm Konularla Güncellendi)
+    // LGS Tanımı
     Exam(
       type: ExamType.lgs,
       name: 'Liselere Geçiş Sistemi',
@@ -146,12 +240,11 @@ class ExamData {
             }),
       ],
     ),
-    // YKS Tanımı (Tüm Dersler ve Konularla Detaylandırıldı)
+    // YKS Tanımı
     Exam(
       type: ExamType.yks,
       name: 'Yükseköğretim Kurumları Sınavı',
       sections: [
-        // --- TYT BÖLÜMÜ ---
         ExamSection(name: 'TYT', subjects: {
           'Türkçe': SubjectDetails(questionCount: 40, topics: [
             SubjectTopic(name: 'Sözcükte Anlam'),
@@ -244,7 +337,6 @@ class ExamData {
             SubjectTopic(name: 'Polinomlar'),
             SubjectTopic(name: 'Permütasyon-Kombinasyon-Binom-Olasılık'),
             SubjectTopic(name: 'Veri ve İstatistik'),
-            // TYT Geometri
             SubjectTopic(name: 'Doğruda ve Üçgende Açılar'),
             SubjectTopic(name: 'Özel Üçgenler'),
             SubjectTopic(name: 'Üçgende Alan, Açıortay, Kenarortay'),
@@ -288,10 +380,8 @@ class ExamData {
             SubjectTopic(name: 'Ekosistem Ekolojisi ve Güncel Çevre Sorunları'),
           ]),
         }),
-        // --- AYT BÖLÜMLERİ ---
         ExamSection(name: 'AYT - Sayısal', subjects: {
           'Matematik': SubjectDetails(questionCount: 40, topics: [
-            // TYT Konuları Dahil
             SubjectTopic(name: 'Temel Kavramlar'),
             SubjectTopic(name: 'Sayı Basamakları'),
             SubjectTopic(name: 'Bölme ve Bölünebilme'),
@@ -319,7 +409,6 @@ class ExamData {
             SubjectTopic(name: 'Limit ve Süreklilik'),
             SubjectTopic(name: 'Türev ve Uygulamaları'),
             SubjectTopic(name: 'İntegral ve Uygulamaları'),
-            // AYT Geometri
             SubjectTopic(name: 'Çember ve Daire'),
             SubjectTopic(name: 'Analitik Geometri'),
             SubjectTopic(name: 'Çemberin Analitik İncelenmesi'),
@@ -383,7 +472,6 @@ class ExamData {
         }),
         ExamSection(name: 'AYT - Eşit Ağırlık', subjects: {
           'Matematik': SubjectDetails(questionCount: 40, topics: [
-            // AYT-Sayısal Matematik ile aynı konular.
             SubjectTopic(name: 'Temel Kavramlar'),
             SubjectTopic(name: 'Sayı Basamakları'),
             SubjectTopic(name: 'Bölme ve Bölünebilme'),
@@ -411,7 +499,6 @@ class ExamData {
             SubjectTopic(name: 'Limit ve Süreklilik'),
             SubjectTopic(name: 'Türev ve Uygulamaları'),
             SubjectTopic(name: 'İntegral ve Uygulamaları'),
-            // AYT Geometri
             SubjectTopic(name: 'Çember ve Daire'),
             SubjectTopic(name: 'Analitik Geometri'),
             SubjectTopic(name: 'Çemberin Analitik İncelenmesi'),
@@ -472,7 +559,6 @@ class ExamData {
         ExamSection(name: 'AYT - Sözel', subjects: {
           'Türk Dili ve Edebiyatı':
           SubjectDetails(questionCount: 24, topics: [
-            // AYT-Eşit Ağırlık ile aynı konular
             SubjectTopic(name: 'Anlam Bilgisi (Sözcük, Cümle, Paragraf)'),
             SubjectTopic(name: 'Güzel Sanatlar ve Edebiyat'),
             SubjectTopic(name: 'Metinlerin Sınıflandırılması'),
@@ -492,7 +578,6 @@ class ExamData {
             SubjectTopic(name: 'Dünya Edebiyatı'),
           ]),
           'Tarih-1': SubjectDetails(questionCount: 10, topics: [
-            // AYT-Eşit Ağırlık ile aynı konular
             SubjectTopic(name: 'Tarih ve Zaman'),
             SubjectTopic(name: 'İnsanlığın İlk Dönemleri'),
             SubjectTopic(name: 'Orta Çağ\'da Dünya'),
@@ -511,7 +596,6 @@ class ExamData {
             SubjectTopic(name: 'Atatürkçülük ve Türk İnkılabı'),
           ]),
           'Coğrafya-1': SubjectDetails(questionCount: 6, topics: [
-            // AYT-Eşit Ağırlık ile aynı konular
             SubjectTopic(name: 'Ekosistem, Madde Döngüsü ve Enerji Akışı'),
             SubjectTopic(name: 'Biyoçeşitlilik'),
             SubjectTopic(name: 'Nüfus Politikaları ve Şehirleşme'),
@@ -550,23 +634,19 @@ class ExamData {
             SubjectTopic(name: 'Bölgesel Kalkınma Projeleri'),
           ]),
           'Felsefe Grubu': SubjectDetails(questionCount: 12, topics: [
-            // Felsefe
             SubjectTopic(name: '15. Yüzyıl - 17. Yüzyıl Felsefesi'),
             SubjectTopic(name: '18. Yüzyıl - 19. Yüzyıl Felsefesi'),
             SubjectTopic(name: '20. Yüzyıl Felsefesi'),
-            // Psikoloji
             SubjectTopic(name: 'Psikoloji Bilimini Tanıyalım'),
             SubjectTopic(name: 'Psikolojinin Temel Süreçleri'),
             SubjectTopic(name: 'Öğrenme, Bellek, Düşünme'),
             SubjectTopic(name: 'Ruh Sağlığının Temelleri'),
-            // Sosyoloji
             SubjectTopic(name: 'Sosyolojiye Giriş'),
             SubjectTopic(name: 'Birey ve Toplum'),
             SubjectTopic(name: 'Toplumsal Yapı'),
             SubjectTopic(name: 'Toplumsal Değişme ve Gelişme'),
             SubjectTopic(name: 'Toplum ve Kültür'),
             SubjectTopic(name: 'Toplumsal Kurumlar'),
-            // Mantık
             SubjectTopic(name: 'Mantığa Giriş'),
             SubjectTopic(name: 'Klasik Mantık'),
             SubjectTopic(name: 'Mantık ve Dil'),
@@ -584,92 +664,37 @@ class ExamData {
         }),
       ],
     ),
-    // KPSS Tanımı (Lisans - Genel Yetenek & Genel Kültür)
+    // KPSS Lisans
     Exam(
-      type: ExamType.kpss,
+      type: ExamType.kpssLisans,
       name: 'Kamu Personel Seçme Sınavı (Lisans)',
       sections: [
-        ExamSection(name: 'Genel Yetenek - Genel Kültür', subjects: {
-          'Türkçe (Genel Yetenek)': SubjectDetails(questionCount: 30, topics: [
-            SubjectTopic(name: 'Sözcükte Anlam'),
-            SubjectTopic(name: 'Cümlede Anlam'),
-            SubjectTopic(name: 'Paragrafta Anlam'),
-            SubjectTopic(name: 'Sözel Mantık'),
-            SubjectTopic(name: 'Ses Bilgisi'),
-            SubjectTopic(name: 'Yazım Kuralları'),
-            SubjectTopic(name: 'Noktalama İşaretleri'),
-            SubjectTopic(name: 'Yapı Bilgisi'),
-            SubjectTopic(name: 'Sözcük Türleri'),
-            SubjectTopic(name: 'Cümlenin Öğeleri'),
-            SubjectTopic(name: 'Cümle Türleri'),
-            SubjectTopic(name: 'Anlatım Bozuklukları'),
-          ]),
-          'Matematik (Genel Yetenek)':
-          SubjectDetails(questionCount: 30, topics: [
-            SubjectTopic(name: 'Temel Kavramlar ve Sayılar'),
-            SubjectTopic(name: 'Bölme-Bölünebilme, Asal Çarpanlar'),
-            SubjectTopic(name: 'EBOB-EKOK'),
-            SubjectTopic(name: 'Rasyonel ve Ondalıklı Sayılar'),
-            SubjectTopic(name: 'Basit Eşitsizlikler ve Mutlak Değer'),
-            SubjectTopic(name: 'Üslü ve Köklü İfadeler'),
-            SubjectTopic(name: 'Çarpanlara Ayırma ve Özdeşlikler'),
-            SubjectTopic(name: 'Denklem Çözme ve Oran-Orantı'),
-            SubjectTopic(name: 'Sayı, Kesir, Yaş Problemleri'),
-            SubjectTopic(name: 'İşçi, Havuz, Hız Problemleri'),
-            SubjectTopic(name: 'Yüzde, Kâr-Zarar, Faiz, Karışım Problemleri'),
-            SubjectTopic(name: 'Kümeler, Fonksiyonlar, İşlem, Modüler Aritmetik'),
-            SubjectTopic(name: 'Permütasyon, Kombinasyon, Olasılık'),
-            SubjectTopic(name: 'Tablo ve Grafik Yorumlama'),
-            SubjectTopic(name: 'Sayısal Mantık'),
-            SubjectTopic(name: 'Geometri (Açılar, Üçgenler, Dörtgenler, Çember, Analitik, Katı Cisimler)'),
-          ]),
-          'Tarih (Genel Kültür)': SubjectDetails(questionCount: 27, topics: [
-            SubjectTopic(name: 'İslamiyet Öncesi Türk Tarihi'),
-            SubjectTopic(name: 'İlk Müslüman Türk Devletleri ve Beylikleri'),
-            SubjectTopic(name: 'Osmanlı Devleti Siyasi Tarihi'),
-            SubjectTopic(name: 'Osmanlı Devleti Kültür ve Medeniyeti'),
-            SubjectTopic(name: '20. Yüzyılda Osmanlı Devleti'),
-            SubjectTopic(name: 'Milli Mücadele Hazırlık Dönemi'),
-            SubjectTopic(name: 'Kurtuluş Savaşı (Cepheler)'),
-            SubjectTopic(name: 'Atatürk İlke ve İnkılapları'),
-            SubjectTopic(name: 'Atatürk Dönemi İç Politika'),
-            SubjectTopic(name: 'Atatürk Dönemi Dış Politika'),
-            SubjectTopic(name: 'Çağdaş Türk ve Dünya Tarihi'),
-          ]),
-          'Coğrafya (Genel Kültür)':
-          SubjectDetails(questionCount: 18, topics: [
-            SubjectTopic(name: 'Türkiye\'nin Coğrafi Konumu'),
-            SubjectTopic(name: 'Türkiye\'nin Yer Şekilleri'),
-            SubjectTopic(name: 'Türkiye\'nin İklimi ve Bitki Örtüsü'),
-            SubjectTopic(name: 'Türkiye\'de Nüfus, Yerleşme ve Göç'),
-            SubjectTopic(name: 'Türkiye\'de Tarım'),
-            SubjectTopic(name: 'Türkiye\'de Hayvancılık'),
-            SubjectTopic(name: 'Türkiye\'de Madenler ve Enerji Kaynakları'),
-            SubjectTopic(name: 'Türkiye\'de Sanayi'),
-            SubjectTopic(name: 'Türkiye\'de Ticaret'),
-            SubjectTopic(name: 'Türkiye\'de Ulaşım'),
-            SubjectTopic(name: 'Türkiye\'de Turizm'),
-            SubjectTopic(name: 'Türkiye\'nin Coğrafi Bölgeleri'),
-          ]),
-          'Vatandaşlık (Genel Kültür)':
-          SubjectDetails(questionCount: 9, topics: [
-            SubjectTopic(name: 'Temel Hukuk Kavramları'),
-            SubjectTopic(name: 'Anayasa Hukukuna Giriş'),
-            SubjectTopic(name: '1982 Anayasası (Temel İlkeler, Hak ve Hürriyetler)'),
-            SubjectTopic(name: 'Yasama'),
-            SubjectTopic(name: 'Yürütme'),
-            SubjectTopic(name: 'Yargı'),
-            SubjectTopic(name: 'İdare Hukuku'),
-            SubjectTopic(name: 'İnsan Hakları Hukuku'),
-          ]),
-          'Güncel Bilgiler (Genel Kültür)':
-          SubjectDetails(questionCount: 6, topics: [
-            SubjectTopic(name: 'Türkiye ve Dünya ile İlgili Genel, Kültürel ve Güncel Sosyoekonomik Konular'),
-            SubjectTopic(name: 'Bilimsel ve Teknolojik Gelişmeler'),
-            SubjectTopic(name: 'Uluslararası Kuruluşlar ve Anlaşmalar'),
-            SubjectTopic(name: 'Sanat ve Spor Alanındaki Gelişmeler'),
-          ]),
-        }),
+        ExamSection(
+          name: 'Genel Yetenek - Genel Kültür',
+          subjects: _kpssGyGkSubjects,
+        ),
+      ],
+    ),
+    // KPSS Önlisans (YENİ EKLENDİ)
+    Exam(
+      type: ExamType.kpssOnlisans,
+      name: 'Kamu Personel Seçme Sınavı (Önlisans)',
+      sections: [
+        ExamSection(
+          name: 'Genel Yetenek - Genel Kültür',
+          subjects: _kpssGyGkSubjects,
+        ),
+      ],
+    ),
+    // KPSS Ortaöğretim (YENİ EKLENDİ)
+    Exam(
+      type: ExamType.kpssOrtaogretim,
+      name: 'Kamu Personel Seçme Sınavı (Ortaöğretim)',
+      sections: [
+        ExamSection(
+          name: 'Genel Yetenek - Genel Kültür',
+          subjects: _kpssGyGkSubjects,
+        ),
       ],
     ),
   ];
@@ -678,7 +703,6 @@ class ExamData {
     return exams.firstWhere((exam) => exam.type == type);
   }
 
-  // ✅ HATA GİDERİLDİ: Eksik olan bu metot eklendi.
   static List<SubjectTopic> getAllTopicsForSubject(String subjectName) {
     for (var exam in exams) {
       for (var section in exam.sections) {
