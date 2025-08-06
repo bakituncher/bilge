@@ -14,8 +14,7 @@ final firestoreServiceProvider = Provider<FirestoreService>((ref) {
   return FirestoreService(FirebaseFirestore.instance);
 });
 
-// DEĞİŞİKLİK: .autoDispose kaldırıldı.
-final userProfileProvider = StreamProvider<UserModel?>((ref) {
+final userProfileProvider = StreamProvider.autoDispose<UserModel?>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
     return ref.read(firestoreServiceProvider).getUserProfile(user.uid);
@@ -23,8 +22,7 @@ final userProfileProvider = StreamProvider<UserModel?>((ref) {
   return Stream.value(null);
 });
 
-// DEĞİŞİKLİK: .autoDispose kaldırıldı.
-final testsProvider = StreamProvider<List<TestModel>>((ref) {
+final testsProvider = StreamProvider.autoDispose<List<TestModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
     return ref.read(firestoreServiceProvider).getTestResults(user.uid);
@@ -57,6 +55,7 @@ final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
+
   FirestoreService(this._firestore);
 
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
@@ -98,38 +97,15 @@ class FirestoreService {
     final userDocRef = _usersCollection.doc(test.userId);
 
     await _firestore.runTransaction((transaction) async {
-      final userSnapshot = await transaction.get(userDocRef);
-      if (!userSnapshot.exists) {
-        throw Exception("Kullanıcı bulunamadı!");
-      }
-      final user = UserModel.fromSnapshot(userSnapshot as DocumentSnapshot<Map<String, dynamic>>);
-
       final newTestRef = _testsCollection.doc();
       transaction.set(newTestRef, test.toJson());
-
       transaction.update(userDocRef, {
         'testCount': FieldValue.increment(1),
         'totalNetSum': FieldValue.increment(test.totalNet),
       });
-
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      final lastUpdate = user.lastStreakUpdate;
-
-      if (lastUpdate == null) {
-        transaction.update(userDocRef, {'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
-      } else {
-        final lastUpdateDate = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
-        if (!today.isAtSameMomentAs(lastUpdateDate)) {
-          final yesterday = today.subtract(const Duration(days: 1));
-          if (lastUpdateDate.isAtSameMomentAs(yesterday)) {
-            transaction.update(userDocRef, {'streak': FieldValue.increment(1), 'lastStreakUpdate': Timestamp.fromDate(today)});
-          } else {
-            transaction.update(userDocRef, {'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
-          }
-        }
-      }
     });
+
+    await updateUserStreak(test.userId);
   }
 
   Stream<List<TestModel>> getTestResults(String userId) {
@@ -140,6 +116,34 @@ class FirestoreService {
         .map((snapshot) => snapshot.docs
         .map((doc) => TestModel.fromSnapshot(doc))
         .toList());
+  }
+
+  Future<void> updateUserStreak(String userId) async {
+    final userDocRef = _usersCollection.doc(userId);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final userSnapshot = await userDocRef.get();
+    if (!userSnapshot.exists) return;
+
+    final user = UserModel.fromSnapshot(userSnapshot);
+    final lastUpdate = user.lastStreakUpdate;
+
+    if (lastUpdate == null) {
+      await userDocRef.update({'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
+    } else {
+      final lastUpdateDate = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
+      if (today.isAtSameMomentAs(lastUpdateDate)) {
+        return;
+      }
+
+      final yesterday = today.subtract(const Duration(days: 1));
+      if (lastUpdateDate.isAtSameMomentAs(yesterday)) {
+        await userDocRef.update({'streak': FieldValue.increment(1), 'lastStreakUpdate': Timestamp.fromDate(today)});
+      } else {
+        await userDocRef.update({'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
+      }
+    }
   }
 
   Future<void> saveExamSelection({
@@ -173,7 +177,7 @@ class FirestoreService {
 
   Future<void> updateDailyTaskCompletion({
     required String userId,
-    required String dateKey,
+    required String dateKey, // Format: "YYYY-MM-DD"
     required String task,
     required bool isCompleted,
   }) async {
