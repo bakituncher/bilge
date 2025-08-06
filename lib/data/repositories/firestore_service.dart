@@ -11,9 +11,11 @@ import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 
 final firestoreServiceProvider = Provider<FirestoreService>((ref) {
+  // FirebaseStorage bağımlılığı kaldırıldı.
   return FirestoreService(FirebaseFirestore.instance);
 });
 
+// ... (diğer provider'lar aynı kalacak)
 final userProfileProvider = StreamProvider.autoDispose<UserModel?>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
@@ -55,13 +57,14 @@ final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
-
+  // _storage alanı kaldırıldı.
   FirestoreService(this._firestore);
 
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
 
+  // ... (createUserProfile, updateOnboardingData, getUserProfile, getAllUsers aynı kalacak)
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name);
     await _usersCollection.doc(user.uid).set(userProfile.toJson());
@@ -93,21 +96,46 @@ class FirestoreService {
     return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
   }
 
+
   Future<void> addTestResult(TestModel test) async {
     final userDocRef = _usersCollection.doc(test.userId);
 
     await _firestore.runTransaction((transaction) async {
+      final userSnapshot = await transaction.get(userDocRef);
+      if (!userSnapshot.exists) {
+        throw Exception("Kullanıcı bulunamadı!");
+      }
+      final user = UserModel.fromSnapshot(userSnapshot as DocumentSnapshot<Map<String, dynamic>>);
+
       final newTestRef = _testsCollection.doc();
       transaction.set(newTestRef, test.toJson());
+
       transaction.update(userDocRef, {
         'testCount': FieldValue.increment(1),
         'totalNetSum': FieldValue.increment(test.totalNet),
       });
-    });
 
-    await updateUserStreak(test.userId);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final lastUpdate = user.lastStreakUpdate;
+
+      if (lastUpdate == null) {
+        transaction.update(userDocRef, {'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
+      } else {
+        final lastUpdateDate = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
+        if (!today.isAtSameMomentAs(lastUpdateDate)) {
+          final yesterday = today.subtract(const Duration(days: 1));
+          if (lastUpdateDate.isAtSameMomentAs(yesterday)) {
+            transaction.update(userDocRef, {'streak': FieldValue.increment(1), 'lastStreakUpdate': Timestamp.fromDate(today)});
+          } else {
+            transaction.update(userDocRef, {'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
+          }
+        }
+      }
+    });
   }
 
+  // ... (getTestResults aynı kalacak)
   Stream<List<TestModel>> getTestResults(String userId) {
     return _testsCollection
         .where('userId', isEqualTo: userId)
@@ -118,34 +146,9 @@ class FirestoreService {
         .toList());
   }
 
-  Future<void> updateUserStreak(String userId) async {
-    final userDocRef = _usersCollection.doc(userId);
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+  // uploadProfilePicture fonksiyonu kaldırıldı.
 
-    final userSnapshot = await userDocRef.get();
-    if (!userSnapshot.exists) return;
-
-    final user = UserModel.fromSnapshot(userSnapshot);
-    final lastUpdate = user.lastStreakUpdate;
-
-    if (lastUpdate == null) {
-      await userDocRef.update({'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
-    } else {
-      final lastUpdateDate = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
-      if (today.isAtSameMomentAs(lastUpdateDate)) {
-        return;
-      }
-
-      final yesterday = today.subtract(const Duration(days: 1));
-      if (lastUpdateDate.isAtSameMomentAs(yesterday)) {
-        await userDocRef.update({'streak': FieldValue.increment(1), 'lastStreakUpdate': Timestamp.fromDate(today)});
-      } else {
-        await userDocRef.update({'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
-      }
-    }
-  }
-
+  // ... (geri kalan tüm fonksiyonlar aynı kalacak)
   Future<void> saveExamSelection({
     required String userId,
     required ExamType examType,
@@ -177,7 +180,7 @@ class FirestoreService {
 
   Future<void> updateDailyTaskCompletion({
     required String userId,
-    required String dateKey, // Format: "YYYY-MM-DD"
+    required String dateKey,
     required String task,
     required bool isCompleted,
   }) async {

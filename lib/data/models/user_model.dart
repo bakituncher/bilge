@@ -6,6 +6,7 @@ class UserModel {
   final String id;
   final String email;
   final String? name;
+  // profilePictureUrl alanı kaldırıldı.
   final String? goal;
   final List<String>? challenges;
   final double? weeklyStudyGoal;
@@ -18,7 +19,7 @@ class UserModel {
   final double totalNetSum;
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
   final Map<String, List<String>> completedDailyTasks;
-  final String? studyPacing; // 'relaxed', 'moderate', 'intense'
+  final String? studyPacing;
   final String? longTermStrategy;
   final Map<String, dynamic>? weeklyPlan;
 
@@ -46,6 +47,7 @@ class UserModel {
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
 
+    // ... (diğer kodlar aynı kalacak)
     final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
     if (data['topicPerformances'] is Map<String, dynamic>) {
       final subjectMap = data['topicPerformances'] as Map<String, dynamic>;
@@ -72,10 +74,12 @@ class UserModel {
       });
     }
 
+
     return UserModel(
       id: doc.id,
       email: data['email'],
       name: data['name'],
+      // profilePictureUrl alanı kaldırıldı.
       goal: data['goal'],
       challenges: List<String>.from(data['challenges'] ?? []),
       weeklyStudyGoal: (data['weeklyStudyGoal'] as num?)?.toDouble(),
@@ -99,6 +103,7 @@ class UserModel {
       'id': id,
       'email': email,
       'name': name,
+      // profilePictureUrl alanı kaldırıldı.
       'goal': goal,
       'challenges': challenges,
       'weeklyStudyGoal': weeklyStudyGoal,
@@ -109,8 +114,6 @@ class UserModel {
       'selectedExamSection': selectedExamSection,
       'testCount': testCount,
       'totalNetSum': totalNetSum,
-      // GÜNCELLENEN KOD: Artık `TopicPerformanceModel` içindeki `toMap` metodunu çağırarak..
-      // doğru şekilde JSON'a çevriliyor.
       'topicPerformances': topicPerformances.map(
             (subjectKey, topicMap) => MapEntry(
           subjectKey,
