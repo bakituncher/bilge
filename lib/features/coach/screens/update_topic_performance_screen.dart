@@ -7,6 +7,7 @@ import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:bilge_ai/shared/widgets/score_slider.dart';
 
 // State Management Provider'ları
 final _updateModeProvider = StateProvider.autoDispose<bool>((ref) => true); // true: Ekle, false: Değiştir
@@ -32,12 +33,16 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
     final correct = ref.watch(_correctCountProvider);
     final wrong = ref.watch(_wrongCountProvider);
 
-    // Hakimiyet hesaplaması
-    final finalCorrect = isAddingMode ? initialPerformance.correctCount + correct : correct;
-    final finalWrong = isAddingMode ? initialPerformance.wrongCount + wrong : wrong;
-    final finalBlank = isAddingMode ? initialPerformance.blankCount - correct - wrong : 0; // Değiştir modunda boş olmaz
-    final finalTotal = finalCorrect + finalWrong + (isAddingMode ? finalBlank : 0);
-    final double mastery = finalTotal == 0 ? 0.0 : (finalCorrect / finalTotal).clamp(0.0, 1.0);
+    // HAKİMİYET HESAPLAMASI (DÜZELTİLDİ)
+    final double mastery;
+    if (isAddingMode) {
+      final finalCorrect = initialPerformance.correctCount + correct;
+      final finalTotalQuestions = initialPerformance.questionCount + correct + wrong;
+      mastery = finalTotalQuestions == 0 ? 0.0 : (finalCorrect / finalTotalQuestions).clamp(0.0, 1.0);
+    } else { // Değiştir Modu
+      final finalTotalQuestions = correct + wrong;
+      mastery = finalTotalQuestions == 0 ? 0.0 : (correct / finalTotalQuestions).clamp(0.0, 1.0);
+    }
 
 
     return Scaffold(
@@ -57,14 +62,14 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
             const SizedBox(height: 32),
 
             // 3. Kaydırıcılar
-            _ScoreSlider(
+            ScoreSlider(
               label: isAddingMode ? "Eklenecek Doğru" : "Toplam Doğru",
               value: correct.toDouble(),
               max: 200, // Yüksek bir limit
               color: AppTheme.successColor,
               onChanged: (value) => ref.read(_correctCountProvider.notifier).state = value.toInt(),
             ),
-            _ScoreSlider(
+            ScoreSlider(
               label: isAddingMode ? "Eklenecek Yanlış" : "Toplam Yanlış",
               value: wrong.toDouble(),
               max: 200,
@@ -77,12 +82,25 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () {
                 final userId = ref.read(authControllerProvider).value!.uid;
-                final newPerformance = TopicPerformanceModel(
-                  correctCount: finalCorrect,
-                  wrongCount: finalWrong,
-                  blankCount: finalBlank < 0 ? 0 : finalBlank, // Boş negatif olamaz
-                  questionCount: finalCorrect + finalWrong + (finalBlank < 0 ? 0 : finalBlank),
-                );
+
+                // KAYDETME MANTIĞI (DÜZELTİLDİ)
+                TopicPerformanceModel newPerformance;
+                if (isAddingMode) {
+                  newPerformance = TopicPerformanceModel(
+                    correctCount: initialPerformance.correctCount + correct,
+                    wrongCount: initialPerformance.wrongCount + wrong,
+                    blankCount: initialPerformance.blankCount, // Eski boşlar korunur
+                    questionCount: initialPerformance.questionCount + correct + wrong, // Toplam soru sayısı artar
+                  );
+                } else { // Değiştir Modu
+                  newPerformance = TopicPerformanceModel(
+                    correctCount: correct,
+                    wrongCount: wrong,
+                    blankCount: 0, // Bu modda boş soru olmadığı varsayılır
+                    questionCount: correct + wrong,
+                  );
+                }
+
                 ref.read(firestoreServiceProvider).updateTopicPerformance(
                   userId: userId,
                   subject: subject,
@@ -220,41 +238,6 @@ class _ModeCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-class _ScoreSlider extends StatelessWidget {
-  final String label;
-  final double value;
-  final double max;
-  final Color color;
-  final Function(double) onChanged;
-
-  const _ScoreSlider({
-    required this.label,
-    required this.value,
-    required this.max,
-    required this.color,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("$label: ${value.toInt()}", style: Theme.of(context).textTheme.titleLarge),
-        Slider(
-          value: value,
-          max: max,
-          divisions: max.toInt(),
-          label: value.toInt().toString(),
-          activeColor: color,
-          inactiveColor: color.withOpacity(0.3),
-          onChanged: onChanged,
-        ),
-      ],
     );
   }
 }

@@ -1,14 +1,14 @@
 // lib/features/home/screens/dashboard_screen.dart
-import 'dart:math'; // HATA DÜZELTİLDİ
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:intl/intl.dart';
-import 'package:bilge_ai/data/repositories/ai_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
+import 'package:bilge_ai/features/stats/logic/stats_analysis.dart'; // YENİ IMPORT
 
 const List<String> motivationalQuotes = [
   "Başarının sırrı, başlamaktır.",
@@ -143,7 +143,8 @@ class DashboardScreen extends ConsumerWidget {
         buttonText = "İlk Denemeni Ekle";
         icon = Icons.add_chart_rounded;
       } else {
-        final analysis = PerformanceAnalysis(tests, user.topicPerformances);
+        // DEĞİŞİKLİK: Merkezi analiz sınıfı kullanılıyor.
+        final analysis = StatsAnalysis(tests, user.topicPerformances);
         final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
         title = "Günün Önceliği";
         subtitle = weakestTopicInfo != null

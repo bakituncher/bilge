@@ -1,17 +1,16 @@
 // lib/features/stats/screens/stats_screen.dart
 import 'dart:math';
-import 'package:collection/collection.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/stats/screens/subject_stats_screen.dart';
+import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 
 final _selectedTabIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -37,7 +36,6 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     super.dispose();
   }
 
-  // HATA DÜZELTİLDİ: Bu metotlar ana widget'ın state class'ına taşındı.
   Widget _buildLoadingState() {
     return Scaffold(
       appBar: AppBar(title: const Text('Performans Kalesi')),
@@ -226,7 +224,8 @@ class _AnalysisView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
 
-    final analysis = PerformanceAnalysis(tests, user);
+    // HATA DÜZELTİLDİ: StatsAnalysis sınıfına doğru parametreler gönderiliyor.
+    final analysis = StatsAnalysis(tests, user.topicPerformances, user: user);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -284,7 +283,7 @@ class _TitleWidget extends StatelessWidget {
 }
 
 class _NetEvolutionChart extends StatelessWidget {
-  final PerformanceAnalysis analysis;
+  final StatsAnalysis analysis;
   const _NetEvolutionChart({required this.analysis});
 
   @override
@@ -359,7 +358,7 @@ class _NetEvolutionChart extends StatelessWidget {
 }
 
 class _KeyStatsGrid extends StatelessWidget {
-  final PerformanceAnalysis analysis;
+  final StatsAnalysis analysis;
   const _KeyStatsGrid({required this.analysis});
 
   @override
@@ -445,7 +444,7 @@ class _StatCard extends StatelessWidget {
 }
 
 class _AiInsightCard extends StatelessWidget {
-  final PerformanceAnalysis analysis;
+  final StatsAnalysis analysis;
   const _AiInsightCard({required this.analysis});
 
   @override
@@ -493,10 +492,9 @@ class _SubjectStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // HATA DÜZELTİLDİ: Artık doğru ve yanıltıcı olmayan bir ilerleme hesaplaması var.
     final double minNet = -(analysis.questionCount * analysis.penaltyCoefficient);
     final double maxNet = analysis.questionCount.toDouble();
-    final double progress = (analysis.averageNet - minNet) / (maxNet - minNet);
+    final double progress = (maxNet - minNet) == 0 ? 0.0 : (analysis.averageNet - minNet) / (maxNet - minNet);
 
     final Color progressColor = Color.lerp(AppTheme.accentColor, AppTheme.successColor, progress.clamp(0.0, 1.0))!;
 
@@ -549,180 +547,5 @@ class _SubjectStatCard extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// =================================================================================
-// ||                    ACIMASIZ ANALİZ MOTORU KODU BAŞLANGICI                   ||
-// =================================================================================
-
-class TacticalAdvice {
-  final String text;
-  final IconData icon;
-  final Color color;
-  TacticalAdvice(this.text, {required this.icon, required this.color});
-}
-
-class SubjectAnalysis {
-  final String subjectName;
-  final double averageNet;
-  final double bestNet;
-  final double worstNet;
-  final double trend;
-  final int questionCount;
-  final double penaltyCoefficient;
-  final List<TestModel> subjectTests;
-  final List<FlSpot> netSpots;
-
-  SubjectAnalysis({
-    required this.subjectName,
-    required this.averageNet,
-    required this.bestNet,
-    required this.worstNet,
-    required this.trend,
-    required this.questionCount,
-    required this.penaltyCoefficient,
-    required this.subjectTests,
-    required this.netSpots,
-  });
-}
-
-class PerformanceAnalysis {
-  final List<TestModel> tests;
-  final UserModel user;
-  late List<TestModel> sortedTests;
-  late List<FlSpot> netSpots;
-  late double warriorScore;
-  late double accuracy;
-  late double consistency;
-  late double trend;
-  late Map<String, double> subjectAverages;
-  late List<MapEntry<String, double>> sortedSubjects;
-  late List<TacticalAdvice> tacticalAdvice;
-  late Exam _examData;
-
-  PerformanceAnalysis(this.tests, this.user) {
-    if (tests.isEmpty || user.selectedExam == null) {
-      _initializeEmpty();
-      return;
-    }
-
-    _examData = ExamData.getExamByType(ExamType.values.byName(user.selectedExam!));
-    sortedTests = List.from(tests)..sort((a, b) => a.date.compareTo(b.date));
-
-    final allNets = sortedTests.map((t) => t.totalNet).toList();
-    final totalQuestionsAttempted = sortedTests.map((t) => t.totalCorrect + t.totalWrong).sum;
-    final totalCorrectAnswers = sortedTests.map((t) => t.totalCorrect).sum;
-    if (totalQuestionsAttempted == 0 && totalCorrectAnswers > 0) throw Exception("Mantıksız veri: Cevaplanan soru 0 olamazken doğru sayısı 0'dan büyük.");
-
-    final averageNet = allNets.average;
-
-    if (averageNet.abs() > 0.001) {
-      final double stdDev = sqrt(allNets.map((n) => pow(n - averageNet, 2)).sum / allNets.length);
-      consistency = max(0, (1 - (stdDev / averageNet.abs())) * 100);
-    } else {
-      consistency = 0.0;
-    }
-
-    accuracy = totalQuestionsAttempted > 0 ? (totalCorrectAnswers / totalQuestionsAttempted) * 100 : 0.0;
-    trend = _calculateTrend(allNets);
-    netSpots = List.generate(sortedTests.length, (i) => FlSpot(i.toDouble(), sortedTests[i].totalNet));
-
-    final netComponent = (averageNet / (sortedTests.first.totalQuestions * 1.0)) * 50;
-    final accuracyComponent = (accuracy / 100) * 25;
-    final consistencyComponent = (consistency / 100) * 15;
-    final trendComponent = (atan(trend) / (pi / 2)) * 10;
-    warriorScore = (netComponent + accuracyComponent + consistencyComponent + trendComponent).clamp(0, 100);
-
-    final subjectNets = <String, List<double>>{};
-    for (var test in sortedTests) {
-      test.scores.forEach((subject, scores) {
-        final net = (scores['dogru'] ?? 0) - ((scores['yanlis'] ?? 0) * test.penaltyCoefficient);
-        subjectNets.putIfAbsent(subject, () => []).add(net);
-      });
-    }
-
-    if (subjectNets.isNotEmpty) {
-      subjectAverages = subjectNets.map((subject, nets) => MapEntry(subject, nets.average));
-      sortedSubjects = subjectAverages.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    } else {
-      subjectAverages = {};
-      sortedSubjects = [];
-    }
-    tacticalAdvice = _generateTacticalAdvice();
-  }
-
-  double _calculateTrend(List<double> data) {
-    if (data.length < 2) return 0.0;
-    final n = data.length;
-    final sumX = (n * (n - 1)) / 2;
-    final sumY = data.sum;
-    final sumXY = List.generate(n, (i) => i * data[i]).sum;
-    final sumX2 = List.generate(n, (i) => i * i).sum;
-    final numerator = (n * sumXY) - (sumX * sumY);
-    final denominator = (n * sumX2) - (sumX * sumX);
-    return denominator == 0 ? 0.0 : numerator / denominator;
-  }
-
-  SubjectAnalysis getAnalysisForSubject(String subjectName) {
-    final subjectTests = sortedTests.where((t) => t.scores.containsKey(subjectName)).toList();
-    if (subjectTests.isEmpty) {
-      return SubjectAnalysis(subjectName: subjectName, averageNet: 0, bestNet: 0, worstNet: 0, trend: 0, questionCount: 0, penaltyCoefficient: 0.25, subjectTests: [], netSpots: []);
-    }
-
-    final subjectNets = subjectTests.map((t) {
-      final scores = t.scores[subjectName]!;
-      return (scores['dogru'] ?? 0) - ((scores['yanlis'] ?? 0) * t.penaltyCoefficient);
-    }).toList();
-
-    final netSpots = List.generate(subjectNets.length, (i) => FlSpot(i.toDouble(), subjectNets[i]));
-
-    return SubjectAnalysis(
-      subjectName: subjectName,
-      averageNet: subjectNets.average,
-      bestNet: subjectNets.reduce(max),
-      worstNet: subjectNets.reduce(min),
-      trend: _calculateTrend(subjectNets),
-      questionCount: getQuestionCountForSubject(subjectName),
-      penaltyCoefficient: subjectTests.first.penaltyCoefficient,
-      subjectTests: subjectTests,
-      netSpots: netSpots,
-    );
-  }
-
-  List<TacticalAdvice> _generateTacticalAdvice() {
-    final adviceList = <TacticalAdvice>[];
-    if (sortedSubjects.isEmpty) return adviceList;
-
-    final strongestSubject = sortedSubjects.first.key;
-    final weakestSubject = sortedSubjects.last.key;
-
-    if (warriorScore > 75) {
-      adviceList.add(TacticalAdvice("MUHAREBE DURUMU: MÜKEMMEL. Kalen sarsılmaz, stratejin kusursuz. Zirveyi koru.", icon: Icons.workspace_premium, color: Colors.amber));
-    } else {
-      adviceList.add(TacticalAdvice("MUHAREBE DURUMU: İYİ. Güçlüsün ama zafiyetlerin var. Zayıf cepheleri güçlendirerek hakimiyetini pekiştir.", icon: Icons.shield_rounded, color: AppTheme.successColor));
-    }
-
-    adviceList.add(TacticalAdvice("TAARRUZ EMRİ: '$weakestSubject' cephesi en zayıf halkan. Tüm gücünle bu hedefe yüklen. Bu kaleyi fethetmek, zaferi getirecek.", icon: Icons.radar_rounded, color: AppTheme.accentColor));
-
-    return adviceList;
-  }
-
-  void _initializeEmpty() {
-    sortedTests = [];
-    netSpots = [];
-    warriorScore = 0.0;
-    accuracy = 0.0;
-    consistency = 0.0;
-    trend = 0.0;
-    subjectAverages = {};
-    sortedSubjects = [];
-    tacticalAdvice = [];
-  }
-
-  int getQuestionCountForSubject(String subjectName) {
-    final sectionName = tests.first.sectionName;
-    final section = _examData.sections.firstWhere((s) => s.name == sectionName, orElse: () => _examData.sections.first);
-    return section.subjects[subjectName]?.questionCount ?? 40;
   }
 }

@@ -8,16 +8,13 @@ import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:uuid/uuid.dart';
+import 'package:bilge_ai/shared/widgets/score_slider.dart'; // YENİ IMPORT
 
-// Adımları yönetmek için bir state provider
+// State Management Provider'ları
 final _stepperProvider = StateProvider.autoDispose<int>((ref) => 0);
-// Seçilen bölümü saklamak için
 final _selectedSectionProvider = StateProvider.autoDispose<ExamSection?>((ref) => null);
-// Girilen skorları saklamak için
 final _scoresProvider = StateProvider.autoDispose<Map<String, Map<String, int>>>((ref) => {});
-// Test adı için
 final _testNameProvider = StateProvider.autoDispose<String>((ref) => '');
-// Kaydetme işlemi sırasında bekleme durumunu yönetmek için
 final _isSavingProvider = StateProvider.autoDispose<bool>((ref) => false);
 
 
@@ -28,9 +25,6 @@ class AddTestScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userProfile = ref.watch(userProfileProvider).value;
     final int currentStep = ref.watch(_stepperProvider);
-
-    // HATA DÜZELTİLDİ: Bu blok kaldırıldı, çünkü 'autoDispose' zaten bu işi yapıyor.
-    // ref.onDispose(() { ... });
 
     if (userProfile?.selectedExam == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text("Lütfen önce profilden bir sınav seçin.")));
@@ -228,7 +222,7 @@ class _SubjectScoreCard extends ConsumerWidget {
           Text("${details.questionCount} Soru", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.secondaryTextColor)),
           const SizedBox(height: 48),
 
-          _ScoreSlider(
+          ScoreSlider( // DEĞİŞİKLİK
             label: "Doğru",
             value: correct.toDouble(),
             max: details.questionCount.toDouble(),
@@ -250,7 +244,7 @@ class _SubjectScoreCard extends ConsumerWidget {
               }
             },
           ),
-          _ScoreSlider(
+          ScoreSlider( // DEĞİŞİKLİK
             label: "Yanlış",
             value: wrong.toDouble(),
             max: (details.questionCount - correct).toDouble(),
@@ -287,41 +281,6 @@ class _SubjectScoreCard extends ConsumerWidget {
           )
         ],
       ),
-    );
-  }
-}
-
-class _ScoreSlider extends StatelessWidget {
-  final String label;
-  final double value;
-  final double max;
-  final Color color;
-  final Function(double) onChanged;
-
-  const _ScoreSlider({
-    required this.label,
-    required this.value,
-    required this.max,
-    required this.color,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("$label: ${value.toInt()}", style: Theme.of(context).textTheme.titleLarge),
-        Slider(
-          value: value,
-          max: max < 0 ? 0 : max,
-          divisions: max.toInt() > 0 ? max.toInt() : 1,
-          label: value.toInt().toString(),
-          activeColor: color,
-          inactiveColor: color.withOpacity(0.3),
-          onChanged: onChanged,
-        ),
-      ],
     );
   }
 }

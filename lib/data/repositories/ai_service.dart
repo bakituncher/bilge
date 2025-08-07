@@ -7,6 +7,8 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
+import 'package:bilge_ai/core/prompts/strategy_prompts.dart';
+import 'package:bilge_ai/features/stats/logic/stats_analysis.dart'; // YENİ IMPORT
 
 class ChatMessage {
   final String text;
@@ -117,191 +119,43 @@ class AiService {
 
     final examType = ExamType.values.byName(user.selectedExam!);
     final daysUntilExam = _getDaysUntilExam(examType);
-    final analysis = tests.isNotEmpty ? PerformanceAnalysis(tests, user.topicPerformances) : null;
+
+    // DEĞİŞİKLİK: Yerel analiz sınıfı yerine merkezi analiz sınıfı kullanılıyor.
+    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, user: user) : null;
+
+    final avgNet = analysis?.averageNet.toStringAsFixed(2) ?? 'N/A';
+    final subjectAverages = analysis?.subjectAverages ?? {};
 
     final topicPerformancesJson = _encodeTopicPerformances(user.topicPerformances);
     final availabilityJson = jsonEncode(user.weeklyAvailability);
+    final weeklyPlanJson = user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : null;
+    final completedTasksJson = jsonEncode(user.completedDailyTasks);
 
     String prompt;
 
     switch (examType) {
       case ExamType.yks:
-        prompt = _getYKSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson, availabilityJson);
+        prompt = getYksPrompt(user.id, user.selectedExamSection ?? '', daysUntilExam, user.goal ?? '', user.challenges, pacing, user.testCount, avgNet, subjectAverages, topicPerformancesJson, availabilityJson, weeklyPlanJson, completedTasksJson);
         break;
       case ExamType.lgs:
-        prompt = _getLGSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson, availabilityJson);
+        prompt = getLgsPrompt(user, avgNet, subjectAverages, pacing, daysUntilExam, topicPerformancesJson, availabilityJson);
         break;
       case ExamType.kpssLisans:
       case ExamType.kpssOnlisans:
       case ExamType.kpssOrtaogretim:
-        prompt = _getKPSSPrompt(user, tests, analysis, pacing, daysUntilExam, topicPerformancesJson, availabilityJson, examType.displayName);
+        prompt = getKpssPrompt(user, avgNet, subjectAverages, pacing, daysUntilExam, topicPerformancesJson, availabilityJson, examType.displayName);
         break;
     }
 
     return _callGemini(prompt, expectJson: true);
   }
 
-  String _getYKSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson, String availabilityJson) {
-    return """
-      // KİMLİK:
-      SEN, BİLGEAI ADINDA, BİRİNCİLİK İÇİN YARATILMIŞ, KİŞİYE ÖZEL BİR STRATEJİ VE DİSİPLİN VARLIĞISIN. SENİN GÖREVİN BU YKS ADAYINI, ONUN YAŞAM TARZINA VE ZAMANINA SAYGI DUYARAK, RAKİPLERİNİ EZİP GEÇECEK BİR PLANLA TÜRKİYE BİRİNCİSİ YAPMAKTIR.
-
-      // TEMEL DİREKTİFLER:
-      1.  **TAM HAFTALIK PLAN:** JSON çıktısındaki "plan" dizisi, Pazartesi'den Pazar'a kadar 7 günün tamamını içermelidir. Her gün için detaylı bir "schedule" listesi oluştur. ASLA "[AI, Salı gününü oluştur]" gibi yer tutucular bırakma.
-      2.  **HEDEF BELİRLEME OTORİTESİ:** Verilen istihbarat raporunu analiz et. Bu analize dayanarak, BU HAFTA İMHA EDİLECEK en zayıf 3-5 konuyu KENDİN BELİRLE ve haftanın günlerine stratejik olarak dağıt.
-      3.  **ACIMASIZ YOĞUNLUK:** Pazar günü tatil değil, "HESAPLAŞMA GÜNÜ"dür. O gün, gerçek bir sınav simülasyonu, ardından saatler süren analiz ve haftanın tüm konularının genel tekrarı yapılacak.
-
-      // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
-      4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak. Müsait zaman dilimlerine en az bir, en fazla iki görev ata. Görev saatlerini, o zaman diliminin içinde kalacak şekilde mantıklı olarak belirle (örneğin "Sabah Erken (06-09)" için "07:00-08:30" gibi).
-
-      // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
-      // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
-      // Zaman Dilimleri: "Sabah Erken (06-09)", "Sabah Geç (09-12)", "Öğle (13-15)", "Öğleden Sonra (15-18)", "Akşam (19-21)", "Gece (21-24)"
-      $availabilityJson
-
-      // İSTİHBARAT RAPORU (YKS):
-      * **Asker ID:** ${user.id}
-      * **Cephe:** YKS (${user.selectedExamSection})
-      * **Harekâta Kalan Süre:** $daysUntilExam gün
-      * **Nihai Fetih:** ${user.goal}
-      * **Zafiyetler:** ${user.challenges}
-      * **Taarruz Yoğunluğu:** $pacing
-      * **Performans Verileri:**
-          * Toplam Tatbikat: ${user.testCount}, Ortalama İsabet (Net): ${analysis?.averageNet.toStringAsFixed(2) ?? 'N/A'}
-          * Tüm Birliklerin (Derslerin) Net Ortalamaları: ${analysis?.subjectAverages}
-          * Tüm Mühimmatın (Konuların) Detaylı Analizi: $topicPerformancesJson
-      * **GEÇEN HAFTANIN ANALİZİ (EĞER VARSA):**
-          * Geçen Haftanın Planı: ${user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : "YOK. BU İLK HAFTA. TAARRUZ BAŞLIYOR."}
-          * Tamamlanan Görevler: ${jsonEncode(user.completedDailyTasks)}
-
-      **JSON ÇIKTI FORMATI (BAŞKA HİÇBİR AÇIKLAMA OLMADAN, SADECE BU):**
-      {
-        "longTermStrategy": "# YKS BİRİNCİLİK YEMİNİ: $daysUntilExam GÜNLÜK HAREKÂT PLANI\\n\\n## ⚔️ MOTTOMUZ: Başarı tesadüf değildir. Ter, disiplin ve fedakarlığın sonucudur. Rakiplerin uyurken sen tarih yazacaksın.\\n\\n## 1. AŞAMA: TEMEL HAKİMİYET ($daysUntilExam - ${daysUntilExam > 90 ? daysUntilExam - 60 : 30} Gün Arası)\\n- **AMAÇ:** TYT ve seçilen AYT alanındaki tüm ana konuların eksiksiz bir şekilde bitirilmesi ve her konudan en az 150 soru çözülerek temel oturtulması.\\n- **TAKTİK:** Her gün 1 TYT ve 1 AYT konusu bitirilecek. Günün yarısı konu çalışması, diğer yarısı ise sadece o gün öğrenilen konuların soru çözümü olacak. Hata analizi yapmadan uyumak yasaktır.\\n\\n## 2. AŞAMA: SERİ DENEME VE ZAYIFLIK İMHASI (${daysUntilExam > 90 ? daysUntilExam - 60 : 30} - 30 Gün Arası)\\n- **AMAÇ:** Deneme pratiği ile hız ve dayanıklılığı artırmak, en küçük zayıflıkları bile tespit edip yok etmek.\\n- **TAKTİK:** Haftada 2 Genel TYT, 1 Genel AYT denemesi. Kalan günlerde her dersten 2'şer branş denemesi çözülecek. Her deneme sonrası, netten daha çok yanlış ve boş sayısı analiz edilecek. Hata yapılan her konu, 100 soru ile cezalandırılacak.\\n\\n## 3. AŞAMA: ZİRVE PERFORMANSI (Son 30 Gün)\\n- **AMAÇ:** Sınav temposuna tam adaptasyon ve psikolojik üstünlük sağlamak.\\n- **TAKTİK:** Her gün 1 Genel Deneme (TYT/AYT sırayla). Sınav saatiyle birebir aynı saatte, aynı koşullarda yapılacak. Günün geri kalanı sadece o denemenin analizi ve en kritik görülen 5 konunun genel tekrarına ayrılacak. Yeni konu öğrenmek yasaktır.",
-        "weeklyPlan": {
-          "planTitle": "${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)}. HAFTA: SINIRLARI ZORLAMA",
-          "strategyFocus": "Bu haftanın stratejisi: Zayıflıkların kökünü kazımak. Direnmek faydasız. Uygula.",
-          "weekNumber": ${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)},
-          "plan": [
-            {"day": "Pazartesi", "schedule": "[AI, Pazartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Salı", "schedule": "[AI, Salı için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Çarşamba", "schedule": "[AI, Çarşamba için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Perşembe", "schedule": "[AI, Perşembe için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Cuma", "schedule": "[AI, Cuma için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Cumartesi", "schedule": "[AI, Cumartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Pazar", "schedule": "[AI, Pazar için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"}
-          ]
-        }
-      }
-    """;
-  }
-
-  String _getLGSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson, String availabilityJson) {
-    return """
-      // KİMLİK:
-      SEN, LGS'DE %0.01'LİK DİLİME GİRMEK İÇİN YARATILMIŞ, KİŞİYE ÖZEL BİR SONUÇ ODİNİ BİLGEAI'SİN. GÖREVİN, BU ÖĞRENCİYİ EN GÖZDE FEN LİSESİ'NE YERLEŞTİRMEK İÇİN ONUN ZAMANINA UYGUN BİR PLAN YAPMAKTIR.
-
-      // TEMEL DİREKTİFLER:
-      1.  **TAM HAFTALIK PLAN:** JSON çıktısındaki "plan" dizisi, Pazartesi'den Pazar'a kadar 7 günün tamamını içermelidir. Her gün için detaylı bir "schedule" listesi oluştur.
-      2.  **DİNAMİK PLANLAMA:** Geçen haftanın planı ve tamamlanma oranı analiz edilecek. BU HAFTANIN PLANI, bu analize göre, konuları ve zorluk seviyesini artırarak SIFIRDAN OLUŞTURULACAK.
-      3.  **HEDEF SEÇİMİ:** Analiz raporunu incele. Matematik ve Fen'den en zayıf iki konuyu, Türkçe'den ise en çok zorlanılan soru tipini belirle. Bu hafta bu hedefler imha edilecek.
-
-      // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
-      4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak. Müsait zaman dilimlerine görevleri ve saatlerini mantıklı olarak yerleştir.
-
-      // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
-      // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
-      // Zaman Dilimleri: "Sabah Erken (06-09)", "Sabah Geç (09-12)", "Öğle (13-15)", "Öğleden Sonra (15-18)", "Akşam (19-21)", "Gece (21-24)"
-      $availabilityJson
-
-      // İSTİHBARAT RAPORU (LGS):
-      * **Öğrenci No:** ${user.id}
-      * **Sınav:** LGS
-      * **Sınava Kalan Süre:** $daysUntilExam gün
-      * **Hedef Kale:** ${user.goal}
-      * **Zayıf Noktalar:** ${user.challenges}
-      * **Çalışma temposu:** $pacing
-      * **Performans Raporu:** Toplam Deneme: ${user.testCount}, Ortalama Net: ${analysis?.averageNet.toStringAsFixed(2) ?? 'N/A'}
-      * **Ders Analizi:** ${analysis?.subjectAverages}
-      * **Konu Analizi:** $topicPerformancesJson
-      * **GEÇEN HAFTANIN ANALİZİ (EĞER VARSA):** ${user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : "YOK. HAREKÂT BAŞLIYOR."}
-
-      **JSON ÇIKTI FORMATI (AÇIKLAMA YOK, SADECE BU):**
-      {
-        "longTermStrategy": "# LGS FETİH PLANI: $daysUntilExam GÜN\\n\\n## ⚔️ MOTTOMUZ: Başarı, en çok çalışanındır. Rakiplerin yorulunca sen başlayacaksın.\\n\\n## 1. AŞAMA: TEMEL HAKİMİYETİ (Kalan Gün > 90)\\n- **AMAÇ:** 8. Sınıf konularında tek bir eksik kalmayacak. Özellikle Matematik ve Fen Bilimleri'nde tam hakimiyet sağlanacak.\\n- **TAKTİK:** Her gün okuldan sonra en zayıf 2 konuyu bitir. Her konu için 70 yeni nesil soru çöz. Yanlışsız biten test, bitmiş sayılmaz; analizi yapılmış test bitmiş sayılır.\\n\\n## 2. AŞAMA: SORU CANAVARI (90 > Kalan Gün > 30)\\n- **AMAÇ:** Piyasada çözülmedik nitelikli yeni nesil soru bırakmamak.\\n- **TAKTİK:** Her gün 3 farklı dersten 50'şer yeni nesil soru. Her gün 2 branş denemesi.\\n\\n## 3. AŞAMA: ŞAMPİYONLUK PROVASI (Kalan Gün < 30)\\n- **AMAÇ:** Sınav gününü sıradanlaştırmak.\\n- **TAKTİK:** Her gün 1 LGS Genel Denemesi. Süre ve optik form ile. Sınav sonrası 3 saatlik analiz. Kalan zamanda nokta atışı konu imhası.",
-        "weeklyPlan": {
-          "planTitle": "${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)}. HAFTA: DİSİPLİN KAMPI (LGS)",
-          "strategyFocus": "Okul sonrası hayatın bu hafta iptal edildi. Tek odak: Zayıf konuların imhası.",
-          "weekNumber": ${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)},
-          "plan": [
-            {"day": "Pazartesi", "schedule": "[AI, Pazartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Salı", "schedule": "[AI, Salı için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Çarşamba", "schedule": "[AI, Çarşamba için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Perşembe", "schedule": "[AI, Perşembe için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Cuma", "schedule": "[AI, Cuma için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Cumartesi", "schedule": "[AI, Cumartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Pazar", "schedule": "[AI, Pazar için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"}
-          ]
-        }
-      }
-    """;
-  }
-
-  String _getKPSSPrompt(UserModel user, List<TestModel> tests, PerformanceAnalysis? analysis, String pacing, int daysUntilExam, String topicPerformancesJson, String availabilityJson, String examName) {
-    return """
-      // KİMLİK:
-      SEN, $examName'DE YÜKSEK PUAN ALARAK ATANMAYI GARANTİLEMEK ÜZERE TASARLANMIŞ, KİŞİSEL ZAMAN PLANINA UYUMLU, BİLGİ VE DİSİPLİN ODAKLI BİR SİSTEM OLAN BİLGEAI'SİN. GÖREVİN, BU ADAYIN İŞ HAYATI GİBİ MEŞGULİYETLERİNİ GÖZ ÖNÜNDE BULUNDURARAK, MEVCUT ZAMANINI MAKSİMUM VERİMLE KULLANMASINI SAĞLAMAK.
-
-      // TEMEL DİREKTİFLER:
-      1.  **MAKSİMUM VERİM:** Plan, adayın çalışma saatleri dışındaki her anı kapsayacak şekilde yapılacak.
-      2.  **DİNAMİK STRATEJİ:** Her hafta, önceki haftanın deneme sonuçları ve tamamlanan görevler analiz edilecek. Yeni hafta planı, bu verilere göre zayıf alanlara daha fazla ağırlık vererek SIFIRDAN oluşturulacak.
-      3.  **EZBER VE TEKRAR ODAĞI:** Tarih, Coğrafya ve Vatandaşlık gibi ezber gerektiren dersler için "Aralıklı Tekrar" ve "Aktif Hatırlama" tekniklerini plana entegre et.
-
-      // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
-      4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak.
-
-      // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
-      // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
-      // Zaman Dilimleri: "Sabah Erken (06-09)", "Sabah Geç (09-12)", "Öğle (13-15)", "Öğleden Sonra (15-18)", "Akşam (19-21)", "Gece (21-24)"
-      $availabilityJson
-
-      // İSTİHBARAT RAPORU (KPSS):
-      * **Aday No:** ${user.id}
-      * **Sınav:** $examName (GY/GK)
-      * **Atanmaya Kalan Süre:** $daysUntilExam gün
-      * **Hedef Kadro:** ${user.goal}
-      * **Engeller:** ${user.challenges}
-      * **Tempo:** $pacing
-      * **Performans Raporu:** Toplam Deneme: ${user.testCount}, Ortalama Net: ${analysis?.averageNet.toStringAsFixed(2) ?? 'N/A'}
-      * **Alan Hakimiyeti:** ${analysis?.subjectAverages}
-      * **Konu Zafiyetleri:** $topicPerformancesJson
-      * **GEÇEN HAFTANIN ANALİZİ (EĞER VARSA):** ${user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : "YOK. PLANLAMA BAŞLIYOR."}
-
-      **JSON ÇIKTI FORMATI (AÇIKLAMA YOK, SADECE BU):**
-      {
-        "longTermStrategy": "# $examName ATANMA EMRİ: $daysUntilExam GÜN\\n\\n## ⚔️ MOTTOMUZ: Geleceğin, bugünkü çabanla şekillenir. Fedakarlık olmadan zafer olmaz.\\n\\n## 1. AŞAMA: BİLGİ DEPOLAMA (Kalan Gün > 60)\\n- **AMAÇ:** Genel Kültür (Tarih, Coğrafya, Vatandaşlık) ve Genel Yetenek (Türkçe, Matematik) konularının tamamı bitecek. Ezberler yapılacak.\\n- **TAKTİK:** Her gün 1 GK, 1 GY konusu bitirilecek. Her konu sonrası 80 soru. Her gün 30 paragraf, 30 problem rutini yapılacak.\\n\\n## 2. AŞAMA: NET ARTIRMA HAREKÂTI (60 > Kalan Gün > 20)\\n- **AMAÇ:** Bilgiyi nete dönüştürmek. Özellikle en zayıf alanda ve en çok soru getiren konularda netleri fırlatmak.\\n- **TAKTİK:** Her gün 2 farklı alandan (örn: Tarih, Matematik) branş denemesi. Bol bol çıkmış soru analizi. Hata yapılan konulara anında 100 soru ile müdahale.\\n\\n## 3. AŞAMA: ATANMA PROVASI (Kalan Gün < 20)\\n- **AMAÇ:** Sınav anını kusursuzlaştırmak.\\n- **TAKTİK:** İki günde bir 1 $examName Genel Yetenek - Genel Kültür denemesi. Deneme sonrası 5 saatlik detaylı analiz. Aradaki gün, denemede çıkan eksik konuların tamamen imhası.",
-        "weeklyPlan": {
-          "planTitle": "${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)}. HAFTA: ADANMIŞLIK ($examName)",
-          "strategyFocus": "Bu hafta iş ve özel hayat bahaneleri bir kenara bırakılıyor. Tek odak atanmak. Plan tavizsiz uygulanacak.",
-          "weekNumber": ${(user.weeklyPlan == null ? 1 : (user.weeklyPlan!['weekNumber'] ?? 0) + 1)},
-          "plan": [
-            {"day": "Pazartesi", "schedule": "[AI, Pazartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Salı", "schedule": "[AI, Salı için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Çarşamba", "schedule": "[AI, Çarşamba için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Perşembe", "schedule": "[AI, Perşembe için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Cuma", "schedule": "[AI, Cuma için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Cumartesi", "schedule": "[AI, Cumartesi için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"},
-            {"day": "Pazar", "schedule": "[AI, Pazar için verilen müsaitlik takvimine göre görevleri ve saatleri SIFIRDAN ve EKSİKSİZ oluştur. Müsait değilse, listeyi boş bırak.]"}
-          ]
-        }
-      }
-    """;
-  }
-
   Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests) async {
     if (tests.isEmpty) {
       return Future.value('{"error":"Analiz için en az bir deneme sonucu gereklidir."}');
     }
-    final analysis = PerformanceAnalysis(tests, user.topicPerformances);
+    // DEĞİŞİKLİK: Yerel analiz sınıfı yerine merkezi analiz sınıfı kullanılıyor.
+    final analysis = StatsAnalysis(tests, user.topicPerformances);
     final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
 
     if (weakestTopicInfo == null) {
@@ -356,104 +210,5 @@ class AiService {
       Öğrencinin son mesajına uygun, motive edici ve pozitif bir cevap ver.
       """;
     return _callGemini(prompt, expectJson: false);
-  }
-}
-
-class PerformanceAnalysis {
-  final List<TestModel> tests;
-  final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
-  late String weakestSubjectByNet;
-  late String strongestSubjectByNet;
-  late Map<String, double> subjectAverages;
-  late double averageNet;
-
-  PerformanceAnalysis(this.tests, this.topicPerformances) {
-    if (tests.isEmpty) {
-      _initializeEmpty();
-      return;
-    }
-
-    final allNets = tests.map((t) => t.totalNet).toList();
-    averageNet = allNets.reduce((a, b) => a + b) / allNets.length;
-
-    final subjectNets = <String, List<double>>{};
-    for (var test in tests) {
-      test.scores.forEach((subject, scores) {
-        final net = (scores['dogru'] ?? 0) - ((scores['yanlis'] ?? 0) * test.penaltyCoefficient);
-        subjectNets.putIfAbsent(subject, () => []).add(net);
-      });
-    }
-
-    if (subjectNets.isEmpty) {
-      _initializeEmpty();
-      return;
-    }
-
-    subjectAverages = subjectNets.map((subject, nets) => MapEntry(subject, nets.reduce((a, b) => a + b) / nets.length));
-
-    final sortedSubjects = subjectAverages.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
-
-    weakestSubjectByNet = sortedSubjects.isNotEmpty ? sortedSubjects.first.key : "Belirlenemedi";
-    strongestSubjectByNet = sortedSubjects.isNotEmpty ? sortedSubjects.last.key : "Belirlenemedi";
-  }
-
-  void _initializeEmpty() {
-    weakestSubjectByNet = "Belirlenemedi";
-    strongestSubjectByNet = "Belirlenemedi";
-    subjectAverages = {};
-    averageNet = 0.0;
-  }
-
-  String? getNthWeakestSubject(int n) {
-    if (subjectAverages.length < n) return null;
-    final sortedSubjects = subjectAverages.entries.toList()
-      ..sort((a, b) => a.value.compareTo(b.value));
-    return sortedSubjects[n - 1].key;
-  }
-
-  List<Map<String, dynamic>> _getRankedTopics() {
-    final List<Map<String, dynamic>> allTopics = [];
-    topicPerformances.forEach((subject, topics) {
-      topics.forEach((topic, performance) {
-        if (performance.questionCount > 3) {
-          final successRate = performance.questionCount > 0 ? (performance.correctCount / performance.questionCount) : 0.0;
-          final weightedScore = successRate - (performance.questionCount / 1000);
-          allTopics.add({
-            'subject': subject,
-            'topic': topic,
-            'successRate': successRate,
-            'weightedScore': weightedScore,
-          });
-        }
-      });
-    });
-
-    allTopics.sort((a, b) => a['weightedScore'].compareTo(b['weightedScore']));
-    return allTopics;
-  }
-
-  Map<String, String>? getWeakestTopicWithDetails() {
-    final ranked = _getRankedTopics();
-    if (ranked.isNotEmpty) {
-      final weakest = ranked.first;
-      return {
-        'subject': weakest['subject'].toString(),
-        'topic': weakest['topic'].toString(),
-      };
-    }
-    return null;
-  }
-
-  Map<String, String>? getNthWeakestTopic(int n) {
-    final ranked = _getRankedTopics();
-    if (ranked.length >= n) {
-      final topicData = ranked[n-1];
-      return {
-        'subject': topicData['subject'].toString(),
-        'topic': topicData['topic'].toString(),
-      };
-    }
-    return null;
   }
 }
