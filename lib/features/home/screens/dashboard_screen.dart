@@ -5,12 +5,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
-import 'package:intl/intl.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
-import 'package:bilge_ai/data/models/plan_model.dart';
-import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:bilge_ai/shared/widgets/stat_card.dart';
-import 'package:bilge_ai/data/models/exam_model.dart'; // HATA DÜZELTİLDİ: EKSİK IMPORT EKLENDİ
+import 'package:bilge_ai/features/home/widgets/dashboard_header.dart';
+import 'package:bilge_ai/features/home/widgets/todays_mission_card.dart';
+import 'package:bilge_ai/features/home/widgets/weekly_parchment.dart';
 
 const List<String> motivationalQuotes = [
   "Başarının sırrı, başlamaktır.",
@@ -22,8 +21,33 @@ const List<String> motivationalQuotes = [
   "Vazgeçenler asla kazanamaz, kazananlar asla vazgeçmez."
 ];
 
+// GÖZLEMCİ WIDGET: Sadece yüklenme ve hata durumlarını kontrol eder.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final userAsync = ref.watch(userProfileProvider);
+
+    return Scaffold(
+      body: SafeArea(
+        child: userAsync.when(
+          data: (user) {
+            if (user == null) return const Center(child: Text("Kullanıcı verisi yüklenemedi."));
+            // Veri hazır olduğunda, asıl işi yapacak olan akıllı Komutan widget'ını çağır.
+            return const _DashboardView();
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+          error: (e, s) => Center(child: Text("Bir hata oluştu: $e")),
+        ),
+      ),
+    );
+  }
+}
+
+// KOMUTAN WIDGET: Sadece önemli veriler değiştiğinde yeniden çizim yapar.
+class _DashboardView extends ConsumerWidget {
+  const _DashboardView();
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -35,61 +59,37 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync = ref.watch(userProfileProvider);
-    final textTheme = Theme.of(context).textTheme;
+    // DÜZELTİLDİ: Artık tüm 'user' objesini değil, SADECE bu ekranın ihtiyaç duyduğu
+    // ve sık değişmeyen verileri '.select' ile dinliyoruz.
+    // 'completedDailyTasks' haritasındaki değişiklikler bu widget'ı tetiklemeyecek.
+    final dashboardUserData = ref.watch(userProfileProvider.select((user) => (
+    name: user.value?.name ?? '',
+    totalNetSum: user.value?.totalNetSum ?? 0.0,
+    streak: user.value?.streak ?? 0
+    )));
+
+    final tests = ref.watch(testsProvider).valueOrNull ?? [];
     final randomQuote = motivationalQuotes[Random().nextInt(motivationalQuotes.length)];
 
-    return Scaffold(
-      body: SafeArea(
-        child: userAsync.when(
-          data: (user) {
-            if (user == null) return const Center(child: Text("Kullanıcı verisi yüklenemedi."));
-            final tests = ref.watch(testsProvider).valueOrNull ?? [];
-            final testCount = tests.length;
-            final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
-            final bestNet = tests.isEmpty ? 0.0 : tests.map((t) => t.totalNet).reduce(max);
+    final testCount = tests.length;
+    final avgNet = testCount > 0 ? dashboardUserData.totalNetSum / testCount : 0.0;
+    final bestNet = tests.isEmpty ? 0.0 : tests.map((t) => t.totalNet).reduce(max);
 
-            return ListView(
-              padding: const EdgeInsets.all(16.0),
-              children: [
-                _buildHeader(context, user.name ?? '', textTheme),
-                const SizedBox(height: 16),
-                _buildMotivationalQuoteCard(randomQuote),
-                const SizedBox(height: 24),
-                _buildStatsRow(context, avgNet, bestNet, user.streak),
-                const SizedBox(height: 24),
-                _buildTodaysMissionCard(context, ref),
-                const SizedBox(height: 24),
-                _buildActionCenter(context),
-                const SizedBox(height: 24),
-                _WeeklyParchment(),
-              ].animate(interval: 80.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-          error: (e, s) => Center(child: Text("Bir hata oluştu: $e")),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, String name, TextTheme textTheme) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('${_getGreeting()},', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w300, color: AppTheme.secondaryTextColor)),
-            Text(name.split(' ').first, style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-          ],
-        ),
-        IconButton(
-          icon: const Icon(Icons.history_edu_rounded, color: AppTheme.secondaryTextColor, size: 28),
-          tooltip: 'Bilgelik Kütüphanesi',
-          onPressed: () => context.go('/library'),
-        ),
-      ],
+        DashboardHeader(greeting: _getGreeting(), name: dashboardUserData.name),
+        const SizedBox(height: 16),
+        _buildMotivationalQuoteCard(randomQuote),
+        const SizedBox(height: 24),
+        _buildStatsRow(context, avgNet, bestNet, dashboardUserData.streak),
+        const SizedBox(height: 24),
+        const TodaysMissionCard(), // Bu widget kendi verisini kendi yönetir
+        const SizedBox(height: 24),
+        _buildActionCenter(context),
+        const SizedBox(height: 24),
+        const WeeklyParchment(), // Bu widget da kendi verisini kendi yönetir
+      ].animate(interval: 80.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
     );
   }
 
@@ -128,108 +128,6 @@ class DashboardScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildTodaysMissionCard(BuildContext context, WidgetRef ref) {
-    final tests = ref.watch(testsProvider).valueOrNull;
-    final user = ref.watch(userProfileProvider).valueOrNull;
-
-    if (user == null || tests == null) {
-      return const Card(child: Padding(padding: EdgeInsets.all(20.0), child: Center(child: CircularProgressIndicator())));
-    }
-
-    if (user.selectedExam == null) {
-      return const Card(child: Padding(padding: EdgeInsets.all(20.0), child: Center(child: Text("Lütfen bir sınav seçin."))));
-    }
-
-    final examType = ExamType.values.byName(user.selectedExam!);
-
-    return FutureBuilder<Exam>(
-      future: ExamData.getExamByType(examType),
-      builder: (context, examSnapshot) {
-        if (examSnapshot.connectionState == ConnectionState.waiting) {
-          return const Card(child: Padding(padding: EdgeInsets.all(20.0), child: Center(child: CircularProgressIndicator())));
-        }
-        if (!examSnapshot.hasData) {
-          return const Card(child: Padding(padding: EdgeInsets.all(20.0), child: Center(child: Text("Sınav verisi yüklenemedi."))));
-        }
-
-        final exam = examSnapshot.data!;
-        final textTheme = Theme.of(context).textTheme;
-
-        IconData icon;
-        String title;
-        String subtitle;
-        VoidCallback? onTap;
-        String buttonText;
-
-        if (tests.isEmpty) {
-          title = "Yolculuğa Başla";
-          subtitle = "Potansiyelini ortaya çıkarmak için ilk deneme sonucunu ekle.";
-          onTap = () => context.go('/home/add-test');
-          buttonText = "İlk Denemeni Ekle";
-          icon = Icons.add_chart_rounded;
-        } else {
-          final analysis = StatsAnalysis(tests, user.topicPerformances, exam, user: user);
-          final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
-          title = "Günün Önceliği";
-          subtitle = weakestTopicInfo != null
-              ? "BilgeAI, en zayıf noktanın **'${weakestTopicInfo['subject']}'** dersindeki **'${weakestTopicInfo['topic']}'** konusu olduğunu tespit etti. Bu cevheri işlemeye hazır mısın?"
-              : "Harika gidiyorsun! Şu an belirgin bir zayıf noktan tespit edilmedi. Yeni konu verileri girerek analizi derinleştirebilirsin.";
-          onTap = weakestTopicInfo != null ? () => context.go('/ai-hub/weakness-workshop') : null;
-          buttonText = "Cevher Atölyesine Git";
-          icon = Icons.construction_rounded;
-        }
-
-        return Card(
-          elevation: 4,
-          shadowColor: AppTheme.secondaryColor.withOpacity(0.2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Container(
-            decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                gradient: LinearGradient(
-                  colors: [AppTheme.secondaryColor.withOpacity(0.9), AppTheme.secondaryColor],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                )
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(icon, size: 32, color: AppTheme.primaryColor),
-                  const SizedBox(height: 12),
-                  Text(title, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-                  const SizedBox(height: 8),
-                  _buildRichTextFromMarkdown(
-                      subtitle,
-                      baseStyle: textTheme.bodyLarge?.copyWith(color: AppTheme.primaryColor.withOpacity(0.9), height: 1.5),
-                      boldStyle: const TextStyle(fontWeight: FontWeight.bold)
-                  ),
-                  if (onTap != null) ...[
-                    const SizedBox(height: 20),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: ElevatedButton(
-                        onPressed: onTap,
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryColor,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
-                        ),
-                        child: Text(buttonText),
-                      ),
-                    )
-                  ]
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildActionCenter(BuildContext context) {
     return Row(
       children: [
@@ -251,259 +149,6 @@ class DashboardScreen extends ConsumerWidget {
       ],
     );
   }
-}
-
-class _WeeklyParchment extends ConsumerStatefulWidget {
-  @override
-  ConsumerState<_WeeklyParchment> createState() => _WeeklyParchmentState();
-}
-
-class _WeeklyParchmentState extends ConsumerState<_WeeklyParchment> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  final List<String> _daysOfWeek = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
-
-  @override
-  void initState() {
-    super.initState();
-    int initialIndex = DateTime.now().weekday - 1;
-    if (initialIndex < 0) initialIndex = 6;
-    _tabController = TabController(length: 7, vsync: this, initialIndex: initialIndex);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final user = ref.watch(userProfileProvider).value;
-
-    WeeklyPlan? weeklyPlan;
-    if (user?.weeklyPlan != null) {
-      weeklyPlan = WeeklyPlan.fromJson(user!.weeklyPlan!);
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Kader Parşömeni", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        Card(
-          child: weeklyPlan == null || weeklyPlan.plan.isEmpty
-              ? _buildRestPrompt(context, isPlanGenerated: false)
-              : Column(
-            children: [
-              TabBar(
-                controller: _tabController,
-                isScrollable: true,
-                tabs: _daysOfWeek.map((day) => Tab(text: day.substring(0, 3))).toList(),
-              ),
-              SizedBox(
-                height: 400,
-                child: TabBarView(
-                  controller: _tabController,
-                  children: _daysOfWeek.map((dayName) {
-                    final dailyPlan = weeklyPlan!.plan.firstWhere(
-                          (p) => p.day == dayName,
-                      orElse: () => DailyPlan(day: dayName, schedule: []),
-                    );
-
-                    final today = DateTime.now();
-                    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-                    final dateForTab = startOfWeek.add(Duration(days: _daysOfWeek.indexOf(dayName)));
-                    final dateKey = DateFormat('yyyy-MM-dd').format(dateForTab);
-
-                    final completedTasks = user?.completedDailyTasks[dateKey] ?? [];
-
-                    if (dailyPlan.schedule.isEmpty) {
-                      return Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Text(
-                                "Bu gün dinlenme ve gücünü toplama günü olarak planlanmış.",
-                                textAlign: TextAlign.center,
-                                style: TextStyle(color: AppTheme.secondaryTextColor, fontStyle: FontStyle.italic)
-                            ),
-                          ));
-                    }
-
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: dailyPlan.schedule.length,
-                      itemBuilder: (context, index) {
-                        final scheduleItem = dailyPlan.schedule[index];
-                        final taskIdentifier = "${scheduleItem.time}-${scheduleItem.activity}";
-                        final isCompleted = completedTasks.contains(taskIdentifier);
-
-                        return _DestinyTaskCard(
-                          item: scheduleItem,
-                          isCompleted: isCompleted,
-                          onToggle: () {
-                            if (user != null) {
-                              ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
-                                userId: user.id,
-                                dateKey: dateKey,
-                                task: taskIdentifier,
-                                isCompleted: !isCompleted,
-                              );
-                            }
-                          },
-                        );
-                      },
-                    );
-                  }).toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DestinyTaskCard extends StatefulWidget {
-  final ScheduleItem item;
-  final bool isCompleted;
-  final VoidCallback onToggle;
-
-  const _DestinyTaskCard({
-    required this.item,
-    required this.isCompleted,
-    required this.onToggle,
-  });
-
-  @override
-  State<_DestinyTaskCard> createState() => _DestinyTaskCardState();
-}
-
-class _DestinyTaskCardState extends State<_DestinyTaskCard> {
-  bool _isExpanded = false;
-
-  IconData _getIconForTaskType(String type) {
-    switch (type.toLowerCase()) {
-      case 'study':
-        return Icons.book_rounded;
-      case 'practice':
-      case 'routine':
-        return Icons.edit_note_rounded;
-      case 'test':
-        return Icons.quiz_rounded;
-      case 'review':
-        return Icons.history_edu_rounded;
-      case 'preparation':
-        return Icons.architecture_rounded;
-      case 'break':
-        return Icons.self_improvement_rounded;
-      case 'sleep':
-        return Icons.bedtime_rounded;
-      default:
-        return Icons.shield_moon_rounded;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10.0),
-      child: InkWell(
-        onTap: () => setState(() => _isExpanded = !_isExpanded),
-        borderRadius: BorderRadius.circular(12),
-        child: AnimatedContainer(
-          duration: 300.ms,
-          padding: const EdgeInsets.all(16.0),
-          decoration: BoxDecoration(
-              color: widget.isCompleted ? AppTheme.successColor.withOpacity(0.1) : AppTheme.lightSurfaceColor.withOpacity(0.5),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: widget.isCompleted ? AppTheme.successColor : AppTheme.lightSurfaceColor,
-                width: 1.5,
-              )
-          ),
-          child: Column(
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2.0),
-                    child: Icon(
-                      _getIconForTaskType(widget.item.type),
-                      color: widget.isCompleted ? AppTheme.successColor : AppTheme.secondaryColor,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildRichTextFromMarkdown(
-                      "**${widget.item.time}:** ${widget.item.activity}",
-                      baseStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: widget.isCompleted ? AppTheme.secondaryTextColor : Colors.white,
-                        decoration: widget.isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                      ),
-                      boldStyle: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: widget.isCompleted ? AppTheme.secondaryTextColor : Colors.white
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              AnimatedSize(
-                duration: 300.ms,
-                curve: Curves.easeInOut,
-                child: Visibility(
-                  visible: _isExpanded,
-                  child: Padding(
-                    padding: const EdgeInsets.only(top: 16.0),
-                    child: ElevatedButton.icon(
-                      onPressed: widget.onToggle,
-                      icon: Icon(widget.isCompleted ? Icons.restart_alt_rounded : Icons.check_circle_outline_rounded),
-                      label: Text(widget.isCompleted ? "Mührü Geri Al" : "Görevi Mühürle"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: widget.isCompleted ? AppTheme.lightSurfaceColor : AppTheme.secondaryColor,
-                        foregroundColor: widget.isCompleted ? Colors.white : AppTheme.primaryColor,
-                        minimumSize: const Size(double.infinity, 44),
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-Widget _buildRestPrompt(BuildContext context, {required bool isPlanGenerated}) {
-  return Padding(
-    padding: const EdgeInsets.all(48.0),
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(isPlanGenerated ? Icons.shield_moon_rounded : Icons.auto_awesome, color: AppTheme.secondaryColor.withOpacity(0.8), size: 40),
-        const SizedBox(height: 16),
-        Text(
-          !isPlanGenerated
-              ? "Kaderinin parşömeni boş. Stratejik planını oluşturarak mühürlerini buraya yazdır."
-              : "Haftalık planın henüz oluşturulmamış veya yüklenemedi.",
-          textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
-        ),
-        if (!isPlanGenerated) ...[
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => context.go('/ai-hub/strategic-planning'),
-            child: const Text('Stratejini Oluştur'),
-          )
-        ]
-      ],
-    ),
-  );
 }
 
 class _ActionButton extends StatelessWidget {
@@ -534,27 +179,4 @@ class _ActionButton extends StatelessWidget {
       ),
     );
   }
-}
-
-Widget _buildRichTextFromMarkdown(String text, {TextStyle? baseStyle, TextStyle? boldStyle}) {
-  List<TextSpan> spans = [];
-  final RegExp regExp = RegExp(r"\*\*(.*?)\*\*");
-
-  text.splitMapJoin(regExp,
-      onMatch: (m) {
-        spans.add(TextSpan(text: m.group(1), style: boldStyle ?? baseStyle?.copyWith(fontWeight: FontWeight.bold)));
-        return '';
-      },
-      onNonMatch: (n) {
-        spans.add(TextSpan(text: n));
-        return '';
-      }
-  );
-
-  return RichText(
-    text: TextSpan(
-      style: baseStyle,
-      children: spans,
-    ),
-  );
 }
