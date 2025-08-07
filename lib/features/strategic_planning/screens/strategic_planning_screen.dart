@@ -8,7 +8,7 @@ import 'package:bilge_ai/data/repositories/ai_service.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
+import 'package:bilge_ai/data/models/plan_model.dart'; // DÜZELTİLDİ: Yeni model yolu
 import 'package:bilge_ai/data/models/user_model.dart';
 
 enum Pacing { relaxed, moderate, intense }
@@ -74,11 +74,10 @@ class StrategicPlanningScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;
-    final tests = ref.watch(testsProvider).valueOrNull; // Test verisini alıyoruz
+    final tests = ref.watch(testsProvider).valueOrNull;
     final generationState = ref.watch(strategyGenerationProvider);
 
     ref.listen<AsyncValue<void>>(strategyGenerationProvider, (_, state) {
-      // Yükleme ve hata diyalogları
       if (state.isLoading) {
         showDialog(
           context: context,
@@ -97,17 +96,14 @@ class StrategicPlanningScreen extends ConsumerWidget {
       }
     });
 
-    // KONTROL MEKANİZMASI: Eğer hiç test yoksa, uyarı ekranı göster.
     if (tests == null || tests.isEmpty) {
       return _buildDataMissingView(context);
     }
 
-    // Eğer plan zaten oluşturulmuşsa, planı göster.
     if (user?.longTermStrategy != null && !generationState.isLoading) {
       return _buildStrategyDisplay(context, ref);
     }
 
-    // Eğer test var ama plan yoksa, plan oluşturma ekranını göster.
     return Scaffold(
       appBar: AppBar(title: const Text('Stratejik Planlama Atölyesi')),
       body: Center(
@@ -144,7 +140,6 @@ class StrategicPlanningScreen extends ConsumerWidget {
     );
   }
 
-  // YENİ WIDGET: Veri eksik olduğunda gösterilecek ekran.
   Widget _buildDataMissingView(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Stratejik Planlama Atölyesi')),

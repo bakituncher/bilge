@@ -7,10 +7,10 @@ import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:intl/intl.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
-import 'package:bilge_ai/data/models/exam_model.dart';
-import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
+import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:bilge_ai/shared/widgets/stat_card.dart';
+import 'package:bilge_ai/data/models/exam_model.dart'; // HATA DÜZELTİLDİ: EKSİK IMPORT EKLENDİ
 
 const List<String> motivationalQuotes = [
   "Başarının sırrı, başlamaktır.",
@@ -133,7 +133,6 @@ class DashboardScreen extends ConsumerWidget {
     final user = ref.watch(userProfileProvider).valueOrNull;
 
     if (user == null || tests == null) {
-      // Veri henüz yüklenirken gösterilecek olan widget
       return const Card(child: Padding(padding: EdgeInsets.all(20.0), child: Center(child: CircularProgressIndicator())));
     }
 
@@ -143,7 +142,6 @@ class DashboardScreen extends ConsumerWidget {
 
     final examType = ExamType.values.byName(user.selectedExam!);
 
-    // DÜZELTİLDİ: Sınav verisini 'FutureBuilder' ile bekliyoruz.
     return FutureBuilder<Exam>(
       future: ExamData.getExamByType(examType),
       builder: (context, examSnapshot) {
@@ -255,7 +253,6 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-// ... dosyanın geri kalan tüm widgetları (_WeeklyParchment, _ActionButton vs.) aynı kalıyor.
 class _WeeklyParchment extends ConsumerStatefulWidget {
   @override
   ConsumerState<_WeeklyParchment> createState() => _WeeklyParchmentState();
@@ -269,6 +266,7 @@ class _WeeklyParchmentState extends ConsumerState<_WeeklyParchment> with SingleT
   void initState() {
     super.initState();
     int initialIndex = DateTime.now().weekday - 1;
+    if (initialIndex < 0) initialIndex = 6;
     _tabController = TabController(length: 7, vsync: this, initialIndex: initialIndex);
   }
 

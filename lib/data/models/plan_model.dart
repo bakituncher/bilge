@@ -1,5 +1,4 @@
-// lib/features/coach/screens/weekly_plan_screen.dart
-// DEVRİM GÜNCELLEMESİ: Bu dosya artık ultra detaylı saatlik planları işleyebilen yeni modeller içeriyor.
+// lib/data/models/plan_model.dart
 
 // Bir günlük plandaki tek bir görevi (saat, aktivite, tür) temsil eder.
 class ScheduleItem {
@@ -17,7 +16,6 @@ class ScheduleItem {
     );
   }
 
-  // Sadece aktivite metnini döndüren basit bir gösterim için.
   @override
   String toString() {
     return activity;
@@ -27,9 +25,8 @@ class ScheduleItem {
 // Bir günün tamamını (örn: Pazartesi) ve o günün tüm görevlerini içerir.
 class DailyPlan {
   final String day;
-  // DEVRİM GÜNCELLEMESİ: Artık basit bir metin listesi yerine, detaylı ScheduleItem listesi tutuyor.
   final List<ScheduleItem> schedule;
-  final String? rawScheduleString; // AI'dan gelen "Salı günü planı..." gibi metinleri tutmak için.
+  final String? rawScheduleString;
 
   DailyPlan({required this.day, required this.schedule, this.rawScheduleString});
 
@@ -37,7 +34,6 @@ class DailyPlan {
     List<ScheduleItem> scheduleItems = [];
     String? rawString;
 
-    // AI'dan gelen 'schedule' alanı bir liste mi (detaylı plan) yoksa bir metin mi (özet plan) diye kontrol ediyoruz.
     if (json['schedule'] is List) {
       var list = (json['schedule'] as List);
       scheduleItems = list.map((i) => ScheduleItem.fromMap(i)).toList();
@@ -45,10 +41,8 @@ class DailyPlan {
       rawString = json['schedule'] as String;
     }
 
-    // Eski 'tasks' anahtar kelimesiyle uyumluluk için.
     if (json.containsKey('tasks') && json['tasks'] is List) {
       var taskList = (json['tasks'] as List).cast<String>();
-      // Eski formatı yeni formata dönüştürüyoruz.
       scheduleItems.addAll(taskList.map((task) => ScheduleItem(time: "Görev", activity: task, type: "study")));
     }
 

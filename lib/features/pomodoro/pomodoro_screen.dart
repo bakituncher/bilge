@@ -9,7 +9,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
-import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
+import 'package:bilge_ai/data/models/plan_model.dart'; // HATA DÜZELTİLDİ: Yeni, doğru import yolu
 
 // Gözlemevi Aşamaları
 enum ObservatoryState {
@@ -127,8 +127,6 @@ class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProv
     List<String> tasks = ["Genel Çalışma", "Konu Tekrarı", "Soru Çözümü"];
     if (user?.weeklyPlan != null) {
       final plan = WeeklyPlan.fromJson(user!.weeklyPlan!);
-      // ** HATA DÜZELTİLDİ: Artık eski '.tasks' yerine yeni ve güçlü '.schedule' yapısını kullanıyoruz. **
-      // Her günün programındaki her bir aktiviteyi (ScheduleItem.activity) alıp listeye ekliyoruz.
       tasks.addAll(plan.plan.expand((day) => day.schedule.map((item) => item.activity)));
     }
     tasks = tasks.toSet().toList();
@@ -383,14 +381,12 @@ class _CelestialCompassPainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = min(size.width, size.height) / 2;
 
-    // Arka plan yıldızları
     final starPaint = Paint()..color = AppTheme.lightSurfaceColor.withOpacity(0.5);
     for (var star in stars) {
       final starPos = Offset(star.dx * size.width, star.dy * size.height);
       canvas.drawCircle(starPos, random.nextDouble() * 1.2, starPaint);
     }
 
-    // Dönen halkalar
     final ringPaint = Paint()
       ..color = AppTheme.secondaryColor.withOpacity(0.3)
       ..style = PaintingStyle.stroke..strokeWidth = 2;
@@ -398,11 +394,10 @@ class _CelestialCompassPainter extends CustomPainter {
     canvas.translate(center.dx, center.dy);
     canvas.rotate(rotation * 2 * pi);
     canvas.drawCircle(Offset.zero, radius * 0.8, ringPaint);
-    canvas.rotate(rotation * 4 * pi); // Ters yönde daha hızlı
+    canvas.rotate(rotation * 4 * pi);
     canvas.drawCircle(Offset.zero, radius * 0.6, ringPaint..strokeWidth = 1);
     canvas.restore();
 
-    // Zaman ilerleme yayı
     final progressPaint = Paint()
       ..color = AppTheme.secondaryColor
       ..style = PaintingStyle.stroke..strokeWidth = 6
@@ -416,7 +411,6 @@ class _CelestialCompassPainter extends CustomPainter {
       progressPaint,
     );
 
-    // Zaman iğnesi
     final needlePaint = Paint()..color = Colors.white..strokeWidth = 2;
     final needleEnd = Offset(
       center.dx + radius * 0.9 * cos(progress * 2 * pi - pi / 2),
