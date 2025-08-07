@@ -21,9 +21,16 @@ const List<String> motivationalQuotes = [
   "Vazgeçenler asla kazanamaz, kazananlar asla vazgeçmez."
 ];
 
-// GÖZLEMCİ WIDGET: Sadece yüklenme ve hata durumlarını kontrol eder.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 5) return 'İyi geceler';
+    if (hour < 12) return 'Günaydın';
+    if (hour < 18) return 'Tünaydın';
+    return 'İyi akşamlar';
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,7 +41,6 @@ class DashboardScreen extends ConsumerWidget {
         child: userAsync.when(
           data: (user) {
             if (user == null) return const Center(child: Text("Kullanıcı verisi yüklenemedi."));
-            // Veri hazır olduğunda, asıl işi yapacak olan akıllı Komutan widget'ını çağır.
             return const _DashboardView();
           },
           loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
@@ -45,7 +51,6 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-// KOMUTAN WIDGET: Sadece önemli veriler değiştiğinde yeniden çizim yapar.
 class _DashboardView extends ConsumerWidget {
   const _DashboardView();
 
@@ -59,9 +64,6 @@ class _DashboardView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // DÜZELTİLDİ: Artık tüm 'user' objesini değil, SADECE bu ekranın ihtiyaç duyduğu
-    // ve sık değişmeyen verileri '.select' ile dinliyoruz.
-    // 'completedDailyTasks' haritasındaki değişiklikler bu widget'ı tetiklemeyecek.
     final dashboardUserData = ref.watch(userProfileProvider.select((user) => (
     name: user.value?.name ?? '',
     totalNetSum: user.value?.totalNetSum ?? 0.0,
@@ -84,11 +86,11 @@ class _DashboardView extends ConsumerWidget {
         const SizedBox(height: 24),
         _buildStatsRow(context, avgNet, bestNet, dashboardUserData.streak),
         const SizedBox(height: 24),
-        const TodaysMissionCard(), // Bu widget kendi verisini kendi yönetir
+        const TodaysMissionCard(),
         const SizedBox(height: 24),
         _buildActionCenter(context),
         const SizedBox(height: 24),
-        const WeeklyParchment(), // Bu widget da kendi verisini kendi yönetir
+        const WeeklyParchment(),
       ].animate(interval: 80.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
     );
   }
@@ -118,11 +120,11 @@ class _DashboardView extends ConsumerWidget {
     return IntrinsicHeight(
       child: Row(
         children: [
-          Expanded(child: StatCard(icon: Icons.track_changes_rounded, value: avgNet.toStringAsFixed(1), label: 'Ortalama Net', color: Colors.blueAccent, onTap: () => context.go('/home/stats'))),
+          Expanded(child: StatCard(icon: Icons.track_changes_rounded, value: avgNet.toStringAsFixed(1), label: 'Ortalama Net', color: Colors.blueAccent, onTap: () => context.push('/home/stats'))),
           const SizedBox(width: 12),
-          Expanded(child: StatCard(icon: Icons.emoji_events_rounded, value: bestNet.toStringAsFixed(1), label: 'En Yüksek Net', color: Colors.amber, onTap: () => context.go('/home/stats'))),
+          Expanded(child: StatCard(icon: Icons.emoji_events_rounded, value: bestNet.toStringAsFixed(1), label: 'En Yüksek Net', color: Colors.amber, onTap: () => context.push('/home/stats'))),
           const SizedBox(width: 12),
-          Expanded(child: StatCard(icon: Icons.local_fire_department_rounded, value: streak.toString(), label: 'Günlük Seri', color: Colors.orangeAccent, onTap: () => context.go('/home/stats'))),
+          Expanded(child: StatCard(icon: Icons.local_fire_department_rounded, value: streak.toString(), label: 'Günlük Seri', color: Colors.orangeAccent, onTap: () => context.push('/home/stats'))),
         ],
       ),
     );
@@ -133,7 +135,7 @@ class _DashboardView extends ConsumerWidget {
       children: [
         Expanded(
           child: _ActionButton(
-            onTap: () => context.go('/home/add-test'),
+            onTap: () => context.go('/home/add-test'), // Bu go() kalabilir, çünkü bu birincil bir eylem.
             icon: Icons.add_chart_outlined,
             label: "Deneme Ekle",
           ),
@@ -141,7 +143,7 @@ class _DashboardView extends ConsumerWidget {
         const SizedBox(width: 16),
         Expanded(
           child: _ActionButton(
-            onTap: () => context.go('/home/pomodoro'),
+            onTap: () => context.go('/home/pomodoro'), // Bu go() kalabilir, çünkü bu birincil bir eylem.
             icon: Icons.timer_outlined,
             label: "Odaklan",
           ),
