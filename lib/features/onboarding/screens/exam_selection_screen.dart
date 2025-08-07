@@ -6,6 +6,7 @@ import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 
 class ExamSelectionScreen extends ConsumerWidget {
   const ExamSelectionScreen({super.key});
@@ -21,7 +22,7 @@ class ExamSelectionScreen extends ConsumerWidget {
         examType: examType,
         sectionName: exam.sections.first.name,
       );
-      if (context.mounted) context.go('/availability');
+      if (context.mounted) context.go(AppRoutes.availability);
       return;
     }
 
@@ -54,7 +55,7 @@ class ExamSelectionScreen extends ConsumerWidget {
                           examType: examType,
                           sectionName: section.name,
                         );
-                        if (context.mounted) context.go('/availability');
+                        if (context.mounted) context.go(AppRoutes.availability);
                       },
                       child: Text(section.name),
                     ),

@@ -6,6 +6,7 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 
 class TodaysMissionCard extends ConsumerWidget {
   const TodaysMissionCard({super.key});
@@ -46,7 +47,7 @@ class TodaysMissionCard extends ConsumerWidget {
         if (tests.isEmpty) {
           title = "Yolculuğa Başla";
           subtitle = "Potansiyelini ortaya çıkarmak için ilk deneme sonucunu ekle.";
-          onTap = () => context.go('/home/add-test');
+          onTap = () => context.go('${AppRoutes.home}/${AppRoutes.addTest}');
           buttonText = "İlk Denemeni Ekle";
           icon = Icons.add_chart_rounded;
         } else {
@@ -57,7 +58,7 @@ class TodaysMissionCard extends ConsumerWidget {
               ? "BilgeAI, en zayıf noktanın **'${weakestTopicInfo['subject']}'** dersindeki **'${weakestTopicInfo['topic']}'** konusu olduğunu tespit etti. Bu cevheri işlemeye hazır mısın?"
               : "Harika gidiyorsun! Şu an belirgin bir zayıf noktan tespit edilmedi. Yeni konu verileri girerek analizi derinleştirebilirsin.";
           // HATA DÜZELTİLDİ: .go() -> .push() olarak değiştirildi.
-          onTap = weakestTopicInfo != null ? () => context.push('/ai-hub/weakness-workshop') : null;
+          onTap = weakestTopicInfo != null ? () => context.push('${AppRoutes.aiHub}/${AppRoutes.weaknessWorkshop}') : null;
           buttonText = "Cevher Atölyesine Git";
           icon = Icons.construction_rounded;
         }

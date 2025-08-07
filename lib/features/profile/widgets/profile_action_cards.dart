@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 
 class TimeManagementActions extends StatelessWidget {
   const TimeManagementActions({super.key});
@@ -11,7 +12,7 @@ class TimeManagementActions extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       child: InkWell(
-        onTap: () => context.push('/availability'),
+        onTap: () => context.push(AppRoutes.availability),
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(20.0),
@@ -60,15 +61,15 @@ class StrategicActions extends StatelessWidget {
                 action: SnackBarAction(
                   label: 'DÜZENLE',
                   textColor: Colors.white,
-                  onPressed: () => context.push('/availability'),
+                  onPressed: () => context.push(AppRoutes.availability),
                 ),
               ),
             );
           } else {
             if(user.longTermStrategy != null && user.weeklyPlan != null) {
-              context.push('/ai-hub/command-center', extra: user);
+              context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user);
             } else {
-              context.push('/ai-hub/strategic-planning');
+              context.push('${AppRoutes.aiHub}/${AppRoutes.strategicPlanning}');
             }
           }
         },

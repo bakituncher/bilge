@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -117,7 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               TextButton(
                 onPressed: () {
-                  context.go('/register');
+                  context.go(AppRoutes.register);
                 },
                 child: const Text('Hesabın yok mu? Kayıt Ol'),
               )

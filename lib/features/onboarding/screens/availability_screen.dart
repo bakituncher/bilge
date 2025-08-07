@@ -5,6 +5,7 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 
 final availabilityProvider = StateProvider.autoDispose<Map<String, List<String>>>((ref) {
   final user = ref.watch(userProfileProvider).value;
@@ -46,7 +47,7 @@ class AvailabilityScreen extends ConsumerWidget {
     // **KALICI ÇÖZÜM BURADA:**
     // Kurulum bitti, ana ekrana git.
     if (context.mounted) {
-      context.go('/home');
+      context.go(AppRoutes.home);
     }
   }
 

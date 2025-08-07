@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 
 class WeeklyParchment extends ConsumerStatefulWidget {
   const WeeklyParchment({super.key});
@@ -128,7 +129,7 @@ class _WeeklyParchmentState extends ConsumerState<WeeklyParchment> with SingleTi
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: () => context.go('/ai-hub/strategic-planning'),
+            onPressed: () => context.go('${AppRoutes.aiHub}/${AppRoutes.strategicPlanning}'),
             child: const Text('Stratejini Oluştur'),
           )
         ],

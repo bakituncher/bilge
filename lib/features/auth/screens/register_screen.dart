@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
-
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
 
@@ -128,7 +128,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               ),
               TextButton(
                 onPressed: () {
-                  context.go('/login');
+                  context.go(AppRoutes.login);
                 },
                 child: const Text('Zaten bir hesabın var mı? Giriş Yap'),
               )

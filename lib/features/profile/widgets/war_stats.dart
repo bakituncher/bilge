@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/shared/widgets/stat_card.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 
 class WarStats extends StatelessWidget {
   final int testCount;
@@ -18,7 +19,7 @@ class WarStats extends StatelessWidget {
             value: testCount.toString(),
             label: 'Toplam Deneme',
             icon: Icons.library_books_rounded,
-            onTap: () => context.push('/library'), // DÜZELTİLDİ: go -> push
+            onTap: () => context.push(AppRoutes.library), // DÜZELTİLDİ: go -> push
           ),
         ),
         const SizedBox(width: 12),
@@ -27,7 +28,7 @@ class WarStats extends StatelessWidget {
             value: avgNet.toStringAsFixed(2),
             label: 'Ortalama Net',
             icon: Icons.track_changes_rounded,
-            onTap: () => context.push('/home/stats'), // DÜZELTİLDİ: go -> push
+            onTap: () => context.push('${AppRoutes.home}/${AppRoutes.stats}'), // DÜZELTİLDİ: go -> push
           ),
         ),
         const SizedBox(width: 12),
