@@ -99,7 +99,6 @@ class TestResultSummaryScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Savaş Raporu"),
-        automaticallyImplyLeading: false, // Geri tuşunu kaldır
       ),
       body: ListView(
         padding: const EdgeInsets.all(20.0),

@@ -40,12 +40,16 @@ dependencies:
   # BENZERSİZ ID İÇİN EKLENDİ
   uuid: ^4.4.0
 
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   flutter_lints: ^4.0.0
 
+# Ana Flutter yapılandırması
 flutter:
   uses-material-design: true
+
+  # Şimdilik hiçbir asset kullanmıyoruz, bu yüzden burası temiz kalabilir.
+  # assets:
+  #   - assets/

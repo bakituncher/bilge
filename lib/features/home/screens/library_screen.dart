@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
+import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -18,134 +19,245 @@ class LibraryScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        // GARANTİLİ ÇÖZÜM: Geri butonunu manuel olarak ekliyoruz.
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          tooltip: 'Geri Dön',
           onPressed: () {
-            // Önce geri gidilip gidilemeyeceğini kontrol et
             if (context.canPop()) {
               context.pop();
             } else {
-              // Geri gidilemiyorsa (örneğin doğrudan bu sayfa açıldıysa) ana panele git
               context.go('/home');
             }
           },
         ),
-        title: const Text('Bilgelik Kütüphanesi'),
+        title: const Text('Performans Arşivi'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      body: testsAsync.when(
-        data: (tests) {
-          if (tests.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.history_edu_rounded, size: 80, color: AppTheme.secondaryTextColor),
-                  const SizedBox(height: 16),
-                  Text('Kütüphanen henüz boş.', style: textTheme.headlineSmall),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Eklediğin her deneme, burada bir bilgelik parşömenine dönüşecek.',
-                    textAlign: TextAlign.center,
-                    style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
-                  ),
-                ],
+      backgroundColor: AppTheme.primaryColor,
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppTheme.primaryColor,
+              AppTheme.cardColor.withOpacity(0.8),
+            ],
+          ),
+        ),
+        child: testsAsync.when(
+          data: (tests) {
+            if (tests.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.inventory_2_outlined, size: 80, color: AppTheme.secondaryTextColor),
+                    const SizedBox(height: 16),
+                    Text('Arşivin Henüz Boş', style: textTheme.headlineSmall),
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
+                      child: Text(
+                        'Her deneme, gelecekteki başarın için bir kanıtıdır. İlk kanıtı arşive ekle.',
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () => context.go('/home/add-test'),
+                      child: const Text("İlk Kaydı Ekle"),
+                    )
+                  ],
+                ).animate().fadeIn(duration: 800.ms),
+              );
+            }
+            return GridView.builder(
+              padding: const EdgeInsets.all(16.0),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 0.75,
               ),
+              itemCount: tests.length,
+              itemBuilder: (context, index) {
+                final test = tests[index];
+                return _TriumphPlaqueCard(test: test)
+                    .animate()
+                    .fadeIn(delay: (100 * (index % 10)).ms, duration: 500.ms)
+                    .slideY(begin: 0.5, curve: Curves.easeOutCubic);
+              },
             );
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: tests.length,
-            itemBuilder: (context, index) {
-              final test = tests[index];
-              return _TestMemoryCard(test: test)
-                  .animate()
-                  .fadeIn(delay: (100 * (index % 10)).ms, duration: 500.ms)
-                  .slideY(begin: 0.2, curve: Curves.easeOut);
-            },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, s) => Center(child: Text('Hata: ${e.toString()}')),
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+          error: (e, s) => Center(child: Text('Arşiv yüklenemedi: ${e.toString()}')),
+        ),
       ),
     );
   }
 }
 
-class _TestMemoryCard extends StatelessWidget {
+class _TriumphPlaqueCard extends StatefulWidget {
   final TestModel test;
-  const _TestMemoryCard({required this.test});
+  const _TriumphPlaqueCard({required this.test});
+
+  @override
+  State<_TriumphPlaqueCard> createState() => _TriumphPlaqueCardState();
+}
+
+class _TriumphPlaqueCardState extends State<_TriumphPlaqueCard> {
+  bool _isHovered = false;
 
   double _calculateWisdomScore() {
-    if (test.totalQuestions == 0) return 0;
-    double netContribution = (test.totalNet / test.totalQuestions) * 60;
-    final attemptedQuestions = test.totalCorrect + test.totalWrong;
-    double accuracyContribution = attemptedQuestions > 0 ? (test.totalCorrect / attemptedQuestions) * 25 : 0;
-    double effortContribution = (attemptedQuestions / test.totalQuestions) * 15;
+    if (widget.test.totalQuestions == 0) return 0;
+    double netContribution = (widget.test.totalNet / widget.test.totalQuestions) * 60;
+    final attemptedQuestions = widget.test.totalCorrect + widget.test.totalWrong;
+    double accuracyContribution = attemptedQuestions > 0 ? (widget.test.totalCorrect / attemptedQuestions) * 25 : 0;
+    double effortContribution = (attemptedQuestions / widget.test.totalQuestions) * 15;
     double totalScore = netContribution + accuracyContribution + effortContribution;
     return totalScore.clamp(0, 100);
+  }
+
+  double _calculateAccuracy() {
+    final attemptedQuestions = widget.test.totalCorrect + widget.test.totalWrong;
+    if (attemptedQuestions == 0) return 0.0;
+    return (widget.test.totalCorrect / attemptedQuestions) * 100;
+  }
+
+  Color _getTierColor(double score) {
+    if (score > 85) return const Color(0xFF40E0D0); // Platin
+    if (score > 70) return const Color(0xFFFFD700); // Altın
+    if (score > 50) return const Color(0xFFC0C0C0); // Gümüş
+    return const Color(0xFFCD7F32); // Bronz
   }
 
   @override
   Widget build(BuildContext context) {
     final wisdomScore = _calculateWisdomScore();
+    final accuracy = _calculateAccuracy();
+    final tierColor = _getTierColor(wisdomScore);
     final textTheme = Theme.of(context).textTheme;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: InkWell(
-        onTap: () => context.go('/home/test-result-summary', extra: test),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 60,
-                height: 60,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CircularProgressIndicator(
-                      value: wisdomScore / 100,
-                      strokeWidth: 6,
-                      backgroundColor: AppTheme.lightSurfaceColor,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        Color.lerp(AppTheme.accentColor, AppTheme.successColor, wisdomScore / 100)!,
-                      ),
-                    ),
-                    Center(
-                      child: Text(
-                        wisdomScore.toInt().toString(),
-                        style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      test.testName,
-                      style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      DateFormat.yMMMMd('tr').format(test.date),
-                      style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: GestureDetector(
+        // KALICI ÇÖZÜM: Navigasyon `go`'dan `push`'a çevrildi.
+        onTap: () => context.push('/home/test-result-summary', extra: widget.test),
+        child: AnimatedContainer(
+          duration: 300.ms,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: _isHovered ? tierColor.withOpacity(0.5) : Colors.black.withOpacity(0.6),
+                blurRadius: _isHovered ? 25 : 10,
+              )
             ],
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              color: AppTheme.cardColor,
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.lightSurfaceColor.withOpacity(0.1),
+                  AppTheme.cardColor,
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(0.3)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.test.testName,
+                        style: textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          children: [
+                            Text(
+                              widget.test.sectionName,
+                              style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                            ),
+                            Text(
+                              "  |  ${DateFormat.yMd('tr').format(widget.test.date)}",
+                              style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Animate(
+                      target: _isHovered ? 1 : 0,
+                      effects: [
+                        ScaleEffect(duration: 300.ms, curve: Curves.easeOutBack, begin: const Offset(1,1), end: const Offset(1.05, 1.05))
+                      ],
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.test.totalNet.toStringAsFixed(2),
+                            style: textTheme.displaySmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              height: 1.1,
+                            ),
+                          ),
+                          Text("NET", style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                          const SizedBox(height: 12),
+                          Text(
+                            "${wisdomScore.toInt()} BP",
+                            style: textTheme.titleLarge?.copyWith(
+                              color: tierColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryColor.withOpacity(0.5),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text("Doğruluk", style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
+                      Text(
+                        "%${accuracy.toStringAsFixed(1)}",
+                        style: textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                )
+              ],
+            ),
           ),
         ),
       ),
