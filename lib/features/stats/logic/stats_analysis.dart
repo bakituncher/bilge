@@ -9,8 +9,6 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 
-// BU DOSYA ARTIK PROJENİN TEK VE MERKEZİ ANALİZ BEYNİDİR.
-
 class TacticalAdvice {
   final String text;
   final IconData icon;
@@ -45,7 +43,8 @@ class SubjectAnalysis {
 class StatsAnalysis {
   final List<TestModel> tests;
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
-  final UserModel? user; // Nullable olabilir
+  final Exam examData; // HATA DÜZELTİLDİ: Sınav verisi artık dışarıdan, hazır geliyor.
+  final UserModel? user;
 
   late List<TestModel> sortedTests;
   late List<FlSpot> netSpots;
@@ -56,20 +55,15 @@ class StatsAnalysis {
   late Map<String, double> subjectAverages;
   late List<MapEntry<String, double>> sortedSubjects;
   late List<TacticalAdvice> tacticalAdvice;
-  late Exam? _examData;
   late double averageNet;
   late String weakestSubjectByNet;
   late String strongestSubjectByNet;
 
-  StatsAnalysis(this.tests, this.topicPerformances, {this.user}) {
+  StatsAnalysis(this.tests, this.topicPerformances, this.examData, {this.user}) {
     if (tests.isEmpty) {
       _initializeEmpty();
       return;
     }
-
-    _examData = user?.selectedExam != null
-        ? ExamData.getExamByType(ExamType.values.byName(user!.selectedExam!))
-        : null;
 
     sortedTests = List.from(tests)..sort((a, b) => a.date.compareTo(b.date));
 
@@ -173,10 +167,8 @@ class StatsAnalysis {
     final List<Map<String, dynamic>> allTopics = [];
     topicPerformances.forEach((subject, topics) {
       topics.forEach((topic, performance) {
-        if (performance.questionCount > 3) { // Analiz için yeterli veri var mı?
-          final successRate = performance.correctCount / performance.questionCount;
-          // Sadece başarı oranına değil, soru sayısına göre de ağırlık veriyoruz.
-          // Az çözülmüş ve düşük başarılı olanlar daha öncelikli.
+        if (performance.questionCount > 3) {
+          final successRate = performance.questionCount > 0 ? (performance.correctCount / performance.questionCount) : 0.0;
           final weightedScore = successRate - (performance.questionCount / 1000);
           allTopics.add({
             'subject': subject,
@@ -224,9 +216,8 @@ class StatsAnalysis {
   }
 
   int getQuestionCountForSubject(String subjectName) {
-    if (_examData == null) return 40; // Default value
     final sectionName = tests.first.sectionName;
-    final section = _examData!.sections.firstWhere((s) => s.name == sectionName, orElse: () => _examData!.sections.first);
+    final section = examData.sections.firstWhere((s) => s.name == sectionName, orElse: () => examData.sections.first);
     return section.subjects[subjectName]?.questionCount ?? 40;
   }
 }

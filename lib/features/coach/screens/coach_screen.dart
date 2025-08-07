@@ -12,7 +12,6 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 class CoachScreen extends ConsumerWidget {
   const CoachScreen({super.key});
 
-  // Kullanıcının sınav türüne göre ilgili bölümleri ve dersleri tek bir listede toplar.
   Map<String, List<SubjectTopic>> _getRelevantSubjects(UserModel user, Exam exam) {
     final subjects = <String, List<SubjectTopic>>{};
     final relevantSections = _getRelevantSectionsForUser(user, exam);
@@ -58,39 +57,64 @@ class CoachScreen extends ConsumerWidget {
         }
 
         final examType = ExamType.values.byName(user.selectedExam!);
-        final exam = ExamData.getExamByType(examType);
-        final subjects = _getRelevantSubjects(user, exam);
 
-        if (subjects.isEmpty) {
-          return Scaffold(
-              appBar: AppBar(title: const Text('Hakimiyet Haritası')),
-              body: const Center(child: Text('Bu sınav için konu bulunamadı.'))
-          );
-        }
+        return FutureBuilder<Exam>(
+          future: ExamData.getExamByType(examType),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Scaffold(
+                  appBar: AppBar(title: const Text('Hakimiyet Haritası')),
+                  body: const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor))
+              );
+            }
+            if (snapshot.hasError) {
+              return Scaffold(
+                  appBar: AppBar(title: const Text('Hakimiyet Haritası')),
+                  body: Center(child: Text('Sınav verileri yüklenemedi: ${snapshot.error}'))
+              );
+            }
+            if (!snapshot.hasData) {
+              return Scaffold(
+                  appBar: AppBar(title: const Text('Hakimiyet Haritası')),
+                  body: const Center(child: Text('Sınav verisi bulunamadı.'))
+              );
+            }
 
-        return DefaultTabController(
-          length: subjects.length,
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('Hakimiyet Haritası'),
-              bottom: TabBar(
-                isScrollable: true,
-                tabs: subjects.keys.map((subjectName) => Tab(text: subjectName)).toList(),
+            final exam = snapshot.data!;
+            final subjects = _getRelevantSubjects(user, exam);
+
+            if (subjects.isEmpty) {
+              return Scaffold(
+                  appBar: AppBar(title: const Text('Hakimiyet Haritası')),
+                  body: const Center(child: Text('Bu sınav için konu bulunamadı.'))
+              );
+            }
+
+            return DefaultTabController(
+              length: subjects.length,
+              child: Scaffold(
+                appBar: AppBar(
+                  title: const Text('Hakimiyet Haritası'),
+                  bottom: TabBar(
+                    isScrollable: true,
+                    tabs: subjects.keys.map((subjectName) => Tab(text: subjectName)).toList(),
+                  ),
+                ),
+                body: TabBarView(
+                  children: subjects.entries.map((entry) {
+                    final subjectName = entry.key;
+                    final topics = entry.value;
+                    return _SubjectMapView(
+                      key: ValueKey(subjectName),
+                      user: user,
+                      subjectName: subjectName,
+                      topics: topics,
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
-            body: TabBarView(
-              children: subjects.entries.map((entry) {
-                final subjectName = entry.key;
-                final topics = entry.value;
-                return _SubjectMapView(
-                  key: ValueKey(subjectName),
-                  user: user,
-                  subjectName: subjectName,
-                  topics: topics,
-                );
-              }).toList(),
-            ),
-          ),
+            );
+          },
         );
       },
       loading: () => Scaffold(
@@ -105,6 +129,7 @@ class CoachScreen extends ConsumerWidget {
   }
 }
 
+// ... (dosyanın geri kalan _SubjectMapView ve _TopicBubble sınıfları aynı kalıyor)
 class _SubjectMapView extends ConsumerWidget {
   final UserModel user;
   final String subjectName;

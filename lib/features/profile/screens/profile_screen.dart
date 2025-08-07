@@ -9,6 +9,7 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
+import 'package:bilge_ai/shared/widgets/stat_card.dart'; // YENİ IMPORT
 
 // Rozet modelimiz
 class Badge {
@@ -126,8 +127,6 @@ class ProfileScreen extends ConsumerWidget {
         data: (user) {
           if (user == null) return const Center(child: Text('Komutan bulunamadı.'));
 
-          // **KALICI ÇÖZÜM BURADA:** focusSessionsAsync'in durumunu kontrol ediyoruz.
-          // Hata varsa veya hala yükleniyorsa, bunu kullanıcıya gösteriyoruz.
           return focusSessionsAsync.when(
             data: (focusSessions) {
               final tests = testsAsync.valueOrNull ?? [];
@@ -166,7 +165,6 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-// Savaşçı Kimlik Kartı (GÜNCELLENDİ: Bilgelik Puanı eklendi)
 class _WarriorIDCard extends StatelessWidget {
   final UserModel user;
   final String title;
@@ -199,8 +197,7 @@ class _WarriorIDCard extends StatelessWidget {
                   Text(user.name ?? 'İsimsiz Savaşçı', style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   Text(title, style: textTheme.titleMedium?.copyWith(color: AppTheme.secondaryColor, fontStyle: FontStyle.italic)),
-                  const SizedBox(height: 8), // YENİ EKLENDİ
-                  // YENİ WIDGET: Bilgelik Puanı Göstergesi
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       const Icon(Icons.star_rounded, color: Colors.amber, size: 20),
@@ -221,7 +218,6 @@ class _WarriorIDCard extends StatelessWidget {
   }
 }
 
-// Savaş İstatistikleri
 class _WarStats extends StatelessWidget {
   final int testCount;
   final double avgNet;
@@ -233,7 +229,7 @@ class _WarStats extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: _StatCard(
+          child: ProfileStatCard(
             value: testCount.toString(),
             label: 'Toplam Deneme',
             icon: Icons.library_books_rounded,
@@ -242,7 +238,7 @@ class _WarStats extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _StatCard(
+          child: ProfileStatCard(
             value: avgNet.toStringAsFixed(2),
             label: 'Ortalama Net',
             icon: Icons.track_changes_rounded,
@@ -251,7 +247,7 @@ class _WarStats extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: _StatCard(
+          child: ProfileStatCard(
             value: streak.toString(),
             label: 'Günlük Seri',
             icon: Icons.local_fire_department_rounded,
@@ -262,39 +258,6 @@ class _WarStats extends StatelessWidget {
   }
 }
 
-// İstatistik Kartı Stili
-class _StatCard extends StatelessWidget {
-  final String value;
-  final String label;
-  final IconData icon;
-  final VoidCallback? onTap;
-  const _StatCard({required this.value, required this.label, required this.icon, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-          child: Column(
-            children: [
-              Icon(icon, size: 28, color: AppTheme.secondaryTextColor),
-              const SizedBox(height: 8),
-              Text(value, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(label, style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor), textAlign: TextAlign.center),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// Zaman Haritası Düzenleme Kartı
 class _TimeManagementActions extends StatelessWidget {
   const _TimeManagementActions();
 
@@ -329,7 +292,6 @@ class _TimeManagementActions extends StatelessWidget {
   }
 }
 
-// Stratejik Eylemler Kartı
 class _StrategicActions extends StatelessWidget {
   final UserModel user;
   const _StrategicActions({required this.user});
@@ -389,7 +351,6 @@ class _StrategicActions extends StatelessWidget {
   }
 }
 
-// Şeref Duvarı
 class _HonorWall extends StatelessWidget {
   final List<Badge> unlockedBadges;
   const _HonorWall({required this.unlockedBadges});
@@ -423,7 +384,6 @@ class _HonorWall extends StatelessWidget {
   }
 }
 
-// Gelecek Zaferler
 class _FutureVictories extends StatelessWidget {
   final List<Badge> lockedBadges;
   const _FutureVictories({required this.lockedBadges});

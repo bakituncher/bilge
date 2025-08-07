@@ -50,6 +50,10 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
+  # YENİ EKLENEN KISIM
+  assets:
+    - assets/data/
+
   # Şimdilik hiçbir asset kullanmıyoruz, bu yüzden burası temiz kalabilir.
   # assets:
   #   - assets/

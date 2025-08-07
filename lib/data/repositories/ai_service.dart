@@ -8,7 +8,7 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/core/prompts/strategy_prompts.dart';
-import 'package:bilge_ai/features/stats/logic/stats_analysis.dart'; // YENİ IMPORT
+import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 
 class ChatMessage {
   final String text;
@@ -104,11 +104,12 @@ class AiService {
   }
 
 
+  // DÜZELTİLDİ: Metot 'async' oldu
   Future<String> generateGrandStrategy({
     required UserModel user,
     required List<TestModel> tests,
     required String pacing,
-  }) {
+  }) async {
     if (user.selectedExam == null) {
       return Future.value('{"error":"Analiz için önce bir sınav seçmelisiniz."}');
     }
@@ -120,8 +121,10 @@ class AiService {
     final examType = ExamType.values.byName(user.selectedExam!);
     final daysUntilExam = _getDaysUntilExam(examType);
 
-    // DEĞİŞİKLİK: Yerel analiz sınıfı yerine merkezi analiz sınıfı kullanılıyor.
-    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, user: user) : null;
+    // DÜZELTİLDİ: Önce sınav verisi bekleniyor.
+    final examData = await ExamData.getExamByType(examType);
+
+    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, examData, user: user) : null;
 
     final avgNet = analysis?.averageNet.toStringAsFixed(2) ?? 'N/A';
     final subjectAverages = analysis?.subjectAverages ?? {};
@@ -150,12 +153,20 @@ class AiService {
     return _callGemini(prompt, expectJson: true);
   }
 
+  // DÜZELTİLDİ: Metot 'async' oldu
   Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests) async {
     if (tests.isEmpty) {
       return Future.value('{"error":"Analiz için en az bir deneme sonucu gereklidir."}');
     }
-    // DEĞİŞİKLİK: Yerel analiz sınıfı yerine merkezi analiz sınıfı kullanılıyor.
-    final analysis = StatsAnalysis(tests, user.topicPerformances);
+    if (user.selectedExam == null) {
+      return Future.value('{"error":"Sınav türü bulunamadı."}');
+    }
+
+    // DÜZELTİLDİ: Önce sınav verisi bekleniyor.
+    final examType = ExamType.values.byName(user.selectedExam!);
+    final examData = await ExamData.getExamByType(examType);
+
+    final analysis = StatsAnalysis(tests, user.topicPerformances, examData, user: user);
     final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
 
     if (weakestTopicInfo == null) {

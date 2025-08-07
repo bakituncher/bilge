@@ -1,7 +1,7 @@
 // lib/features/onboarding/screens/exam_selection_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart'; // Yönlendirme için eklendi
+import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
@@ -10,8 +10,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 class ExamSelectionScreen extends ConsumerWidget {
   const ExamSelectionScreen({super.key});
 
+  // HATA DÜZELTİLDİ: Metot 'async' yapıldı ve 'await' eklendi.
   void _onExamTypeSelected(BuildContext context, WidgetRef ref, ExamType examType) async {
-    final exam = ExamData.getExamByType(examType);
+    final exam = await ExamData.getExamByType(examType); // 'await' eklendi
     final userId = ref.read(authControllerProvider).value!.uid;
 
     if (exam.sections.length == 1) {
@@ -20,7 +21,6 @@ class ExamSelectionScreen extends ConsumerWidget {
         examType: examType,
         sectionName: exam.sections.first.name,
       );
-      // **KALICI ÇÖZÜM BURADA:**
       if (context.mounted) context.go('/availability');
       return;
     }
@@ -54,7 +54,6 @@ class ExamSelectionScreen extends ConsumerWidget {
                           examType: examType,
                           sectionName: section.name,
                         );
-                        // **KALICI ÇÖZÜM BURADA:**
                         if (context.mounted) context.go('/availability');
                       },
                       child: Text(section.name),

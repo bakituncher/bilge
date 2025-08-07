@@ -74,9 +74,11 @@ class StrategicPlanningScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;
+    final tests = ref.watch(testsProvider).valueOrNull; // Test verisini alıyoruz
     final generationState = ref.watch(strategyGenerationProvider);
 
     ref.listen<AsyncValue<void>>(strategyGenerationProvider, (_, state) {
+      // Yükleme ve hata diyalogları
       if (state.isLoading) {
         showDialog(
           context: context,
@@ -86,23 +88,26 @@ class StrategicPlanningScreen extends ConsumerWidget {
           ),
         );
       } else if (state.hasError) {
-        if(Navigator.of(context).canPop()) {
-          Navigator.pop(context);
-        }
+        if(Navigator.of(context).canPop()) Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Hata: ${state.error.toString()}')),
         );
       } else if (state.hasValue) {
-        if(Navigator.of(context).canPop()) {
-          Navigator.pop(context);
-        }
+        if(Navigator.of(context).canPop()) Navigator.pop(context);
       }
     });
 
+    // KONTROL MEKANİZMASI: Eğer hiç test yoksa, uyarı ekranı göster.
+    if (tests == null || tests.isEmpty) {
+      return _buildDataMissingView(context);
+    }
+
+    // Eğer plan zaten oluşturulmuşsa, planı göster.
     if (user?.longTermStrategy != null && !generationState.isLoading) {
       return _buildStrategyDisplay(context, ref);
     }
 
+    // Eğer test var ama plan yoksa, plan oluşturma ekranını göster.
     return Scaffold(
       appBar: AppBar(title: const Text('Stratejik Planlama Atölyesi')),
       body: Center(
@@ -126,26 +131,49 @@ class StrategicPlanningScreen extends ConsumerWidget {
               const SizedBox(height: 48),
               _buildPacingSelector(context, ref),
               const SizedBox(height: 48),
-              generationState.when(
-                data: (_) => ElevatedButton.icon(
-                  onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(),
-                  icon: const Icon(Icons.auto_awesome),
-                  label: const Text("Stratejiyi Oluştur"),
-                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
-                ),
-                loading: () => const CircularProgressIndicator(color: AppTheme.secondaryColor),
-                error: (e,s) => Column(
-                  children: [
-                    Text("Hata: ${e.toString()}", style: const TextStyle(color: AppTheme.accentColor)),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(),
-                      child: const Text("Tekrar Dene"),
-                    ),
-                  ],
-                ),
-              )
+              ElevatedButton.icon(
+                onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(),
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text("Stratejiyi Oluştur"),
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
+              ),
             ].animate(interval: 100.ms).fadeIn().slideY(begin: 0.2),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // YENİ WIDGET: Veri eksik olduğunda gösterilecek ekran.
+  Widget _buildDataMissingView(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Stratejik Planlama Atölyesi')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.report_problem_outlined, color: Colors.amber, size: 64),
+              const SizedBox(height: 24),
+              Text(
+                "Yetersiz İstihbarat",
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                "Sana özel bir strateji oluşturabilmem için önce düşmanı tanımam gerek. Lütfen en az bir deneme sonucu ekle.",
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () => context.go('/home/add-test'),
+                icon: const Icon(Icons.add_chart_rounded),
+                label: const Text("Deneme Ekle"),
+              )
+            ],
           ),
         ),
       ),
@@ -181,10 +209,8 @@ class StrategicPlanningScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text("Stratejik Koçluk")),
-      // GÜNCELLENEN KISIM: Test için butonu geri ekledim.
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // Onay penceresi yok, direkt yenileme
           ref.read(strategyGenerationProvider.notifier).generatePlan();
         },
         label: const Text("Yeniden Oluştur"),
@@ -197,7 +223,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
             elevation: 4,
             shadowColor: AppTheme.secondaryColor.withOpacity(0.2),
             child: InkWell(
-              onTap: () => context.go('/ai-hub/command-center', extra: user),
+              onTap: () => context.push('/ai-hub/command-center', extra: user),
               borderRadius: BorderRadius.circular(16),
               child: Padding(
                 padding: const EdgeInsets.all(20.0),
@@ -282,7 +308,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
           else
             const Card(child: Padding(padding: EdgeInsets.all(16), child: Text("Haftalık plan yüklenemedi."))),
 
-          const SizedBox(height: 80), // Butonun içeriği engellememesi için boşluk
+          const SizedBox(height: 80),
         ],
       ).animate().fadeIn(),
     );

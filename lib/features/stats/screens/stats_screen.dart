@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
@@ -104,60 +105,76 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
             return _buildEmptyState(context, isCompletelyEmpty: true);
           }
 
-          final groupedTests = <String, List<TestModel>>{};
-          for (final test in tests) {
-            (groupedTests[test.sectionName] ??= []).add(test);
-          }
+          final examType = ExamType.values.byName(user.selectedExam!);
 
-          final sortedGroups = groupedTests.entries.toList()
-            ..sort((a, b) {
-              if (a.key == 'TYT') return -1;
-              if (b.key == 'TYT') return 1;
-              if (a.key.contains('Sayısal')) return -1;
-              if (b.key.contains('Sayısal')) return 1;
-              return a.key.compareTo(b.key);
-            });
+          return FutureBuilder<Exam>(
+            future: ExamData.getExamByType(examType),
+            builder: (context, examSnapshot) {
+              if (examSnapshot.connectionState == ConnectionState.waiting) {
+                return _buildLoadingState();
+              }
+              if (examSnapshot.hasError || !examSnapshot.hasData) {
+                return _buildErrorState('Sınav verileri yüklenemedi: ${examSnapshot.error}');
+              }
+              final exam = examSnapshot.data!;
 
-          if (sortedGroups.isEmpty) {
-            return _buildEmptyState(context, isCompletelyEmpty: true);
-          }
+              final groupedTests = <String, List<TestModel>>{};
+              for (final test in tests) {
+                (groupedTests[test.sectionName] ??= []).add(test);
+              }
 
-          final selectedIndex = ref.watch(_selectedTabIndexProvider);
-          if (selectedIndex >= sortedGroups.length) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              ref.read(_selectedTabIndexProvider.notifier).state = 0;
-            });
-          }
+              final sortedGroups = groupedTests.entries.toList()
+                ..sort((a, b) {
+                  if (a.key == 'TYT') return -1;
+                  if (b.key == 'TYT') return 1;
+                  if (a.key.contains('Sayısal')) return -1;
+                  if (b.key.contains('Sayısal')) return 1;
+                  return a.key.compareTo(b.key);
+                });
 
-          return Scaffold(
-            appBar: AppBar(
-              title: const Text('Performans Kalesi'),
-            ),
-            body: Column(
-              children: [
-                _FortressTabSelector(
-                  tabs: sortedGroups.map((e) => e.key).toList(),
+              if (sortedGroups.isEmpty) {
+                return _buildEmptyState(context, isCompletelyEmpty: true);
+              }
+
+              final selectedIndex = ref.watch(_selectedTabIndexProvider);
+              if (selectedIndex >= sortedGroups.length) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  ref.read(_selectedTabIndexProvider.notifier).state = 0;
+                });
+              }
+
+              return Scaffold(
+                appBar: AppBar(
+                  title: const Text('Performans Kalesi'),
                 ),
-                Expanded(
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: (index) {
-                      ref.read(_selectedTabIndexProvider.notifier).state = index;
-                    },
-                    children: sortedGroups.map((entry) {
-                      if(entry.value.length < 2) {
-                        return _buildEmptyState(context, sectionName: entry.key);
-                      }
-                      return _AnalysisView(
-                        key: ValueKey(entry.key),
-                        tests: entry.value,
-                        user: user,
-                      );
-                    }).toList(),
-                  ),
+                body: Column(
+                  children: [
+                    _FortressTabSelector(
+                      tabs: sortedGroups.map((e) => e.key).toList(),
+                    ),
+                    Expanded(
+                      child: PageView(
+                        controller: _pageController,
+                        onPageChanged: (index) {
+                          ref.read(_selectedTabIndexProvider.notifier).state = index;
+                        },
+                        children: sortedGroups.map((entry) {
+                          if(entry.value.length < 2) {
+                            return _buildEmptyState(context, sectionName: entry.key);
+                          }
+                          return _AnalysisView(
+                            key: ValueKey(entry.key),
+                            tests: entry.value,
+                            user: user,
+                            exam: exam, // Sınav verisini iletiyoruz
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              );
+            },
           );
         },
         loading: () => _buildLoadingState(),
@@ -218,14 +235,14 @@ class _FortressTabSelector extends ConsumerWidget {
 class _AnalysisView extends StatelessWidget {
   final List<TestModel> tests;
   final UserModel user;
+  final Exam exam; // Sınav verisini alıyoruz
 
-  const _AnalysisView({required this.tests, required this.user, super.key});
+  const _AnalysisView({required this.tests, required this.user, required this.exam, super.key});
 
   @override
   Widget build(BuildContext context) {
 
-    // HATA DÜZELTİLDİ: StatsAnalysis sınıfına doğru parametreler gönderiliyor.
-    final analysis = StatsAnalysis(tests, user.topicPerformances, user: user);
+    final analysis = StatsAnalysis(tests, user.topicPerformances, exam, user: user);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

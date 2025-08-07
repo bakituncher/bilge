@@ -8,7 +8,7 @@ import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:uuid/uuid.dart';
-import 'package:bilge_ai/shared/widgets/score_slider.dart'; // YENİ IMPORT
+import 'package:bilge_ai/shared/widgets/score_slider.dart';
 
 // State Management Provider'ları
 final _stepperProvider = StateProvider.autoDispose<int>((ref) => 0);
@@ -31,42 +31,54 @@ class AddTestScreen extends ConsumerWidget {
     }
 
     final selectedExamType = ExamType.values.byName(userProfile!.selectedExam!);
-    final exam = ExamData.getExamByType(selectedExamType);
 
-    List<ExamSection> availableSections;
-    if (selectedExamType == ExamType.yks) {
-      final tytSection = exam.sections.firstWhere((s) => s.name == 'TYT');
-      final userAytSection = exam.sections.firstWhere(
-            (s) => s.name == userProfile.selectedExamSection,
-        orElse: () => exam.sections.first,
-      );
-      availableSections = (tytSection.name == userAytSection.name) ? [tytSection] : [tytSection, userAytSection];
-    } else {
-      availableSections = exam.sections;
-    }
-
-    if (availableSections.length == 1 && ref.read(_selectedSectionProvider) == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if(context.mounted) {
-          ref.read(_selectedSectionProvider.notifier).state = availableSections.first;
+    // ASENKRON VERİ ÇAĞIRMA
+    return FutureBuilder<Exam>(
+      future: ExamData.getExamByType(selectedExamType),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(appBar: AppBar(), body: const Center(child: CircularProgressIndicator()));
         }
-      });
-    }
+        if (!snapshot.hasData) {
+          return Scaffold(appBar: AppBar(), body: const Center(child: Text("Sınav verisi yüklenemedi.")));
+        }
 
-    final List<Widget> steps = [
-      Step1TestInfo(availableSections: availableSections),
-      const Step2ScoreEntry(),
-      const Step3Summary(),
-    ];
+        final exam = snapshot.data!;
+        List<ExamSection> availableSections;
+        if (selectedExamType == ExamType.yks) {
+          final tytSection = exam.sections.firstWhere((s) => s.name == 'TYT');
+          final userAytSection = exam.sections.firstWhere(
+                (s) => s.name == userProfile.selectedExamSection,
+            orElse: () => exam.sections.first,
+          );
+          availableSections = (tytSection.name == userAytSection.name) ? [tytSection] : [tytSection, userAytSection];
+        } else {
+          availableSections = exam.sections;
+        }
 
-    return Scaffold(
-      appBar: AppBar(title: Text('${selectedExamType.displayName} Sonuç Bildirimi')),
-      body: steps[currentStep],
+        if (availableSections.length == 1 && ref.read(_selectedSectionProvider) == null) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if(context.mounted) {
+              ref.read(_selectedSectionProvider.notifier).state = availableSections.first;
+            }
+          });
+        }
+
+        final List<Widget> steps = [
+          Step1TestInfo(availableSections: availableSections),
+          const Step2ScoreEntry(),
+          const Step3Summary(),
+        ];
+
+        return Scaffold(
+          appBar: AppBar(title: Text('${selectedExamType.displayName} Sonuç Bildirimi')),
+          body: steps[currentStep],
+        );
+      },
     );
   }
 }
-
-// Adım 1: Deneme Bilgileri
+// ... (dosyanın geri kalan tüm widgetları aynı kalıyor, değiştirmeye gerek yok)
 class Step1TestInfo extends ConsumerWidget {
   final List<ExamSection> availableSections;
   final TextEditingController _testNameController = TextEditingController();
@@ -124,7 +136,6 @@ class Step1TestInfo extends ConsumerWidget {
   }
 }
 
-// Adım 2: Sonuç Bildirimi
 class Step2ScoreEntry extends ConsumerStatefulWidget {
   const Step2ScoreEntry({super.key});
 
@@ -222,7 +233,7 @@ class _SubjectScoreCard extends ConsumerWidget {
           Text("${details.questionCount} Soru", style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.secondaryTextColor)),
           const SizedBox(height: 48),
 
-          ScoreSlider( // DEĞİŞİKLİK
+          ScoreSlider(
             label: "Doğru",
             value: correct.toDouble(),
             max: details.questionCount.toDouble(),
@@ -244,7 +255,7 @@ class _SubjectScoreCard extends ConsumerWidget {
               }
             },
           ),
-          ScoreSlider( // DEĞİŞİKLİK
+          ScoreSlider(
             label: "Yanlış",
             value: wrong.toDouble(),
             max: (details.questionCount - correct).toDouble(),
@@ -302,7 +313,6 @@ class _StatDisplay extends StatelessWidget {
   }
 }
 
-// Adım 3: Özet ve Kaydet
 class Step3Summary extends ConsumerWidget {
   const Step3Summary({super.key});
 

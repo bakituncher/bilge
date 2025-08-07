@@ -7,8 +7,10 @@ import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:intl/intl.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
+import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/features/coach/screens/weekly_plan_screen.dart';
-import 'package:bilge_ai/features/stats/logic/stats_analysis.dart'; // YENİ IMPORT
+import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
+import 'package:bilge_ai/shared/widgets/stat_card.dart';
 
 const List<String> motivationalQuotes = [
   "Başarının sırrı, başlamaktır.",
@@ -113,101 +115,120 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   Widget _buildStatsRow(BuildContext context, double avgNet, double bestNet, int streak) {
-    return Row(
-      children: [
-        Expanded(child: _StatCard(icon: Icons.track_changes_rounded, value: avgNet.toStringAsFixed(1), label: 'Ortalama Net', color: Colors.blueAccent, onTap: () => context.go('/home/stats'))),
-        const SizedBox(width: 12),
-        Expanded(child: _StatCard(icon: Icons.emoji_events_rounded, value: bestNet.toStringAsFixed(1), label: 'En Yüksek Net', color: Colors.amber, onTap: () => context.go('/home/stats'))),
-        const SizedBox(width: 12),
-        Expanded(child: _StatCard(icon: Icons.local_fire_department_rounded, value: streak.toString(), label: 'Günlük Seri', color: Colors.orangeAccent, onTap: () => context.go('/home/stats'))),
-      ],
+    return IntrinsicHeight(
+      child: Row(
+        children: [
+          Expanded(child: StatCard(icon: Icons.track_changes_rounded, value: avgNet.toStringAsFixed(1), label: 'Ortalama Net', color: Colors.blueAccent, onTap: () => context.go('/home/stats'))),
+          const SizedBox(width: 12),
+          Expanded(child: StatCard(icon: Icons.emoji_events_rounded, value: bestNet.toStringAsFixed(1), label: 'En Yüksek Net', color: Colors.amber, onTap: () => context.go('/home/stats'))),
+          const SizedBox(width: 12),
+          Expanded(child: StatCard(icon: Icons.local_fire_department_rounded, value: streak.toString(), label: 'Günlük Seri', color: Colors.orangeAccent, onTap: () => context.go('/home/stats'))),
+        ],
+      ),
     );
   }
 
   Widget _buildTodaysMissionCard(BuildContext context, WidgetRef ref) {
     final tests = ref.watch(testsProvider).valueOrNull;
     final user = ref.watch(userProfileProvider).valueOrNull;
-    final textTheme = Theme.of(context).textTheme;
 
-    IconData icon;
-    String title;
-    String subtitle;
-    VoidCallback? onTap;
-    String buttonText;
-
-    if (user != null && tests != null) {
-      if (tests.isEmpty) {
-        title = "Yolculuğa Başla";
-        subtitle = "Potansiyelini ortaya çıkarmak için ilk deneme sonucunu ekle.";
-        onTap = () => context.go('/home/add-test');
-        buttonText = "İlk Denemeni Ekle";
-        icon = Icons.add_chart_rounded;
-      } else {
-        // DEĞİŞİKLİK: Merkezi analiz sınıfı kullanılıyor.
-        final analysis = StatsAnalysis(tests, user.topicPerformances);
-        final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
-        title = "Günün Önceliği";
-        subtitle = weakestTopicInfo != null
-            ? "BilgeAI, en zayıf noktanın **'${weakestTopicInfo['subject']}'** dersindeki **'${weakestTopicInfo['topic']}'** konusu olduğunu tespit etti. Bu cevheri işlemeye hazır mısın?"
-            : "Harika gidiyorsun! Şu an belirgin bir zayıf noktan tespit edilmedi. Yeni konu verileri girerek analizi derinleştirebilirsin.";
-        onTap = weakestTopicInfo != null ? () => context.go('/ai-hub/weakness-workshop') : null;
-        buttonText = "Cevher Atölyesine Git";
-        icon = Icons.construction_rounded;
-      }
-    } else {
-      title = "BilgeAI Hazırlanıyor...";
-      subtitle = "Kişisel komuta merkezin kuruluyor. Lütfen bekle...";
-      onTap = null;
-      buttonText = "Bekleniyor...";
-      icon = Icons.hourglass_top_rounded;
+    if (user == null || tests == null) {
+      // Veri henüz yüklenirken gösterilecek olan widget
+      return const Card(child: Padding(padding: EdgeInsets.all(20.0), child: Center(child: CircularProgressIndicator())));
     }
 
-    return Card(
-      elevation: 4,
-      shadowColor: AppTheme.secondaryColor.withOpacity(0.2),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      child: Container(
-        decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24),
-            gradient: LinearGradient(
-              colors: [AppTheme.secondaryColor.withOpacity(0.9), AppTheme.secondaryColor],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            )
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(icon, size: 32, color: AppTheme.primaryColor),
-              const SizedBox(height: 12),
-              Text(title, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
-              const SizedBox(height: 8),
-              _buildRichTextFromMarkdown(
-                  subtitle,
-                  baseStyle: textTheme.bodyLarge?.copyWith(color: AppTheme.primaryColor.withOpacity(0.9), height: 1.5),
-                  boldStyle: const TextStyle(fontWeight: FontWeight.bold)
-              ),
-              if (onTap != null) ...[
-                const SizedBox(height: 20),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: ElevatedButton(
-                    onPressed: onTap,
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
-                    ),
-                    child: Text(buttonText),
-                  ),
+    if (user.selectedExam == null) {
+      return const Card(child: Padding(padding: EdgeInsets.all(20.0), child: Center(child: Text("Lütfen bir sınav seçin."))));
+    }
+
+    final examType = ExamType.values.byName(user.selectedExam!);
+
+    // DÜZELTİLDİ: Sınav verisini 'FutureBuilder' ile bekliyoruz.
+    return FutureBuilder<Exam>(
+      future: ExamData.getExamByType(examType),
+      builder: (context, examSnapshot) {
+        if (examSnapshot.connectionState == ConnectionState.waiting) {
+          return const Card(child: Padding(padding: EdgeInsets.all(20.0), child: Center(child: CircularProgressIndicator())));
+        }
+        if (!examSnapshot.hasData) {
+          return const Card(child: Padding(padding: EdgeInsets.all(20.0), child: Center(child: Text("Sınav verisi yüklenemedi."))));
+        }
+
+        final exam = examSnapshot.data!;
+        final textTheme = Theme.of(context).textTheme;
+
+        IconData icon;
+        String title;
+        String subtitle;
+        VoidCallback? onTap;
+        String buttonText;
+
+        if (tests.isEmpty) {
+          title = "Yolculuğa Başla";
+          subtitle = "Potansiyelini ortaya çıkarmak için ilk deneme sonucunu ekle.";
+          onTap = () => context.go('/home/add-test');
+          buttonText = "İlk Denemeni Ekle";
+          icon = Icons.add_chart_rounded;
+        } else {
+          final analysis = StatsAnalysis(tests, user.topicPerformances, exam, user: user);
+          final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
+          title = "Günün Önceliği";
+          subtitle = weakestTopicInfo != null
+              ? "BilgeAI, en zayıf noktanın **'${weakestTopicInfo['subject']}'** dersindeki **'${weakestTopicInfo['topic']}'** konusu olduğunu tespit etti. Bu cevheri işlemeye hazır mısın?"
+              : "Harika gidiyorsun! Şu an belirgin bir zayıf noktan tespit edilmedi. Yeni konu verileri girerek analizi derinleştirebilirsin.";
+          onTap = weakestTopicInfo != null ? () => context.go('/ai-hub/weakness-workshop') : null;
+          buttonText = "Cevher Atölyesine Git";
+          icon = Icons.construction_rounded;
+        }
+
+        return Card(
+          elevation: 4,
+          shadowColor: AppTheme.secondaryColor.withOpacity(0.2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Container(
+            decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  colors: [AppTheme.secondaryColor.withOpacity(0.9), AppTheme.secondaryColor],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 )
-              ]
-            ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(icon, size: 32, color: AppTheme.primaryColor),
+                  const SizedBox(height: 12),
+                  Text(title, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.primaryColor)),
+                  const SizedBox(height: 8),
+                  _buildRichTextFromMarkdown(
+                      subtitle,
+                      baseStyle: textTheme.bodyLarge?.copyWith(color: AppTheme.primaryColor.withOpacity(0.9), height: 1.5),
+                      boldStyle: const TextStyle(fontWeight: FontWeight.bold)
+                  ),
+                  if (onTap != null) ...[
+                    const SizedBox(height: 20),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton(
+                        onPressed: onTap,
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)
+                        ),
+                        child: Text(buttonText),
+                      ),
+                    )
+                  ]
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -234,6 +255,7 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
+// ... dosyanın geri kalan tüm widgetları (_WeeklyParchment, _ActionButton vs.) aynı kalıyor.
 class _WeeklyParchment extends ConsumerStatefulWidget {
   @override
   ConsumerState<_WeeklyParchment> createState() => _WeeklyParchmentState();
@@ -484,49 +506,6 @@ Widget _buildRestPrompt(BuildContext context, {required bool isPlanGenerated}) {
       ],
     ),
   );
-}
-
-class _StatCard extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final String label;
-  final Color color;
-  final VoidCallback? onTap;
-
-  const _StatCard({required this.icon, required this.value, required this.label, required this.color, this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: AppTheme.lightSurfaceColor.withOpacity(0.5),
-      clipBehavior: Clip.hardEdge,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: color,
-                child: Icon(icon, color: Colors.white, size: 20),
-              ),
-              const SizedBox(height: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor), maxLines: 1, overflow: TextOverflow.ellipsis,),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class _ActionButton extends StatelessWidget {
