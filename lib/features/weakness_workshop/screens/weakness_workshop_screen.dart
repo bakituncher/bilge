@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/repositories/ai_service.dart';
-import 'package:bilge_ai/data/repositories/firestore_service.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/weakness_workshop/models/study_guide_model.dart';

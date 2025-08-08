@@ -2,8 +2,8 @@
 import 'dart:async'; // HATA DÜZELTİLDİ: 'dart-async' -> 'dart:async'
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
-import 'package:bilge_ai/data/repositories/firestore_service.dart';
-import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
+import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 
 enum PomodoroState { starcharting, calibration, voyage, discovery, stargazing }
 

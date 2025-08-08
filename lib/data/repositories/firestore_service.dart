@@ -1,61 +1,19 @@
 // lib/data/repositories/firestore_service.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
-import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
-import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 
-final firestoreServiceProvider = Provider<FirestoreService>((ref) {
-  return FirestoreService(FirebaseFirestore.instance);
-});
-
-final userProfileProvider = StreamProvider<UserModel?>((ref) {
-  final user = ref.watch(authControllerProvider).value;
-  if (user != null) {
-    return ref.read(firestoreServiceProvider).getUserProfile(user.uid);
-  }
-  return Stream.value(null);
-});
-
-final testsProvider = StreamProvider<List<TestModel>>((ref) {
-  final user = ref.watch(authControllerProvider).value;
-  if (user != null) {
-    return ref.read(firestoreServiceProvider).getTestResults(user.uid);
-  }
-  return Stream.value([]);
-});
-
-// GÜNCELLENDİ: LeaderboardProvider artık engagementScore'a göre sıralama yapıyor.
-final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((ref) async {
-  final firestoreService = ref.watch(firestoreServiceProvider);
-  final allUsers = await firestoreService.getAllUsers();
-
-  final leaderboardEntries = <LeaderboardEntry>[];
-
-  for (final user in allUsers) {
-    if (user.name != null && user.name!.isNotEmpty && user.engagementScore > 0) {
-      leaderboardEntries.add(LeaderboardEntry(
-        userId: user.id,
-        userName: user.name!,
-        score: user.engagementScore,
-        testCount: user.testCount,
-      ));
-    }
-  }
-
-  leaderboardEntries.sort((a, b) => b.score.compareTo(a.score));
-
-  return leaderboardEntries;
-});
-
 class FirestoreService {
   final FirebaseFirestore _firestore;
   FirestoreService(this._firestore);
+
+  String? getUserId() {
+    return FirebaseAuth.instance.currentUser?.uid;
+  }
 
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
@@ -89,13 +47,11 @@ class FirestoreService {
     return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
   }
 
-  // YENİ FONKSİYON: Kullanıcının bilgelik puanını artırır.
   Future<void> updateEngagementScore(String userId, int pointsToAdd) async {
     final userDocRef = _usersCollection.doc(userId);
     await userDocRef.update({'engagementScore': FieldValue.increment(pointsToAdd)});
   }
 
-  // GÜNCELLENDİ: Artık test ekleyince puan da veriyor.
   Future<void> addTestResult(TestModel test) async {
     final userDocRef = _usersCollection.doc(test.userId);
     await _firestore.runTransaction((transaction) async {
@@ -125,7 +81,7 @@ class FirestoreService {
         }
       }
     });
-    await updateEngagementScore(test.userId, 50); // Deneme ekleme: 50 Puan
+    await updateEngagementScore(test.userId, 50);
   }
 
   Stream<List<TestModel>> getTestResults(String userId) {
@@ -156,10 +112,9 @@ class FirestoreService {
     });
   }
 
-  // GÜNCELLENDİ: Artık odaklanma tamamlanınca puan da veriyor.
   Future<void> addFocusSession(FocusSessionModel session) async {
     await _focusSessionsCollection.add(session.toMap());
-    await updateEngagementScore(session.userId, 25); // Pomodoro: 25 Puan
+    await updateEngagementScore(session.userId, 25);
   }
 
   Future<void> updateDailyTaskCompletion({
@@ -174,7 +129,7 @@ class FirestoreService {
       fieldPath: isCompleted ? FieldValue.arrayUnion([task]) : FieldValue.arrayRemove([task]),
     });
     if(isCompleted) {
-      await updateEngagementScore(userId, 10); // Görev tamamlama: 10 Puan
+      await updateEngagementScore(userId, 10);
     }
   }
 
@@ -198,6 +153,6 @@ class FirestoreService {
       'longTermStrategy': longTermStrategy,
       'weeklyPlan': weeklyPlan,
     });
-    await updateEngagementScore(userId, 100); // Strateji oluşturma: 100 Puan
+    await updateEngagementScore(userId, 100);
   }
 }

@@ -1,16 +1,14 @@
-// lib/features/auth/controller/auth_controller.dart
+// lib/features/auth/application/auth_controller.dart
 import 'dart:async';
-import 'package:bilge_ai/data/repositories/auth_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilge_ai/features/auth/data/auth_repository.dart';
 
-// DEĞİŞİKLİK: .autoDispose kaldırıldı
-final authControllerProvider =
-StreamNotifierProvider<AuthController, User?>(() {
+// Bu, tüm ordunun kullanacağı ana telsiz frekansı.
+final authControllerProvider = StreamNotifierProvider<AuthController, User?>(() {
   return AuthController();
 });
 
-// DEĞİŞİKLİK: AutoDisposeStreamNotifier -> StreamNotifier
 class AuthController extends StreamNotifier<User?> {
   @override
   Stream<User?> build() {

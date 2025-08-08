@@ -5,7 +5,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/repositories/ai_service.dart';
-import 'package:bilge_ai/data/repositories/firestore_service.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/models/plan_model.dart'; // DÜZELTİLDİ: Yeni model yolu

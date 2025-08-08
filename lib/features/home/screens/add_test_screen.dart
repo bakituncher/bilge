@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
-import 'package:bilge_ai/data/repositories/firestore_service.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import '../logic/add_test_notifier.dart';
 import '../widgets/add_test_step1.dart';
 import '../widgets/add_test_step2.dart';

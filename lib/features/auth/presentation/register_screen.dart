@@ -1,30 +1,32 @@
-// lib/features/auth/screens/login_screen.dart
+// lib/features/auth/presentation/register_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:bilge_ai/features/auth/controller/auth_controller.dart';
+import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class RegisterScreen extends ConsumerStatefulWidget {
+  const RegisterScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<RegisterScreen> createState() => _RegisterScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   bool _isLoading = false;
-  // ✅ UX GELİŞTİRMESİ: Hata durumunu tutacak bir state
-  String? _errorMessage;
 
   @override
   void dispose() {
+    _nameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -32,24 +34,19 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     FocusScope.of(context).unfocus();
 
     if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null; // Her denemede hata mesajını sıfırla
-      });
+      setState(() => _isLoading = true);
 
       try {
-        await ref.read(authControllerProvider.notifier).signIn(
+        await ref.read(authControllerProvider.notifier).signUp(
+          name: _nameController.text.trim(),
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
-        // Başarılı girişten sonra yönlendirme zaten redirect'te halledilecek
       } catch (e) {
         if (mounted) {
-          // ✅ UX GELİŞTİRMESİ: Hata mesajını bir state'e ata ve formu yeniden doğrula
-          setState(() {
-            _errorMessage = e.toString();
-            _formKey.currentState?.validate(); // Formu yeniden doğrula
-          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString())),
+          );
         }
       } finally {
         if (mounted) {
@@ -62,7 +59,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Giriş Yap')),
+      appBar: AppBar(title: const Text('Kayıt Ol')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Form(
@@ -71,11 +68,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Tekrar Hoş Geldin!',
+                'BilgeAi\'ye Hoş Geldin!',
                 style: Theme.of(context).textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
+              TextFormField(
+                controller: _nameController,
+                decoration: const InputDecoration(labelText: 'Adın'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Lütfen adınızı girin.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
@@ -84,13 +92,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   if (value == null || !value.contains('@')) {
                     return 'Lütfen geçerli bir e-posta girin.';
                   }
-                  // ✅ UX GELİŞTİRMESİ: API'den gelen hatayı göster
-                  if (_errorMessage != null) {
-                    return _errorMessage;
-                  }
                   return null;
                 },
-                onChanged: (_) => setState(() => _errorMessage = null),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -98,29 +101,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 obscureText: true,
                 decoration: const InputDecoration(labelText: 'Şifre'),
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Lütfen şifrenizi girin.';
-                  }
-                  // ✅ UX GELİŞTİRMESİ: API'den gelen hatayı göster
-                  if (_errorMessage != null) {
-                    return _errorMessage;
+                  if (value == null || value.length < 6) {
+                    return 'Şifre en az 6 karakter olmalıdır.';
                   }
                   return null;
                 },
-                onChanged: (_) => setState(() => _errorMessage = null),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _confirmPasswordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Şifre Tekrar'),
+                validator: (value) {
+                  if (value != _passwordController.text) {
+                    return 'Şifreler eşleşmiyor.';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _isLoading ? null : _submit,
                 child: _isLoading
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text('Giriş Yap'),
+                    : const Text('Kayıt Ol'),
               ),
               TextButton(
                 onPressed: () {
-                  context.go(AppRoutes.register);
+                  context.go(AppRoutes.login);
                 },
-                child: const Text('Hesabın yok mu? Kayıt Ol'),
+                child: const Text('Zaten bir hesabın var mı? Giriş Yap'),
               )
             ],
           ),

@@ -1,7 +1,7 @@
 // lib/features/coach/screens/subject_detail_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:bilge_ai/data/repositories/firestore_service.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';

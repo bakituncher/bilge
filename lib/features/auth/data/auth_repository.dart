@@ -1,13 +1,13 @@
-// lib/data/repositories/auth_repository.dart
-
+// lib/features/auth/data/auth_repository.dart
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(
     FirebaseAuth.instance,
-    ref.read(firestoreServiceProvider),
+    ref.watch(firestoreServiceProvider),
   );
 });
 
@@ -30,7 +30,6 @@ class AuthRepository {
         password: password,
       );
       if (userCredential.user != null) {
-        // Kayıt başarılıysa, Firestore'da kullanıcı için bir profil oluşturulur.
         await _firestoreService.createUserProfile(userCredential.user!, name);
       }
     } on FirebaseAuthException catch (e) {

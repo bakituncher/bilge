@@ -8,7 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
-import 'package:bilge_ai/data/repositories/firestore_service.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/stats/screens/subject_stats_screen.dart';
 import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
