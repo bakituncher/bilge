@@ -7,12 +7,12 @@ import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_header.dart';
 import 'package:bilge_ai/features/home/widgets/todays_mission_card.dart';
-// DEĞİŞİKLİK: Eski widget'ı silip yenisini ekliyoruz
 import 'package:bilge_ai/features/home/widgets/todays_plan.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_widgets/motivational_quote_card.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_widgets/dashboard_stats_row.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_widgets/action_center.dart';
 
+// Motivasyon sözleri listesi aynı kalabilir.
 const List<String> motivationalQuotes = [
   "Başarının sırrı, başlamaktır.",
   "Bugünün emeği, yarının zaferidir.",
@@ -20,35 +20,7 @@ const List<String> motivationalQuotes = [
   "Hayal edebiliyorsan, yapabilirsin.",
   "Küçük adımlar, büyük başarılara götürür.",
   "Disiplin, hedefler ve başarı arasındaki köprüdür.",
-  "Vazgeçenler asla kazanamaz, kazananlar asla vazgeçmez.",
-  "Her zorlukla beraber bir kolaylık vardır.",
-  "Başarı, hazırlığın fırsatla buluştuğu yerdir.",
-  "Zamanı iyi kullan, çünkü o senin en değerli varlığındır",
-  "Başarı, cesaretin ve azmin birleşimidir.",
-  "Hayatta en büyük risk, hiç risk almamaktır.",
-  "Başarı, düşmek değil, her düştüğünde kalkmaktır.",
-  "Kendine inan, çünkü senin potansiyelin sınırsız.",
-  "Zamanı iyi Cullan, çünkü o senin en değerli varlığındır",
-  "Başarı, cesaretin ve azmin birleşimidir.",
-  "Hayatta en büyük risk, hiç risk almamaktır.",
-  "Başarı, düşmek değil, her düştüğünde kalkmaktır.",
-  "Kendine inan, çünkü senin potansiyelin sınırsız.",
-  "Her yeni gün, yeni bir başlangıçtır.",
-  "Zorluklar, seni daha güçlü yapar.",
-  "Başarı, hedeflerine ulaşmak için attığın adımlardır.",
-  "Hayallerini gerçekleştirmenin ilk adımı, onlara inanmandır.",
-  "Başarı, azim ve kararlılıkla elde edilir.",
-  "Her başarısızlık, başarıya giden yolda bir adımdır.",
-  "Kendini geliştir, çünkü senin potansiyelin sınırsız.",
-  "Başarı, cesaretin ve azmin birleşimidir.",
-  "Hayatta en büyük risk, hiç risk almamaktır.",
-  "Başarı, düşmek değil, her düştüğünde kalkmaktır.",
-  "Kendine inan, çünkü senin potansiyelin sınırsız.",
-  "Her yeni gün, yeni bir başlangıçtır.",
-  "Zorluklar, seni daha güçlü yapar.",
-  "Başarı, hedeflerine ulaşmak için attığın adımlardır.",
-  "Hayallerini gerçekleştirmenin ilk adımı, onlara inanmandır.",
-
+  "Vazgeçenler asla kazanamaz, kazananlar asla vazgeçmez."
 ];
 
 class DashboardScreen extends ConsumerWidget {
@@ -66,6 +38,7 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProfileProvider);
     final testsAsync = ref.watch(testsProvider);
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       body: SafeArea(
@@ -83,18 +56,35 @@ class DashboardScreen extends ConsumerWidget {
             return ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
+                // 1. BÖLÜM: KARŞILAMA VE GENEL DURUM
+                // Kullanıcıyı selamlar ve en kritik 3 metriği anında sunar.
                 DashboardHeader(greeting: _getGreeting(), name: user.name ?? ''),
                 const SizedBox(height: 16),
-                MotivationalQuoteCard(quote: randomQuote),
-                const SizedBox(height: 24),
                 DashboardStatsRow(avgNet: avgNet, bestNet: bestNet, streak: user.streak),
                 const SizedBox(height: 24),
-                const TodaysMissionCard(),
+
+                // 2. BÖLÜM: GÜNLÜK HAREKAT MERKEZİ
+                // "Günün Görevi" ve "Günlük Plan" birleştirilerek tek ve odaklanmış bir bileşen haline getirildi.
+                // Bu, kullanıcının "Bugün ne yapmalıyım?" sorusuna net bir cevap verir.
+                Text("Günlük Harekat Merkezi", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                const TodaysMissionCard(), // Bu kart artık ana görevi belirtiyor.
+                const SizedBox(height: 12),
+                const TodaysPlan(), // Bu ise o görevi destekleyen adımları listeliyor.
                 const SizedBox(height: 24),
+
+                // 3. BÖLÜM: HIZLI EYLEMLER
+                // En sık kullanılan iki eylem (Deneme Ekle, Odaklan) artık daha erişilebilir bir konumda.
+                Text("Hızlı Eylemler", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
                 const ActionCenter(),
                 const SizedBox(height: 24),
-                // DEĞİŞİKLİK: Eski widget'ı silip yenisini ekliyoruz
-                const TodaysPlan(),
+
+                // 4. BÖLÜM: MOTİVASYON
+                // Motivasyon kartı, ana eylemlerden sonra gelerek ekranı tamamlar.
+                MotivationalQuoteCard(quote: randomQuote),
+                const SizedBox(height: 16),
+
               ].animate(interval: 80.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
             );
           },
