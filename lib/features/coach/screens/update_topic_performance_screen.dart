@@ -1,5 +1,6 @@
 // lib/features/coach/screens/update_topic_performance_screen.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
@@ -10,7 +11,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/shared/widgets/score_slider.dart';
 
 // State Management Provider'ları
-final _updateModeProvider = StateProvider.autoDispose<bool>((ref) => true); // true: Ekle, false: Değiştir
+final _updateModeProvider = StateProvider.autoDispose<bool>((ref) => true);
+final _sessionQuestionCountProvider = StateProvider.autoDispose<int>((ref) => 20);
 final _correctCountProvider = StateProvider.autoDispose<int>((ref) => 0);
 final _wrongCountProvider = StateProvider.autoDispose<int>((ref) => 0);
 
@@ -30,74 +32,114 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final isAddingMode = ref.watch(_updateModeProvider);
+    final sessionQuestions = ref.watch(_sessionQuestionCountProvider);
     final correct = ref.watch(_correctCountProvider);
     final wrong = ref.watch(_wrongCountProvider);
 
-    // HAKİMİYET HESAPLAMASI (DÜZELTİLDİ)
+    final blank = sessionQuestions - correct - wrong;
+
+    // YENİ VE ADİL HAKİMİYET HESAPLAMASI
+    // Standart ceza katsayısı (4 yanlış 1 doğruyu götürür)
+    const double penaltyCoefficient = 0.25;
+
     final double mastery;
     if (isAddingMode) {
       final finalCorrect = initialPerformance.correctCount + correct;
-      final finalTotalQuestions = initialPerformance.questionCount + correct + wrong;
-      mastery = finalTotalQuestions == 0 ? 0.0 : (finalCorrect / finalTotalQuestions).clamp(0.0, 1.0);
+      final finalWrong = initialPerformance.wrongCount + wrong;
+      final finalTotalQuestions = initialPerformance.questionCount + sessionQuestions;
+
+      // Net doğru sayısını hesapla
+      final netCorrect = finalCorrect - (finalWrong * penaltyCoefficient);
+
+      mastery = finalTotalQuestions == 0 ? 0.0 : (netCorrect / finalTotalQuestions).clamp(0.0, 1.0);
     } else { // Değiştir Modu
-      final finalTotalQuestions = correct + wrong;
-      mastery = finalTotalQuestions == 0 ? 0.0 : (correct / finalTotalQuestions).clamp(0.0, 1.0);
+      final finalTotalQuestions = sessionQuestions;
+
+      // Net doğru sayısını hesapla
+      final netCorrect = correct - (wrong * penaltyCoefficient);
+
+      mastery = finalTotalQuestions == 0 ? 0.0 : (netCorrect / finalTotalQuestions).clamp(0.0, 1.0);
     }
 
-
     return Scaffold(
-      appBar: AppBar(
-        title: Text(topic),
-      ),
-      body: Padding(
+      appBar: AppBar(title: Text(topic)),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            // 1. Mod Seçimi
             _buildModeSelector(context, ref),
             const SizedBox(height: 32),
-
-            // 2. Hakimiyet Mührü
             _buildMasteryGauge(context, mastery),
             const SizedBox(height: 32),
 
-            // 3. Kaydırıcılar
-            ScoreSlider(
-              label: isAddingMode ? "Eklenecek Doğru" : "Toplam Doğru",
-              value: correct.toDouble(),
-              max: 200, // Yüksek bir limit
-              color: AppTheme.successColor,
-              onChanged: (value) => ref.read(_correctCountProvider.notifier).state = value.toInt(),
+            Text(
+              isAddingMode ? "Çözdüğün Testi Ekle" : "Yeni Değerleri Gir",
+              style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
-            ScoreSlider(
-              label: isAddingMode ? "Eklenecek Yanlış" : "Toplam Yanlış",
-              value: wrong.toDouble(),
-              max: 200,
-              color: AppTheme.accentColor,
-              onChanged: (value) => ref.read(_wrongCountProvider.notifier).state = value.toInt(),
-            ),
-            const Spacer(),
+            const SizedBox(height: 24),
 
-            // 4. Kaydet Butonu
+            ScoreSlider(
+              label: "Toplam Soru",
+              value: sessionQuestions.toDouble(),
+              max: 200,
+              color: AppTheme.lightSurfaceColor,
+              onChanged: (value) {
+                final int newTotal = value.toInt();
+                ref.read(_sessionQuestionCountProvider.notifier).state = newTotal;
+                if (ref.read(_correctCountProvider) > newTotal) {
+                  ref.read(_correctCountProvider.notifier).state = newTotal;
+                }
+                if (ref.read(_wrongCountProvider) > newTotal - ref.read(_correctCountProvider)) {
+                  ref.read(_wrongCountProvider.notifier).state = newTotal - ref.read(_correctCountProvider);
+                }
+              },
+            ),
+            ScoreSlider(
+              label: "Doğru",
+              value: correct.toDouble(),
+              max: sessionQuestions.toDouble(),
+              color: AppTheme.successColor,
+              onChanged: (value) {
+                final newCorrect = value.toInt();
+                ref.read(_correctCountProvider.notifier).state = newCorrect;
+                if (newCorrect + ref.read(_wrongCountProvider) > sessionQuestions) {
+                  ref.read(_wrongCountProvider.notifier).state = sessionQuestions - newCorrect;
+                }
+              },
+            ),
+            ScoreSlider(
+              label: "Yanlış",
+              value: wrong.toDouble(),
+              max: (sessionQuestions - correct).toDouble(),
+              color: AppTheme.accentColor,
+              onChanged: (value) {
+                ref.read(_wrongCountProvider.notifier).state = value.toInt();
+              },
+            ),
+
+            const SizedBox(height: 24),
+
+            _StatDisplay(label: "Boş", value: blank.toString()),
+
+            const SizedBox(height: 48),
+
             ElevatedButton(
               onPressed: () {
                 final userId = ref.read(authControllerProvider).value!.uid;
-
-                // KAYDETME MANTIĞI (DÜZELTİLDİ)
                 TopicPerformanceModel newPerformance;
                 if (isAddingMode) {
                   newPerformance = TopicPerformanceModel(
                     correctCount: initialPerformance.correctCount + correct,
                     wrongCount: initialPerformance.wrongCount + wrong,
-                    blankCount: initialPerformance.blankCount, // Eski boşlar korunur
-                    questionCount: initialPerformance.questionCount + correct + wrong, // Toplam soru sayısı artar
+                    blankCount: initialPerformance.blankCount + blank,
+                    questionCount: initialPerformance.questionCount + sessionQuestions,
                   );
-                } else { // Değiştir Modu
+                } else {
                   newPerformance = TopicPerformanceModel(
                     correctCount: correct,
                     wrongCount: wrong,
-                    blankCount: 0, // Bu modda boş soru olmadığı varsayılır
-                    questionCount: correct + wrong,
+                    blankCount: blank,
+                    questionCount: sessionQuestions,
                   );
                 }
 
@@ -117,6 +159,7 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
     );
   }
 
+  // Diğer widget'lar (değişiklik yok)
   Widget _buildModeSelector(BuildContext context, WidgetRef ref) {
     final isAddingMode = ref.watch(_updateModeProvider);
     return Row(
@@ -129,8 +172,6 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
             isSelected: isAddingMode,
             onTap: () {
               ref.read(_updateModeProvider.notifier).state = true;
-              ref.invalidate(_correctCountProvider);
-              ref.invalidate(_wrongCountProvider);
             },
           ),
         ),
@@ -143,8 +184,6 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
             isSelected: !isAddingMode,
             onTap: () {
               ref.read(_updateModeProvider.notifier).state = false;
-              ref.invalidate(_correctCountProvider);
-              ref.invalidate(_wrongCountProvider);
             },
           ),
         ),
@@ -158,7 +197,7 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
       width: 180,
       height: 180,
       child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: mastery),
+        tween: Tween(begin: 0.0, end: mastery < 0 ? 0 : mastery), // Negatifse 0 göster
         duration: 400.ms,
         curve: Curves.easeInOut,
         builder: (context, value, child) {
@@ -183,7 +222,7 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
                       style: textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     Text(
-                      "Hakimiyet",
+                      "Net Hakimiyet", // İsmi de güncelledik
                       style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
                     ),
                   ],
@@ -198,19 +237,12 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
 }
 
 class _ModeCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
+  final String title, subtitle;
   final IconData icon;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _ModeCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.isSelected,
-    required this.onTap,
-  });
+  const _ModeCard({required this.title, required this.subtitle, required this.icon, required this.isSelected, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -238,6 +270,22 @@ class _ModeCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _StatDisplay extends StatelessWidget {
+  final String label;
+  final String value;
+  const _StatDisplay({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(value, style: Theme.of(context).textTheme.headlineMedium),
+        Text(label, style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor)),
+      ],
     );
   }
 }
