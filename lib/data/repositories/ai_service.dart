@@ -108,6 +108,7 @@ class AiService {
     required UserModel user,
     required List<TestModel> tests,
     required String pacing,
+    String? revisionRequest, // YENİ EKLENDİ
   }) async {
     if (user.selectedExam == null) {
       return '{"error":"Analiz için önce bir sınav seçmelisiniz."}';
@@ -128,21 +129,40 @@ class AiService {
     String prompt;
     switch (examType) {
       case ExamType.yks:
-        prompt = getYksPrompt(user.id, user.selectedExamSection ?? '', daysUntilExam, user.goal ?? '', user.challenges, pacing, user.testCount, avgNet, subjectAverages, topicPerformancesJson, availabilityJson, weeklyPlanJson, completedTasksJson);
+        prompt = getYksPrompt(
+            user.id, user.selectedExamSection ?? '',
+            daysUntilExam, user.goal ?? '',
+            user.challenges, pacing,
+            user.testCount, avgNet,
+            subjectAverages, topicPerformancesJson,
+            availabilityJson, weeklyPlanJson,
+            completedTasksJson,
+            revisionRequest: revisionRequest // YENİ EKLENDİ
+        );
         break;
       case ExamType.lgs:
-        prompt = getLgsPrompt(user, avgNet, subjectAverages, pacing, daysUntilExam, topicPerformancesJson, availabilityJson);
+        prompt = getLgsPrompt(
+            user,
+            avgNet, subjectAverages,
+            pacing, daysUntilExam,
+            topicPerformancesJson, availabilityJson,
+            revisionRequest: revisionRequest // YENİ EKLENDİ
+        );
         break;
       default:
-        prompt = getKpssPrompt(user, avgNet, subjectAverages, pacing, daysUntilExam, topicPerformancesJson, availabilityJson, examType.displayName);
+        prompt = getKpssPrompt(
+            user,
+            avgNet, subjectAverages,
+            pacing, daysUntilExam,
+            topicPerformancesJson, availabilityJson,
+            examType.displayName,
+            revisionRequest: revisionRequest // YENİ EKLENDİ
+        );
         break;
     }
     return _callGemini(prompt, expectJson: true);
   }
 
-  // *******************************************************************
-  // * HATANIN ÇÖZÜLDÜĞÜ YER *
-  // *******************************************************************
   Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'normal'}) async {
     if (tests.isEmpty) {
       return '{"error":"Analiz için en az bir deneme sonucu gereklidir."}';
@@ -154,12 +174,10 @@ class AiService {
     String weakestSubject;
     String weakestTopic;
 
-    // Eğer dışarıdan bir konu seçildiyse (kullanıcı seçimi), onu kullan.
     if (topicOverride != null) {
       weakestSubject = topicOverride['subject']!;
       weakestTopic = topicOverride['topic']!;
     } else {
-      // Yoksa, en zayıf konuyu kendin bul.
       final examType = ExamType.values.byName(user.selectedExam!);
       final examData = await ExamData.getExamByType(examType);
       final analysis = StatsAnalysis(tests, user.topicPerformances, examData, user: user);

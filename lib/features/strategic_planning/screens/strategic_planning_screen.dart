@@ -22,7 +22,7 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
   StrategyGenerationNotifier(this._ref) : super(const AsyncValue.data(null));
 
-  Future<void> generatePlan(BuildContext context) async {
+  Future<void> _generateAndNavigate(BuildContext context, {String? revisionRequest}) async {
     state = const AsyncValue.loading();
     _ref.read(planningStepProvider.notifier).state = PlanningStep.loading;
 
@@ -40,6 +40,7 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
         user: user,
         tests: tests,
         pacing: pacing.name,
+        revisionRequest: revisionRequest, // Revizyon talebini iletiyoruz
       );
 
       final decodedData = jsonDecode(resultJson);
@@ -55,7 +56,8 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
       };
 
       if (context.mounted) {
-        context.go('/ai-hub/strategic-planning/${AppRoutes.strategyReview}', extra: result);
+        // İster ilk oluşturma olsun, ister revizyon, her zaman onay ekranına git.
+        context.push('/ai-hub/strategic-planning/${AppRoutes.strategyReview}', extra: result);
       }
 
       _ref.read(planningStepProvider.notifier).state = PlanningStep.dataCheck;
@@ -65,7 +67,17 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
       state = AsyncValue.error(e, s);
     }
   }
+
+
+  Future<void> generatePlan(BuildContext context) async {
+    await _generateAndNavigate(context);
+  }
+
+  Future<void> regeneratePlanWithFeedback(BuildContext context, String feedback) async {
+    await _generateAndNavigate(context, revisionRequest: feedback);
+  }
 }
+
 
 final strategyGenerationProvider = StateNotifierProvider.autoDispose<StrategyGenerationNotifier, AsyncValue<void>>((ref) {
   return StrategyGenerationNotifier(ref);
@@ -147,7 +159,20 @@ class StrategicPlanningScreen extends ConsumerWidget {
       case PlanningStep.pacing:
         return _buildPacingView(context, ref);
       case PlanningStep.loading:
-        return const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor));
+        return Center(
+            key: const ValueKey('loading'),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: AppTheme.secondaryColor),
+                  const SizedBox(height: 24),
+                  Text("Strateji güncelleniyor,\nbekleyin komutanım...",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16)
+                  )
+                ]
+            )
+        );
       default:
         return const SizedBox.shrink();
     }

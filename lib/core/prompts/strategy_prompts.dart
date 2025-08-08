@@ -1,9 +1,20 @@
 // lib/core/prompts/strategy_prompts.dart
-import 'dart:convert'; // HATA DÜZELTİLDİ: jsonEncode için eklendi
-import 'package:bilge_ai/data/models/user_model.dart'; // HATA DÜZELTİLDİ: UserModel için eklendi
+import 'dart:convert';
+import 'package:bilge_ai/data/models/user_model.dart';
 
-// Bu dosya, ai_service.dart dosyasındaki karmaşıklığı azaltmak için
-// tüm strateji oluşturma metinlerini (prompt) içerir.
+String _getRevisionBlock(String? revisionRequest) {
+  if (revisionRequest != null && revisionRequest.isNotEmpty) {
+    return """
+      // REVİZYON EMRİ:
+      // BU ÇOK ÖNEMLİ! KULLANICI MEVCUT PLANDAN MEMNUN DEĞİL VE AŞAĞIDAKİ DEĞİŞİKLİKLERİ İSTİYOR.
+      // YENİ PLANI BU TALEPLERİ MERKEZE ALARAK, SIFIRDAN OLUŞTUR.
+      // KULLANICI TALEPLERİ:
+      $revisionRequest
+      """;
+  }
+  return "";
+}
+
 
 String getYksPrompt(
     String userId,
@@ -19,6 +30,7 @@ String getYksPrompt(
     String availabilityJson,
     String? weeklyPlanJson,
     String completedTasksJson,
+    {String? revisionRequest} // YENİ EKLENDİ
     ) {
   return """
       // KİMLİK:
@@ -31,6 +43,8 @@ String getYksPrompt(
 
       // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
       4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak. Müsait zaman dilimlerine en az bir, en fazla iki görev ata. Görev saatlerini, o zaman diliminin içinde kalacak şekilde mantıklı olarak belirle (örneğin "Sabah Erken (06-09)" için "07:00-08:30" gibi).
+
+      ${_getRevisionBlock(revisionRequest)}
 
       // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
       // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
@@ -81,6 +95,7 @@ String getLgsPrompt(
     int daysUntilExam,
     String topicPerformancesJson,
     String availabilityJson,
+    {String? revisionRequest} // YENİ EKLENDİ
     ) {
   return """
       // KİMLİK:
@@ -93,6 +108,8 @@ String getLgsPrompt(
 
       // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
       4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak. Müsait zaman dilimlerine görevleri ve saatlerini mantıklı olarak yerleştir.
+
+      ${_getRevisionBlock(revisionRequest)}
 
       // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
       // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
@@ -141,6 +158,7 @@ String getKpssPrompt(
     String topicPerformancesJson,
     String availabilityJson,
     String examName,
+    {String? revisionRequest} // YENİ EKLENDİ
     ) {
   return """
       // KİMLİK:
@@ -153,6 +171,8 @@ String getKpssPrompt(
 
       // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
       4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak.
+
+      ${_getRevisionBlock(revisionRequest)}
 
       // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
       // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
