@@ -11,7 +11,6 @@ import 'package:bilge_ai/features/coach/screens/motivation_chat_screen.dart';
 import 'package:bilge_ai/features/coach/screens/update_topic_performance_screen.dart';
 import 'package:bilge_ai/features/home/screens/add_test_screen.dart';
 import 'package:bilge_ai/features/home/screens/dashboard_screen.dart';
-import 'package:bilge_ai/features/home/screens/library_screen.dart';
 import 'package:bilge_ai/features/home/screens/test_detail_screen.dart';
 import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart';
 import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
