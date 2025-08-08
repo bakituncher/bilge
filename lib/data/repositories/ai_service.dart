@@ -8,7 +8,7 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/core/prompts/strategy_prompts.dart';
-import 'package:bilge_ai/core/prompts/workshop_prompts.dart'; // YENİ IMPORT
+import 'package:bilge_ai/core/prompts/workshop_prompts.dart';
 import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 
 class ChatMessage {
@@ -140,25 +140,39 @@ class AiService {
     return _callGemini(prompt, expectJson: true);
   }
 
-  Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests) async {
+  // *******************************************************************
+  // * HATANIN ÇÖZÜLDÜĞÜ YER *
+  // *******************************************************************
+  Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'normal'}) async {
     if (tests.isEmpty) {
       return '{"error":"Analiz için en az bir deneme sonucu gereklidir."}';
     }
     if (user.selectedExam == null) {
       return '{"error":"Sınav türü bulunamadı."}';
     }
-    final examType = ExamType.values.byName(user.selectedExam!);
-    final examData = await ExamData.getExamByType(examType);
-    final analysis = StatsAnalysis(tests, user.topicPerformances, examData, user: user);
-    final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
-    if (weakestTopicInfo == null) {
-      return '{"error":"Analiz için zayıf bir konu bulunamadı. Lütfen önce konu performans verilerinizi girin."}';
-    }
-    final weakestSubject = weakestTopicInfo['subject']!;
-    final weakestTopic = weakestTopicInfo['topic']!;
 
-    // DEĞİŞİKLİK: Prompt artık harici dosyadan çağırılıyor.
-    final prompt = getStudyGuideAndQuizPrompt(weakestSubject, weakestTopic, user.selectedExam);
+    String weakestSubject;
+    String weakestTopic;
+
+    // Eğer dışarıdan bir konu seçildiyse (kullanıcı seçimi), onu kullan.
+    if (topicOverride != null) {
+      weakestSubject = topicOverride['subject']!;
+      weakestTopic = topicOverride['topic']!;
+    } else {
+      // Yoksa, en zayıf konuyu kendin bul.
+      final examType = ExamType.values.byName(user.selectedExam!);
+      final examData = await ExamData.getExamByType(examType);
+      final analysis = StatsAnalysis(tests, user.topicPerformances, examData, user: user);
+      final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
+
+      if (weakestTopicInfo == null) {
+        return '{"error":"Analiz için zayıf bir konu bulunamadı. Lütfen önce konu performans verilerinizi girin."}';
+      }
+      weakestSubject = weakestTopicInfo['subject']!;
+      weakestTopic = weakestTopicInfo['topic']!;
+    }
+
+    final prompt = getStudyGuideAndQuizPrompt(weakestSubject, weakestTopic, user.selectedExam, difficulty);
 
     return _callGemini(prompt, expectJson: true);
   }

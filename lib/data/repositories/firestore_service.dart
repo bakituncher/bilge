@@ -117,7 +117,6 @@ class FirestoreService {
     await updateEngagementScore(session.userId, 25);
   }
 
-  // KESİN ÇÖZÜM BURADA: İki ayrı `update` işlemi tek bir `batch` içinde birleştirildi.
   Future<void> updateDailyTaskCompletion({
     required String userId,
     required String dateKey,
@@ -127,18 +126,11 @@ class FirestoreService {
     final userDocRef = _usersCollection.doc(userId);
     final fieldPath = 'completedDailyTasks.$dateKey';
 
-    // Atomik (bölünemez) bir işlem paketi oluştur
     final batch = _firestore.batch();
-
-    // 1. Görev tamamlama durumunu pakete ekle
     batch.update(userDocRef, {
       fieldPath: isCompleted ? FieldValue.arrayUnion([task]) : FieldValue.arrayRemove([task]),
     });
-
-    // 2. Puanı da AYNI pakete ekle (tamamlanıyorsa +10, geri alınıyorsa -10)
     batch.update(userDocRef, {'engagementScore': FieldValue.increment(isCompleted ? 10 : -10)});
-
-    // Tüm paketlenmiş işlemleri tek seferde veritabanına gönder
     await batch.commit();
   }
 
@@ -163,5 +155,15 @@ class FirestoreService {
       'weeklyPlan': weeklyPlan,
     });
     await updateEngagementScore(userId, 100);
+  }
+
+  Future<void> markTopicAsMastered(
+      {required String userId,
+        required String subject,
+        required String topic}) async {
+    final uniqueIdentifier = '$subject-$topic';
+    await _usersCollection.doc(userId).update({
+      'masteredTopics': FieldValue.arrayUnion([uniqueIdentifier])
+    });
   }
 }

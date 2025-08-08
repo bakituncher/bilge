@@ -16,13 +16,14 @@ class UserModel {
   final String? selectedExamSection;
   final int testCount;
   final double totalNetSum;
-  final int engagementScore; // YENİ EKLENDİ: Bilgelik Puanı
+  final int engagementScore;
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
   final Map<String, List<String>> completedDailyTasks;
   final String? studyPacing;
   final String? longTermStrategy;
   final Map<String, dynamic>? weeklyPlan;
   final Map<String, List<String>> weeklyAvailability;
+  final List<String> masteredTopics; // YENİ EKLENDİ: Fethedilen konuların listesi
 
   UserModel({
     required this.id,
@@ -38,18 +39,19 @@ class UserModel {
     this.selectedExamSection,
     this.testCount = 0,
     this.totalNetSum = 0.0,
-    this.engagementScore = 0, // YENİ EKLENDİ
+    this.engagementScore = 0,
     this.topicPerformances = const {},
     this.completedDailyTasks = const {},
     this.studyPacing,
     this.longTermStrategy,
     this.weeklyPlan,
     this.weeklyAvailability = const {},
+    this.masteredTopics = const [], // YENİ EKLENDİ
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
-
+    // ... (diğer fromSnapshot kodları aynı kalıyor)
     final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
     if (data['topicPerformances'] is Map<String, dynamic>) {
       final subjectMap = data['topicPerformances'] as Map<String, dynamic>;
@@ -90,7 +92,7 @@ class UserModel {
       selectedExamSection: data['selectedExamSection'],
       testCount: data['testCount'] ?? 0,
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
-      engagementScore: data['engagementScore'] ?? 0, // YENİ EKLENDİ
+      engagementScore: data['engagementScore'] ?? 0,
       topicPerformances: safeTopicPerformances,
       completedDailyTasks: safeCompletedTasks,
       studyPacing: data['studyPacing'],
@@ -101,11 +103,13 @@ class UserModel {
               (key, value) => MapEntry(key, List<String>.from(value)),
         ),
       ),
+      masteredTopics: List<String>.from(data['masteredTopics'] ?? []), // YENİ EKLENDİ
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      // ... (diğer toJson kodları aynı kalıyor)
       'id': id,
       'email': email,
       'name': name,
@@ -119,7 +123,7 @@ class UserModel {
       'selectedExamSection': selectedExamSection,
       'testCount': testCount,
       'totalNetSum': totalNetSum,
-      'engagementScore': engagementScore, // YENİ EKLENDİ
+      'engagementScore': engagementScore,
       'topicPerformances': topicPerformances.map(
             (subjectKey, topicMap) => MapEntry(
           subjectKey,
@@ -131,6 +135,7 @@ class UserModel {
       'longTermStrategy': longTermStrategy,
       'weeklyPlan': weeklyPlan,
       'weeklyAvailability': weeklyAvailability,
+      'masteredTopics': masteredTopics, // YENİ EKLENDİ
     };
   }
 }
