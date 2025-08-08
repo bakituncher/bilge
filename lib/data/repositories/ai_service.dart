@@ -1,4 +1,5 @@
 // lib/data/repositories/ai_service.dart
+import 'dart:async';
 import 'dart:convert';
 import 'package:bilge_ai/core/config/app_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,8 +26,65 @@ class AiService {
   AiService();
 
   final String _apiKey = AppConfig.geminiApiKey;
+  // GÜNCELLEME: En güçlü ve güncel modele geçildi.
   final String _apiUrl =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent";
+
+  /// YENİLENMİŞ "DEMİR SİNYAL" OPERASYONU
+  /// Bu fonksiyon, 503 gibi geçici sunucu hatalarında isteği otomatik olarak yeniden dener.
+  Future<String> _callGemini(String prompt, {bool expectJson = false}) async {
+    if (_apiKey.isEmpty || _apiKey == "YOUR_GEMINI_API_KEY_HERE") {
+      final errorJson =
+          '{"error": "API Anahtarı bulunamadı. Lütfen `lib/core/config/app_config.dart` dosyasına kendi Gemini API anahtarınızı ekleyin."}';
+      return expectJson ? errorJson : "**HATA:** API Anahtarı bulunamadı.";
+    }
+
+    const maxRetries = 3; // Toplam deneme sayısı
+    for (int i = 0; i < maxRetries; i++) {
+      try {
+        final body = {
+          "contents": [{"parts": [{"text": prompt}]}],
+          "generationConfig": {
+            if (expectJson) "responseMimeType": "application/json",
+            "temperature": 0.8,
+            "maxOutputTokens": 8192,
+          }
+        };
+        final response = await http.post(
+          Uri.parse('$_apiUrl?key=$_apiKey'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(body),
+        ).timeout(const Duration(seconds: 45)); // Zaman aşımı eklendi
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(utf8.decode(response.bodyBytes));
+          if (data['candidates'] != null && data['candidates'][0]['content'] != null) {
+            return data['candidates'][0]['content']['parts'][0]['text']; // Başarılı, döngüden çık.
+          } else {
+            // Cevap formatı bozuksa, bunu da bir hata olarak ele al
+            throw Exception('Yapay zeka servisinden beklenmedik bir formatta cevap alındı.');
+          }
+        } else if ((response.statusCode == 503 || response.statusCode == 500) && i < maxRetries - 1) {
+          // 503 (Servis Mevcut Değil) veya 500 (Sunucu Hatası) alındı ve hala deneme hakkımız var.
+          await Future.delayed(Duration(seconds: i + 2)); // 2, 3 saniye bekle
+          continue; // Döngünün bir sonraki adımına geç.
+        } else {
+          // Başka bir kalıcı hata veya son denemede de başarısızlık.
+          throw Exception('Yapay zeka servisinden bir cevap alınamadı. (Kod: ${response.statusCode})');
+        }
+      } catch (e) {
+        // Döngünün son denemesinde hata oluşursa veya zaman aşımı gibi bir sorun olursa
+        if (i == maxRetries - 1) {
+          final errorJson = '{"error": "Yapay zeka sunucuları şu anda çok yoğun veya internet bağlantınızda bir sorun var. Lütfen birkaç dakika sonra tekrar deneyin. Detay: ${e.toString()}"}';
+          return expectJson ? errorJson : "**HATA:** Sunucular geçici olarak hizmet dışı.";
+        }
+        // Henüz son deneme değilse, kısa bir süre bekle ve tekrar dene
+        await Future.delayed(const Duration(seconds: 2));
+      }
+    }
+    // Bu noktaya asla gelinmemeli ama güvenlik için bir geri dönüş değeri
+    return '{"error": "Tüm yeniden deneme denemeleri başarısız oldu."}';
+  }
 
   int _getDaysUntilExam(ExamType examType) {
     final now = DateTime.now();
@@ -42,54 +100,16 @@ class AiService {
         examDate = DateTime(now.year, 7, 14);
         break;
       case ExamType.kpssOnlisans:
-        examDate = DateTime(now.year, 9, 7); // Tahmini tarih
+        examDate = DateTime(now.year, 9, 7);
         break;
       case ExamType.kpssOrtaogretim:
-        examDate = DateTime(now.year, 9, 21); // Tahmini tarih
+        examDate = DateTime(now.year, 9, 21);
         break;
     }
     if (now.isAfter(examDate)) {
       examDate = DateTime(now.year + 1, examDate.month, examDate.day);
     }
     return examDate.difference(now).inDays;
-  }
-
-  Future<String> _callGemini(String prompt, {bool expectJson = false}) async {
-    if (_apiKey.isEmpty || _apiKey == "YOUR_GEMINI_API_KEY_HERE") {
-      final errorJson =
-          '{"error": "API Anahtarı bulunamadı. Lütfen `lib/core/config/app_config.dart` dosyasına kendi Gemini API anahtarınızı ekleyin."}';
-      return expectJson ? errorJson : "**HATA:** API Anahtarı bulunamadı.";
-    }
-    try {
-      final body = {
-        "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {
-          if (expectJson) "responseMimeType": "application/json",
-          "temperature": 0.8,
-          "maxOutputTokens": 8192,
-        }
-      };
-      final response = await http.post(
-        Uri.parse('$_apiUrl?key=$_apiKey'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(body),
-      );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        if (data['candidates'] != null && data['candidates'][0]['content'] != null) {
-          return data['candidates'][0]['content']['parts'][0]['text'];
-        } else {
-          final errorJson = '{"error": "Yapay zeka servisinden beklenmedik bir formatta cevap alındı: ${data.toString()}"}';
-          return expectJson ? errorJson : "**HATA:** Beklenmedik formatta cevap.";
-        }
-      } else {
-        final errorJson = '{"error": "Yapay zeka servisinden bir cevap alınamadı. (Kod: ${response.statusCode})", "details": "${response.body}"}';
-        return expectJson ? errorJson : "**HATA:** API Hatası (${response.statusCode})";
-      }
-    } catch (e) {
-      final errorJson = '{"error": "İnternet bağlantınızda bir sorun var gibi görünüyor veya API yanıtı çözümlenemedi: ${e.toString()}"}';
-      return expectJson ? errorJson : "**HATA:** Ağ veya Format Hatası.";
-    }
   }
 
   String _encodeTopicPerformances(Map<String, Map<String, TopicPerformanceModel>> performances) {
@@ -108,7 +128,7 @@ class AiService {
     required UserModel user,
     required List<TestModel> tests,
     required String pacing,
-    String? revisionRequest, // YENİ EKLENDİ
+    String? revisionRequest,
   }) async {
     if (user.selectedExam == null) {
       return '{"error":"Analiz için önce bir sınav seçmelisiniz."}';
@@ -137,7 +157,7 @@ class AiService {
             subjectAverages, topicPerformancesJson,
             availabilityJson, weeklyPlanJson,
             completedTasksJson,
-            revisionRequest: revisionRequest // YENİ EKLENDİ
+            revisionRequest: revisionRequest
         );
         break;
       case ExamType.lgs:
@@ -146,7 +166,7 @@ class AiService {
             avgNet, subjectAverages,
             pacing, daysUntilExam,
             topicPerformancesJson, availabilityJson,
-            revisionRequest: revisionRequest // YENİ EKLENDİ
+            revisionRequest: revisionRequest
         );
         break;
       default:
@@ -156,7 +176,7 @@ class AiService {
             pacing, daysUntilExam,
             topicPerformancesJson, availabilityJson,
             examType.displayName,
-            revisionRequest: revisionRequest // YENİ EKLENDİ
+            revisionRequest: revisionRequest
         );
         break;
     }
