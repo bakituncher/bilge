@@ -18,6 +18,8 @@ import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
 import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/command_center_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
+// Yeni ekranı import ediyoruz
+import 'package:bilge_ai/features/strategic_planning/screens/strategy_review_screen.dart';
 import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
@@ -64,11 +66,25 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
             path: AppRoutes.aiHub,
             builder: (context, state) => const AiHubScreen(),
             routes: [
-              GoRoute(path: AppRoutes.strategicPlanning, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const StrategicPlanningScreen()),
+              GoRoute(
+                  path: AppRoutes.strategicPlanning,
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) => const StrategicPlanningScreen(),
+                  // Yeni Strateji Onay Ekranı'nı, Stratejik Planlama'nın bir alt rotası yapıyoruz
+                  routes: [
+                    GoRoute(
+                      path: AppRoutes.strategyReview, // 'strategy-review'
+                      parentNavigatorKey: rootNavigatorKey,
+                      builder: (context, state) {
+                        final result = state.extra as Map<String, dynamic>;
+                        return StrategyReviewScreen(generationResult: result);
+                      },
+                    ),
+                  ]
+              ),
               GoRoute(path: AppRoutes.commandCenter, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => CommandCenterScreen(user: state.extra as UserModel)),
               GoRoute(path: AppRoutes.weaknessWorkshop, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeaknessWorkshopScreen()),
               GoRoute(path: AppRoutes.motivationChat, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const MotivationChatScreen()),
-              // YENİ ROTAYI BURAYA EKLİYORUZ
               GoRoute(
                   path: AppRoutes.coachPushed,
                   parentNavigatorKey: rootNavigatorKey,

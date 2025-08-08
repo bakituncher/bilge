@@ -22,7 +22,10 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
   StrategyGenerationNotifier(this._ref) : super(const AsyncValue.data(null));
 
-  Future<void> generatePlan() async {
+  // *******************************************************************
+  // * İSTEĞİNİZE GÖRE DEĞİŞTİRİLEN BÖLÜM BURASI *
+  // *******************************************************************
+  Future<void> generatePlan(BuildContext context) async { // context'i ekledik
     state = const AsyncValue.loading();
     _ref.read(planningStepProvider.notifier).state = PlanningStep.loading;
 
@@ -48,18 +51,20 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
         throw Exception(decodedData['error']);
       }
 
-      final longTermStrategy = decodedData['longTermStrategy'];
-      final weeklyPlan = decodedData['weeklyPlan'];
+      // ARTIK DOĞRUDAN KAYDETMİYORUZ, ÖNİZLEME EKRANINA GÖNDERİYORUZ
+      // Firestore'a kaydetme işini yeni ekrandaki "Onayla" butonu yapacak.
 
-      await _ref.read(firestoreServiceProvider).updateStrategicPlan(
-        userId: user.id,
-        pacing: pacing.name,
-        longTermStrategy: longTermStrategy,
-        weeklyPlan: weeklyPlan,
-      );
+      final result = {
+        'longTermStrategy': decodedData['longTermStrategy'],
+        'weeklyPlan': decodedData['weeklyPlan'],
+        'pacing': pacing.name,
+      };
 
-      // ignore: unused_result
-      _ref.refresh(userProfileProvider);
+      // Yönlendirmeyi burada yapıyoruz
+      if (context.mounted) {
+        context.go('/ai-hub/strategic-planning/${AppRoutes.strategyReview}', extra: result);
+      }
+
       _ref.read(planningStepProvider.notifier).state = PlanningStep.dataCheck;
       state = const AsyncValue.data(null);
     } catch (e, s) {
@@ -251,15 +256,13 @@ class StrategicPlanningScreen extends ConsumerWidget {
           question: "Bilgi Galaksin güncel mi?",
           description: "Konu hakimiyet verilerin, bu hafta hangi konulara odaklanacağımızı belirleyecek.",
           buttonText: "Galaksiyi Ziyaret Et",
-          // KIRMIZI EKRAN HATASININ ÇÖZÜLDÜĞÜ YER 1
-          onTap: () => context.push('${AppRoutes.aiHub}/${AppRoutes.coachPushed}'),
+          onTap: () => context.push('/ai-hub/${AppRoutes.coachPushed}'),
         ),
         _ConfirmationItem(
           icon: Icons.history_edu_rounded,
           question: "Deneme sonuçların güncel mi?",
           description: "Son denemen $lastTestDate tarihinde eklendi. Yeni bir deneme eklemek, planı daha isabetli yapar.",
           buttonText: "Yeni Deneme Ekle",
-          // HATANIN ÇÖZÜLDÜĞÜ YER 2
           onTap: () => context.push('/home/add-test'),
         ),
         const SizedBox(height: 32),
@@ -307,7 +310,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 48),
             ElevatedButton.icon(
-              onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(),
+              onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(context), // context'i buradan gönder
               icon: const Icon(Icons.auto_awesome),
               label: const Text("Stratejiyi Oluştur"),
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),

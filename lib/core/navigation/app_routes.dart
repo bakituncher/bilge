@@ -23,4 +23,7 @@ class AppRoutes {
   static const String weaknessWorkshop = 'weakness-workshop';
   static const String motivationChat = 'motivation-chat';
   static const String coachPushed = 'coach-pushed'; // BU SATIRI EKLEYİN
+  static const String strategyReview = 'strategy-review'; // BU SATIRI EKLEYİN
+
+
 }
