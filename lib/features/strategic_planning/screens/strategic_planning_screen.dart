@@ -22,10 +22,7 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
   StrategyGenerationNotifier(this._ref) : super(const AsyncValue.data(null));
 
-  // *******************************************************************
-  // * İSTEĞİNİZE GÖRE DEĞİŞTİRİLEN BÖLÜM BURASI *
-  // *******************************************************************
-  Future<void> generatePlan(BuildContext context) async { // context'i ekledik
+  Future<void> generatePlan(BuildContext context) async {
     state = const AsyncValue.loading();
     _ref.read(planningStepProvider.notifier).state = PlanningStep.loading;
 
@@ -51,16 +48,12 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
         throw Exception(decodedData['error']);
       }
 
-      // ARTIK DOĞRUDAN KAYDETMİYORUZ, ÖNİZLEME EKRANINA GÖNDERİYORUZ
-      // Firestore'a kaydetme işini yeni ekrandaki "Onayla" butonu yapacak.
-
       final result = {
         'longTermStrategy': decodedData['longTermStrategy'],
         'weeklyPlan': decodedData['weeklyPlan'],
         'pacing': pacing.name,
       };
 
-      // Yönlendirmeyi burada yapıyoruz
       if (context.mounted) {
         context.go('/ai-hub/strategic-planning/${AppRoutes.strategyReview}', extra: result);
       }
@@ -160,6 +153,9 @@ class StrategicPlanningScreen extends ConsumerWidget {
     }
   }
 
+  // *******************************************************************
+  // * HATANIN ÇÖZÜLDÜĞÜ YER *
+  // *******************************************************************
   Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref, UserModel user) {
     return Scaffold(
       appBar: AppBar(title: const Text("Stratejik Planın Hazır")),
@@ -184,7 +180,8 @@ class StrategicPlanningScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
-                onPressed: () => context.push(AppRoutes.commandCenter, extra: user),
+                // Yönlendirme komutu, tam yolu içerecek şekilde düzeltildi.
+                onPressed: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
                 icon: const Icon(Icons.map_rounded),
                 label: const Text("Komuta Merkezine Git"),
               ),
@@ -310,7 +307,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 48),
             ElevatedButton.icon(
-              onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(context), // context'i buradan gönder
+              onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(context),
               icon: const Icon(Icons.auto_awesome),
               label: const Text("Stratejiyi Oluştur"),
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
