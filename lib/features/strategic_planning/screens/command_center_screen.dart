@@ -5,7 +5,8 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 
-// Strateji metnini ayrıştırmak için bir model
+// ... (StrategyPhase class'ı aynı kalıyor)
+
 class StrategyPhase {
   final String title;
   final String content;
@@ -186,19 +187,23 @@ class _StrategyPhaseCardState extends State<_StrategyPhaseCard> {
                 color: AppTheme.secondaryTextColor,
               ),
             ),
-            AnimatedSize(
-              duration: 300.ms,
-              curve: Curves.easeInOut,
-              child: Visibility(
-                visible: _isExpanded,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: MarkdownBody(
-                    data: widget.phase.content,
-                    styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-                      p: const TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16, height: 1.5),
-                      listBullet: const TextStyle(color: AppTheme.textColor, fontSize: 16, height: 1.5),
-                      strong: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            // SORUN BURADA DA ÇÖZÜLDÜ: Visibility yerine AnimatedSize kullanıldı.
+            ClipRect(
+              child: AnimatedSize(
+                duration: 300.ms,
+                curve: Curves.easeInOut,
+                child: SizedBox(
+                  width: double.infinity,
+                  height: _isExpanded ? null : 0,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    child: MarkdownBody(
+                      data: widget.phase.content,
+                      styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+                        p: const TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16, height: 1.5),
+                        listBullet: const TextStyle(color: AppTheme.textColor, fontSize: 16, height: 1.5),
+                        strong: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
                     ),
                   ),
                 ),

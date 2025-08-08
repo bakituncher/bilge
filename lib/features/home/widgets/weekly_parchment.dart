@@ -86,7 +86,9 @@ class _WeeklyParchmentState extends ConsumerState<WeeklyParchment> with SingleTi
                             ),
                           ));
                     }
+                    // KESİN ÇÖZÜM: ListView'a PageStorageKey eklendi.
                     return ListView.builder(
+                      key: PageStorageKey<String>(dayName), // Bu satır "zıplama" sorununu çözüyor.
                       padding: const EdgeInsets.all(16),
                       itemCount: dailyPlan.schedule.length,
                       itemBuilder: (context, index) {
@@ -154,8 +156,35 @@ class _DestinyTaskCard extends ConsumerStatefulWidget {
   ConsumerState<_DestinyTaskCard> createState() => _DestinyTaskCardState();
 }
 
-class _DestinyTaskCardState extends ConsumerState<_DestinyTaskCard> {
+class _DestinyTaskCardState extends ConsumerState<_DestinyTaskCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _animationController;
   bool _isExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _toggleExpanded() {
+    setState(() {
+      _isExpanded = !_isExpanded;
+      if (_isExpanded) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    });
+  }
 
   IconData _getIconForTaskType(String type) {
     switch (type.toLowerCase()) {
@@ -181,9 +210,8 @@ class _DestinyTaskCardState extends ConsumerState<_DestinyTaskCard> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
       child: InkWell(
-        onTap: () => setState(() => _isExpanded = !_isExpanded),
+        onTap: _toggleExpanded,
         borderRadius: BorderRadius.circular(12),
-        // DÜZELTİLDİ: AnimatedContainer -> Container
         child: Container(
           padding: const EdgeInsets.all(16.0),
           decoration: BoxDecoration(
@@ -207,26 +235,28 @@ class _DestinyTaskCardState extends ConsumerState<_DestinyTaskCard> {
                   Expanded(child: _buildRichTextFromMarkdown("**${widget.item.time}:** ${widget.item.activity}", baseStyle: Theme.of(context).textTheme.bodyLarge?.copyWith(color: isCompleted ? AppTheme.secondaryTextColor : Colors.white, decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none), boldStyle: TextStyle(fontWeight: FontWeight.bold, color: isCompleted ? AppTheme.secondaryTextColor : Colors.white))),
                 ],
               ),
-              // DÜZELTİLDİ: AnimatedSize -> Kaldırıldı
-              Visibility(
-                visible: _isExpanded,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 16.0),
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
-                        userId: widget.userId,
-                        dateKey: widget.dateKey,
-                        task: taskIdentifier,
-                        isCompleted: !isCompleted,
-                      );
-                    },
-                    icon: Icon(isCompleted ? Icons.restart_alt_rounded : Icons.check_circle_outline_rounded),
-                    label: Text(isCompleted ? "Mührü Geri Al" : "Görevi Mühürle"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isCompleted ? AppTheme.lightSurfaceColor : AppTheme.secondaryColor,
-                      foregroundColor: isCompleted ? Colors.white : AppTheme.primaryColor,
-                      minimumSize: const Size(double.infinity, 44),
+              SizeTransition(
+                sizeFactor: CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+                child: FadeTransition(
+                  opacity: _animationController,
+                  child: Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
+                          userId: widget.userId,
+                          dateKey: widget.dateKey,
+                          task: taskIdentifier,
+                          isCompleted: !isCompleted,
+                        );
+                      },
+                      icon: Icon(isCompleted ? Icons.restart_alt_rounded : Icons.check_circle_outline_rounded),
+                      label: Text(isCompleted ? "Mührü Geri Al" : "Görevi Mühürle"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isCompleted ? AppTheme.lightSurfaceColor : AppTheme.secondaryColor,
+                        foregroundColor: isCompleted ? Colors.white : AppTheme.primaryColor,
+                        minimumSize: const Size(double.infinity, 44),
+                      ),
                     ),
                   ),
                 ),
