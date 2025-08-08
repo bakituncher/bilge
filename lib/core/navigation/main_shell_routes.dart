@@ -68,6 +68,12 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
               GoRoute(path: AppRoutes.commandCenter, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => CommandCenterScreen(user: state.extra as UserModel)),
               GoRoute(path: AppRoutes.weaknessWorkshop, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeaknessWorkshopScreen()),
               GoRoute(path: AppRoutes.motivationChat, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const MotivationChatScreen()),
+              // YENİ ROTAYI BURAYA EKLİYORUZ
+              GoRoute(
+                  path: AppRoutes.coachPushed,
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) => const CoachScreen()
+              ),
             ]),
       ]),
       StatefulShellBranch(routes: [GoRoute(path: AppRoutes.arena, builder: (context, state) => const ArenaScreen())]),
