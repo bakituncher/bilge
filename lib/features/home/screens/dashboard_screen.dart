@@ -7,7 +7,8 @@ import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_header.dart';
 import 'package:bilge_ai/features/home/widgets/todays_mission_card.dart';
-import 'package:bilge_ai/features/home/widgets/weekly_parchment.dart';
+// DEĞİŞİKLİK: Eski widget'ı silip yenisini ekliyoruz
+import 'package:bilge_ai/features/home/widgets/todays_plan.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_widgets/motivational_quote_card.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_widgets/dashboard_stats_row.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_widgets/action_center.dart';
@@ -92,7 +93,8 @@ class DashboardScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
                 const ActionCenter(),
                 const SizedBox(height: 24),
-                const WeeklyParchment(),
+                // DEĞİŞİKLİK: Eski widget'ı silip yenisini ekliyoruz
+                const TodaysPlan(),
               ].animate(interval: 80.ms).fadeIn(duration: 400.ms).slideY(begin: 0.1),
             );
           },
