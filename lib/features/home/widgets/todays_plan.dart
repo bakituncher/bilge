@@ -13,8 +13,6 @@ import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 
-
-// DEĞİŞİKLİK: Widget, sayfa durumunu takip etmek için Stateful yapıldı.
 class TodaysPlan extends ConsumerStatefulWidget {
   const TodaysPlan({super.key});
 
@@ -29,6 +27,7 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
   @override
   void initState() {
     super.initState();
+    // Başlangıç sayfasını belirlemek için ref'i burada okuyamayız, build içinde yapacağız.
     _pageController = PageController(viewportFraction: 0.9);
     _pageController.addListener(() {
       if (_pageController.page?.round() != _currentPage) {
@@ -47,7 +46,62 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
 
   @override
   Widget build(BuildContext context) {
-    // DEĞİŞİKLİK: PageView ve gösterge bir Column içine alındı.
+    final user = ref.watch(userProfileProvider).value;
+    final tests = ref.watch(testsProvider).value;
+
+    if (user == null || tests == null) {
+      return const SizedBox(height: 420); // Yüklenirken boşluk bırak
+    }
+
+    // Haftalık plan tamamlama oranını hesapla
+    final weeklyPlan = user.weeklyPlan != null ? WeeklyPlan.fromJson(user.weeklyPlan!) : null;
+    int totalTasks = 0;
+    int completedCount = 0;
+    if (weeklyPlan != null) {
+      totalTasks = weeklyPlan.plan.expand((day) => day.schedule).length;
+      if (totalTasks > 0) {
+        final today = DateTime.now();
+        final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
+        for (var dailyPlan in weeklyPlan.plan) {
+          final dayIndex = weeklyPlan.plan.indexWhere((p) => p.day == dailyPlan.day);
+          if (dayIndex == -1) continue;
+          final dateForDay = startOfWeek.add(Duration(days: dayIndex));
+          final dateKey = DateFormat('yyyy-MM-dd').format(dateForDay);
+          final completedForThisDay = user.completedDailyTasks[dateKey] ?? [];
+          for (var task in dailyPlan.schedule) {
+            final taskIdentifier = '${task.time}-${task.activity}';
+            if (completedForThisDay.contains(taskIdentifier)) {
+              completedCount++;
+            }
+          }
+        }
+      }
+    }
+
+    final bool isPlanBehind = totalTasks > 0 && (completedCount / totalTasks) < 0.5;
+    // Eğer başlangıç sayfası değiştiyse ve controller'ın bir sayfası varsa, atla.
+    final initialPage = isPlanBehind ? 1 : 0;
+    if (_pageController.hasClients && _pageController.page?.round() != initialPage && _currentPage != initialPage) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if(mounted) {
+          _pageController.jumpToPage(initialPage);
+        }
+      });
+    }
+
+    final List<Widget> pages = [
+      const _TodaysMissionCard(),
+      const _WeeklyPlanCard(),
+      _PerformanceCard(user: user, tests: tests), // YENİ KART
+    ];
+
+    if (isPlanBehind) {
+      // Haftalık Plan'ı başa al
+      final weeklyPlanCard = pages.removeAt(1);
+      pages.insert(0, weeklyPlanCard);
+    }
+
+
     return Column(
       children: [
         SizedBox(
@@ -55,23 +109,19 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
           child: PageView(
             controller: _pageController,
             padEnds: false,
-            children: const [
-              _TodaysMissionCard(),
-              _WeeklyPlanCard(),
-            ],
+            children: pages,
           ),
         ),
         const SizedBox(height: 12),
-        _buildPageIndicator(),
+        _buildPageIndicator(pages.length),
       ],
     );
   }
 
-  // YENİ WIDGET: Sayfa geçişini gösteren noktalar
-  Widget _buildPageIndicator() {
+  Widget _buildPageIndicator(int count) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(2, (index) {
+      children: List.generate(count, (index) {
         return AnimatedContainer(
           duration: 300.ms,
           margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -87,8 +137,7 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
   }
 }
 
-
-// DİĞER WIDGET'LARDA DEĞİŞİKLİK YOK, AYNEN KALIYOR...
+// ... (Diğer kartlar aynı kalıyor, _WeeklyPlanCard'da küçük iyileştirmeler var)
 
 class _TodaysMissionCard extends ConsumerWidget {
   const _TodaysMissionCard();
@@ -221,6 +270,91 @@ class _TodaysMissionCard extends ConsumerWidget {
   }
 }
 
+// YENİ WIDGET: PERFORMANS KARTI
+class _PerformanceCard extends ConsumerWidget {
+  final UserModel user;
+  final List<TestModel> tests;
+  const _PerformanceCard({required this.user, required this.tests});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
+        margin: const EdgeInsets.only(left: 8, right: 16),
+        elevation: 4,
+        shadowColor: AppTheme.successColor.withOpacity(0.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: FutureBuilder<Exam?>(
+            future: user.selectedExam != null ? ExamData.getExamByType(ExamType.values.byName(user.selectedExam!)) : null,
+            builder: (context, examSnapshot) {
+              if (!examSnapshot.hasData || tests.isEmpty) {
+                return const Center(child: Text("Analiz için veri bekleniyor...", style: TextStyle(color: AppTheme.secondaryTextColor)));
+              }
+              final analysis = StatsAnalysis(tests, user.topicPerformances, examSnapshot.data!, user: user);
+              final warriorScore = analysis.warriorScore;
+
+              return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text("Savaşçı Skoru", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: 150,
+                        height: 150,
+                        child: TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0.0, end: warriorScore / 100),
+                          duration: 1200.ms,
+                          curve: Curves.elasticOut,
+                          builder: (context, value, child) {
+                            return Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                CircularProgressIndicator(
+                                  value: value,
+                                  strokeWidth: 10,
+                                  backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Color.lerp(AppTheme.accentColor, AppTheme.successColor, value)!,
+                                  ),
+                                  strokeCap: StrokeCap.round,
+                                ),
+                                Center(
+                                  child: Text(
+                                    warriorScore.toStringAsFixed(1),
+                                    style: textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Text(
+                        "Genel net, doğruluk ve istikrarını birleştiren özel puanın.",
+                        textAlign: TextAlign.center,
+                        style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
+                      ),
+                      const Spacer(),
+                      Align(
+                          alignment: Alignment.bottomRight,
+                          child: TextButton(onPressed: ()=> context.push(AppRoutes.stats), child: const Text("Detaylı Analiz"))
+                      ),
+                    ],
+                  )
+              );
+            }
+        )
+    );
+  }
+}
+
+
 class _WeeklyPlanCard extends ConsumerWidget {
   const _WeeklyPlanCard();
 
@@ -256,10 +390,10 @@ class _PlanView extends ConsumerWidget {
   final WeeklyPlan? weeklyPlan;
   final String userId;
   final List<String> _daysOfWeek = const [
-    'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'
+    'Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'
   ];
   final List<String> _daysOfWeekShort = const [
-    'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'
+    'Pzt','Sal','Çar','Per','Cum','Cmt','Paz'
   ];
 
   const _PlanView({required this.weeklyPlan, required this.userId});
@@ -281,15 +415,55 @@ class _PlanView extends ConsumerWidget {
     final dateForTab = startOfWeek.add(Duration(days: selectedDayIndex));
     final dateKey = DateFormat('yyyy-MM-dd').format(dateForTab);
 
+    // Günlük ilerlemeyi hesapla
+    final dailyTasks = dailyPlan.schedule;
+    final completedDailyTasks = (ref.watch(userProfileProvider).value?.completedDailyTasks[dateKey] ?? []).toSet();
+    final completedCount = dailyTasks.where((task) {
+      final taskIdentifier = '${task.time}-${task.activity}';
+      return completedDailyTasks.contains(taskIdentifier);
+    }).length;
+    final dailyProgress = dailyTasks.isNotEmpty ? completedCount / dailyTasks.length : 0.0;
+
+
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Text('Haftalık Plan',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold)),
+          padding: const EdgeInsets.fromLTRB(16,16,16,8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Haftalık Plan',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              SizedBox(
+                width: 40,
+                height: 40,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: dailyProgress),
+                  duration: 500.ms,
+                  builder: (context, value, child) => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CircularProgressIndicator(
+                        value: value,
+                        strokeWidth: 5,
+                        backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
+                        color: AppTheme.successColor,
+                      ),
+                      Center(
+                        child: Text(
+                          '${(value * 100).toInt()}%',
+                          style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            ],
+          ),
         ),
         _DaySelector(days: _daysOfWeekShort),
         const Divider(height: 1, color: AppTheme.lightSurfaceColor),
