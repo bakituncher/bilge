@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/repositories/ai_service.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
+import 'package:bilge_ai/data/models/user_model.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
+import 'package:bilge_ai/data/models/test_model.dart';
 
 // RUH HALİ SEÇENEKLERİ
-enum Mood { focused, neutral, tired, stressed }
+enum Mood { focused, neutral, tired, stressed, badResult, goodResult }
 
 // EKRANIN DURUMUNU YÖNETEN STATE
 final chatScreenStateProvider = StateProvider<Mood?>((ref) => null);
@@ -14,7 +17,8 @@ final chatScreenStateProvider = StateProvider<Mood?>((ref) => null);
 final chatHistoryProvider = StateProvider<List<ChatMessage>>((ref) => []);
 
 class MotivationChatScreen extends ConsumerStatefulWidget {
-  const MotivationChatScreen({super.key});
+  final String? initialPromptType;
+  const MotivationChatScreen({super.key, this.initialPromptType});
 
   @override
   ConsumerState<MotivationChatScreen> createState() => _MotivationChatScreenState();
@@ -29,9 +33,14 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
   void initState() {
     super.initState();
     // Ekran ilk açıldığında geçmişi temizle ve başlangıç durumuna getir.
-    Future.microtask(() {
+    Future.microtask(() async {
       ref.read(chatHistoryProvider.notifier).state = [];
-      ref.read(chatScreenStateProvider.notifier).state = null;
+      if (widget.initialPromptType != null) {
+        // Eğer dışarıdan bir prompt tipiyle gelmişsek, direkt mesajı oluştur
+        await _onMoodSelected(widget.initialPromptType!);
+      } else {
+        ref.read(chatScreenStateProvider.notifier).state = null;
+      }
     });
   }
 
@@ -58,8 +67,14 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
 
     // AI yanıtını al
     final aiService = ref.read(aiServiceProvider);
-    final history = ref.read(chatHistoryProvider);
-    final aiResponse = await aiService.getMotivationalResponse(history);
+    final user = ref.read(userProfileProvider).value!;
+    final tests = ref.read(testsProvider).value!;
+    final aiResponse = await aiService.getPersonalizedMotivation(
+      user: user,
+      tests: tests,
+      promptType: 'user_chat',
+      emotion: text,
+    );
 
     // AI'ın yanıtını ekle ve animasyonu durdur
     ref.read(chatHistoryProvider.notifier).update((state) => [...state, ChatMessage(aiResponse, isUser: false)]);
@@ -67,37 +82,57 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
     _scrollToBottom(isNewMessage: true);
   }
 
-  void _onMoodSelected(Mood mood) {
-    ref.read(chatScreenStateProvider.notifier).state = mood;
-    String moodMessage;
-    String aiGreeting;
-    switch (mood) {
-      case Mood.focused:
-        moodMessage = "Harika hissediyorum, tam odaklandım!";
-        aiGreeting = "Bu harika! Zirveye giden yolda bu enerjiye sahip olmak en büyük güç. Bu odaklanmayı nasıl daha ileri taşıyabiliriz?";
-        break;
-      case Mood.neutral:
-        moodMessage = "Bugün normal bir gün.";
-        aiGreeting = "Anlıyorum. Bazen en verimli anlar, sakin zamanlarda ortaya çıkar. Aklında belirli bir konu var mı, yoksa genel bir sohbete ne dersin?";
-        break;
-      case Mood.tired:
-        moodMessage = "Çok yorgun hissediyorum.";
-        aiGreeting = "Dinlenmek, ileriye atılmak için güç toplamaktır. Bu yorgunluğu anlıyorum. İstersen sana enerji verecek kısa bir hikaye anlatabilirim ya da sadece dinleyebilirim.";
-        break;
-      case Mood.stressed:
-        moodMessage = "Biraz stresliyim.";
-        aiGreeting = "Stres, büyük hedeflere giden yolda bir yol arkadaşı olabilir ama kontrolü ona bırakmamalıyız. Bu yükü hafifletmek için buradayım. Anlatmak ister misin?";
-        break;
+  Future<void> _onMoodSelected(String moodType) async {
+    final user = ref.read(userProfileProvider).value!;
+    final tests = ref.read(testsProvider).value!;
+
+    String userMessage;
+    Mood mood;
+    if (moodType == 'welcome') {
+      mood = Mood.neutral;
+      userMessage = "Bugün nasıl hissediyorsun?";
+    } else if (moodType == 'new_test_good') {
+      mood = Mood.goodResult;
+      userMessage = "Çok iyi bir net yaptım!";
+    } else if (moodType == 'new_test_bad') {
+      mood = Mood.badResult;
+      userMessage = "Deneme çok kötü geçti...";
+    } else {
+      mood = Mood.neutral;
+      userMessage = _getMoodMessageFromEnum(Mood.values.firstWhere((e) => e.name == moodType));
     }
-    // Seçilen ruh halini ve AI'ın ilk mesajını geçmişe ekle
+
+    ref.read(chatScreenStateProvider.notifier).state = mood;
+
+    setState(() => _isTyping = true);
+
+    final aiService = ref.read(aiServiceProvider);
+    final aiResponse = await aiService.getPersonalizedMotivation(
+      user: user,
+      tests: tests,
+      promptType: moodType,
+      emotion: userMessage,
+    );
+
     ref.read(chatHistoryProvider.notifier).state = [
-      ChatMessage(moodMessage, isUser: true),
-      ChatMessage(aiGreeting, isUser: false),
+      ChatMessage(aiResponse, isUser: false),
     ];
+
+    setState(() => _isTyping = false);
+    _scrollToBottom(isNewMessage: true);
+  }
+
+  String _getMoodMessageFromEnum(Mood mood) {
+    switch (mood) {
+      case Mood.focused: return "Harika hissediyorum, tam odaklandım!";
+      case Mood.neutral: return "Bugün normal bir gün.";
+      case Mood.tired: return "Çok yorgun hissediyorum.";
+      case Mood.stressed: return "Biraz stresliyim.";
+      default: return "";
+    }
   }
 
   void _scrollToBottom({bool isNewMessage = false}) {
-    // *** BURADAKİ YAZIM HATASI DÜZELTİLDİ ***
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -113,12 +148,12 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
   Widget build(BuildContext context) {
     final history = ref.watch(chatHistoryProvider);
     final selectedMood = ref.watch(chatScreenStateProvider);
-    final showQuickReplies = history.isNotEmpty && history.length < 4; // Ruh hali seçildikten sonra göster
+    final showQuickReplies = history.isNotEmpty && history.length < 4;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Motivasyon Karargahı'),
+        title: const Text('Zihinsel Harbiye'),
         backgroundColor: AppTheme.primaryColor.withOpacity(0.5),
         elevation: 0,
       ),
@@ -140,10 +175,10 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
                 duration: 500.ms,
                 transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
                 child: selectedMood == null
-                    ? _MoodSelectionView(onMoodSelected: _onMoodSelected)
+                    ? _MoodSelectionView(onMoodSelected: (mood) => _onMoodSelected(mood.name))
                     : ListView.builder(
                   controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 100, 16, 16), // AppBar için boşluk
+                  padding: const EdgeInsets.fromLTRB(16, 100, 16, 16),
                   itemCount: history.length + (_isTyping ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (_isTyping && index == history.length) {

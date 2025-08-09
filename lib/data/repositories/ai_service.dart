@@ -10,6 +10,7 @@ import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/core/prompts/strategy_prompts.dart';
 import 'package:bilge_ai/core/prompts/workshop_prompts.dart';
+import 'package:bilge_ai/core/prompts/motivation_prompts.dart';
 import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 
 class ChatMessage {
@@ -26,12 +27,9 @@ class AiService {
   AiService();
 
   final String _apiKey = AppConfig.geminiApiKey;
-  // GÜNCELLEME: En güçlü ve güncel modele geçildi.
   final String _apiUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent";
 
-  /// YENİLENMİŞ "DEMİR SİNYAL" OPERASYONU
-  /// Bu fonksiyon, 503 gibi geçici sunucu hatalarında isteği otomatik olarak yeniden dener.
   Future<String> _callGemini(String prompt, {bool expectJson = false}) async {
     if (_apiKey.isEmpty || _apiKey == "YOUR_GEMINI_API_KEY_HERE") {
       final errorJson =
@@ -39,7 +37,7 @@ class AiService {
       return expectJson ? errorJson : "**HATA:** API Anahtarı bulunamadı.";
     }
 
-    const maxRetries = 3; // Toplam deneme sayısı
+    const maxRetries = 3;
     for (int i = 0; i < maxRetries; i++) {
       try {
         final body = {
@@ -54,35 +52,29 @@ class AiService {
           Uri.parse('$_apiUrl?key=$_apiKey'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(body),
-        ).timeout(const Duration(seconds: 45)); // Zaman aşımı eklendi
+        ).timeout(const Duration(seconds: 45));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(utf8.decode(response.bodyBytes));
           if (data['candidates'] != null && data['candidates'][0]['content'] != null) {
-            return data['candidates'][0]['content']['parts'][0]['text']; // Başarılı, döngüden çık.
+            return data['candidates'][0]['content']['parts'][0]['text'];
           } else {
-            // Cevap formatı bozuksa, bunu da bir hata olarak ele al
             throw Exception('Yapay zeka servisinden beklenmedik bir formatta cevap alındı.');
           }
         } else if ((response.statusCode == 503 || response.statusCode == 500) && i < maxRetries - 1) {
-          // 503 (Servis Mevcut Değil) veya 500 (Sunucu Hatası) alındı ve hala deneme hakkımız var.
-          await Future.delayed(Duration(seconds: i + 2)); // 2, 3 saniye bekle
-          continue; // Döngünün bir sonraki adımına geç.
+          await Future.delayed(Duration(seconds: i + 2));
+          continue;
         } else {
-          // Başka bir kalıcı hata veya son denemede de başarısızlık.
           throw Exception('Yapay zeka servisinden bir cevap alınamadı. (Kod: ${response.statusCode})');
         }
       } catch (e) {
-        // Döngünün son denemesinde hata oluşursa veya zaman aşımı gibi bir sorun olursa
         if (i == maxRetries - 1) {
           final errorJson = '{"error": "Yapay zeka sunucuları şu anda çok yoğun veya internet bağlantınızda bir sorun var. Lütfen birkaç dakika sonra tekrar deneyin. Detay: ${e.toString()}"}';
           return expectJson ? errorJson : "**HATA:** Sunucular geçici olarak hizmet dışı.";
         }
-        // Henüz son deneme değilse, kısa bir süre bekle ve tekrar dene
         await Future.delayed(const Duration(seconds: 2));
       }
     }
-    // Bu noktaya asla gelinmemeli ama güvenlik için bir geri dönüş değeri
     return '{"error": "Tüm yeniden deneme denemeleri başarısız oldu."}';
   }
 
@@ -215,16 +207,25 @@ class AiService {
     return _callGemini(prompt, expectJson: true);
   }
 
-  Future<String> getMotivationalResponse(List<ChatMessage> history) {
-    final prompt = """
-      Sen BilgeAI adında, öğrencilerle sohbet eden, onların moralini yükselten, anlayışlı ve bilge bir dostsun.
-      Kısa, net ve samimi cevaplar ver. Asla bir yapay zeka olduğunu söyleme.
-      
-      SOHBET GEÇMİŞİ:
-      ${history.map((m) => "${m.isUser ? 'Öğrenci' : 'BilgeAI'}: ${m.text}").join('\n')}
-      
-      Öğrencinin son mesajına uygun, motive edici ve pozitif bir cevap ver.
-      """;
+  // YENİ EK: Psişik Harbiye İçin Motivasyon Üretimi
+  Future<String> getPersonalizedMotivation({
+    required UserModel user,
+    required List<TestModel> tests,
+    required String promptType,
+    required String? emotion,
+  }) async {
+    final examType = user.selectedExam != null ? ExamType.values.byName(user.selectedExam!) : null;
+    final examData = examType != null ? await ExamData.getExamByType(examType) : null;
+    final analysis = tests.isNotEmpty && examData != null ? StatsAnalysis(tests, user.topicPerformances, examData, user: user) : null;
+
+    final prompt = getMotivationPrompt(
+      user: user,
+      tests: tests,
+      analysis: analysis,
+      examName: examType?.displayName,
+      promptType: promptType,
+      emotion: emotion,
+    );
     return _callGemini(prompt, expectJson: false);
   }
 }
