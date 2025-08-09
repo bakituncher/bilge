@@ -24,19 +24,19 @@ class MotivationChatScreen extends ConsumerStatefulWidget {
   ConsumerState<MotivationChatScreen> createState() => _MotivationChatScreenState();
 }
 
-class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
+class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> with TickerProviderStateMixin {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   bool _isTyping = false;
+  late AnimationController _backgroundAnimationController;
 
   @override
   void initState() {
     super.initState();
-    // Ekran ilk açıldığında geçmişi temizle ve başlangıç durumuna getir.
+    _backgroundAnimationController = AnimationController(vsync: this, duration: 4.seconds)..repeat(reverse: true);
     Future.microtask(() async {
       ref.read(chatHistoryProvider.notifier).state = [];
       if (widget.initialPromptType != null) {
-        // Eğer dışarıdan bir prompt tipiyle gelmişsek, direkt mesajı oluştur
         await _onMoodSelected(widget.initialPromptType!);
       } else {
         ref.read(chatScreenStateProvider.notifier).state = null;
@@ -44,28 +44,25 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
     });
   }
 
-  // Hızlı yanıt seçenekleri
-  final List<String> _quickReplies = [
-    "Bugün çok yorgunum.",
-    "Stresli hissediyorum.",
-    "Konular yetişmeyecek gibi...",
-    "Sadece biraz motivasyon istiyorum.",
-  ];
+  @override
+  void dispose() {
+    _backgroundAnimationController.dispose();
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   void _sendMessage({String? quickReply}) async {
     final text = quickReply ?? _controller.text.trim();
     if (text.isEmpty) return;
 
-    // Kullanıcının mesajını geçmişe ekle
     ref.read(chatHistoryProvider.notifier).update((state) => [...state, ChatMessage(text, isUser: true)]);
     _controller.clear();
     FocusScope.of(context).unfocus();
 
-    // AI'ın "yazıyor" animasyonunu başlat
     setState(() => _isTyping = true);
     _scrollToBottom(isNewMessage: true);
 
-    // AI yanıtını al
     final aiService = ref.read(aiServiceProvider);
     final user = ref.read(userProfileProvider).value!;
     final tests = ref.read(testsProvider).value!;
@@ -76,7 +73,6 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
       emotion: text,
     );
 
-    // AI'ın yanıtını ekle ve animasyonu durdur
     ref.read(chatHistoryProvider.notifier).update((state) => [...state, ChatMessage(aiResponse, isUser: false)]);
     setState(() => _isTyping = false);
     _scrollToBottom(isNewMessage: true);
@@ -86,50 +82,24 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
     final user = ref.read(userProfileProvider).value!;
     final tests = ref.read(testsProvider).value!;
 
-    String userMessage;
-    Mood mood;
-    if (moodType == 'welcome') {
-      mood = Mood.neutral;
-      userMessage = "Bugün nasıl hissediyorsun?";
-    } else if (moodType == 'new_test_good') {
-      mood = Mood.goodResult;
-      userMessage = "Çok iyi bir net yaptım!";
-    } else if (moodType == 'new_test_bad') {
-      mood = Mood.badResult;
-      userMessage = "Deneme çok kötü geçti...";
-    } else {
-      mood = Mood.neutral;
-      userMessage = _getMoodMessageFromEnum(Mood.values.firstWhere((e) => e.name == moodType));
-    }
-
+    final Map<String, Mood> moodMapping = {
+      'welcome': Mood.neutral, 'new_test_good': Mood.goodResult,
+      'new_test_bad': Mood.badResult, 'focused': Mood.focused,
+      'neutral': Mood.neutral, 'tired': Mood.tired, 'stressed': Mood.stressed,
+    };
+    final mood = moodMapping[moodType] ?? Mood.neutral;
     ref.read(chatScreenStateProvider.notifier).state = mood;
 
     setState(() => _isTyping = true);
 
     final aiService = ref.read(aiServiceProvider);
     final aiResponse = await aiService.getPersonalizedMotivation(
-      user: user,
-      tests: tests,
-      promptType: moodType,
-      emotion: userMessage,
+      user: user, tests: tests, promptType: moodType, emotion: null,
     );
 
-    ref.read(chatHistoryProvider.notifier).state = [
-      ChatMessage(aiResponse, isUser: false),
-    ];
-
+    ref.read(chatHistoryProvider.notifier).state = [ChatMessage(aiResponse, isUser: false)];
     setState(() => _isTyping = false);
     _scrollToBottom(isNewMessage: true);
-  }
-
-  String _getMoodMessageFromEnum(Mood mood) {
-    switch (mood) {
-      case Mood.focused: return "Harika hissediyorum, tam odaklandım!";
-      case Mood.neutral: return "Bugün normal bir gün.";
-      case Mood.tired: return "Çok yorgun hissediyorum.";
-      case Mood.stressed: return "Biraz stresliyim.";
-      default: return "";
-    }
   }
 
   void _scrollToBottom({bool isNewMessage = false}) {
@@ -148,26 +118,32 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
   Widget build(BuildContext context) {
     final history = ref.watch(chatHistoryProvider);
     final selectedMood = ref.watch(chatScreenStateProvider);
-    final showQuickReplies = history.isNotEmpty && history.length < 4;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('Zihinsel Harbiye'),
-        backgroundColor: AppTheme.primaryColor.withOpacity(0.5),
+        backgroundColor: Colors.black.withOpacity(0.2),
         elevation: 0,
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppTheme.primaryColor,
-              AppTheme.cardColor.withOpacity(0.8),
-            ],
-          ),
-        ),
+      body: AnimatedBuilder(
+        animation: _backgroundAnimationController,
+        builder: (context, child) {
+          final color = _getMoodColor(selectedMood);
+          return Container(
+            decoration: BoxDecoration(
+              gradient: RadialGradient(
+                center: Alignment.topCenter,
+                radius: 2.5,
+                colors: [
+                  color.withOpacity(0.3 + (_backgroundAnimationController.value * 0.1)),
+                  AppTheme.primaryColor,
+                ],
+              ),
+            ),
+            child: child,
+          );
+        },
         child: Column(
           children: [
             Expanded(
@@ -175,48 +151,33 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
                 duration: 500.ms,
                 transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: child),
                 child: selectedMood == null
-                    ? _MoodSelectionView(onMoodSelected: (mood) => _onMoodSelected(mood.name))
-                    : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.fromLTRB(16, 100, 16, 16),
-                  itemCount: history.length + (_isTyping ? 1 : 0),
-                  itemBuilder: (context, index) {
-                    if (_isTyping && index == history.length) {
-                      return const _TypingBubble();
-                    }
-                    final message = history[index];
-                    return _MessageBubble(message: message);
-                  },
+                    ? _SmartBriefingView(onPromptSelected: _onMoodSelected)
+                    : Column(
+                  children: [
+                    _BattleSummaryCard(),
+                    Expanded(
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                        itemCount: history.length + (_isTyping ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (_isTyping && index == history.length) {
+                            return const _TypingBubble();
+                          }
+                          final message = history[index];
+                          return _MessageBubble(message: message);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            if (selectedMood != null && showQuickReplies) _buildQuickReplies(),
             if (selectedMood != null) _buildChatInput(),
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildQuickReplies() {
-    return Container(
-      padding: const EdgeInsets.only(bottom: 8, left: 16, right: 16),
-      height: 60,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        children: _quickReplies.map((reply) {
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4.0),
-            child: ActionChip(
-              label: Text(reply),
-              onPressed: () => _sendMessage(quickReply: reply),
-              backgroundColor: AppTheme.lightSurfaceColor,
-              labelStyle: const TextStyle(color: AppTheme.textColor),
-            ),
-          );
-        }).toList(),
-      ),
-    ).animate().fadeIn(duration: 500.ms).slideY(begin: 0.5);
   }
 
   Widget _buildChatInput() {
@@ -233,14 +194,7 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
                   hintText: 'BilgeAI\'ye yaz...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(color: AppTheme.lightSurfaceColor.withOpacity(0.5)),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide(color: AppTheme.lightSurfaceColor.withOpacity(0.5)),
-                  ),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
                   filled: true,
                   fillColor: AppTheme.primaryColor.withOpacity(0.7),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -263,91 +217,158 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> {
       ).animate().fadeIn(duration: 300.ms),
     );
   }
+
+  Color _getMoodColor(Mood? mood) {
+    switch (mood) {
+      case Mood.focused: return AppTheme.secondaryColor;
+      case Mood.goodResult: return AppTheme.successColor;
+      case Mood.stressed:
+      case Mood.badResult: return AppTheme.accentColor;
+      case Mood.tired: return Colors.indigo;
+      default: return AppTheme.lightSurfaceColor;
+    }
+  }
 }
 
-class _MoodSelectionView extends StatelessWidget {
-  final Function(Mood) onMoodSelected;
-  const _MoodSelectionView({required this.onMoodSelected});
+class _SmartBriefingView extends ConsumerWidget {
+  final Function(String) onPromptSelected;
+  const _SmartBriefingView({required this.onPromptSelected});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProfileProvider).value;
+    final tests = ref.watch(testsProvider).value;
+    final List<Widget> briefingCards = [];
+
+    if (user != null && tests != null) {
+      if (tests.isNotEmpty) {
+        briefingCards.add(_BriefingButton(
+          icon: Icons.flag_circle_rounded,
+          title: "Son Denemeyi Değerlendir",
+          subtitle: "En son eklediğin deneme sonucunu masaya yatıralım.",
+          onTap: () {
+            final lastTest = tests.first;
+            final avgNet = user.testCount > 0 ? user.totalNetSum / user.testCount : 0;
+            onPromptSelected(lastTest.totalNet > avgNet ? 'new_test_good' : 'new_test_bad');
+          },
+          delay: 400.ms,
+        ));
+      }
+      if (user.streak > 2) {
+        briefingCards.add(_BriefingButton(
+          icon: Icons.local_fire_department_rounded,
+          title: "${user.streak} Günlük Seri!",
+          subtitle: "Bu harika gidişatı ve motivasyonunu konuşalım.",
+          onTap: () => onPromptSelected('focused'),
+          delay: 500.ms,
+        ));
+      }
+    }
+
+    briefingCards.add(_BriefingButton(
+      icon: Icons.chat_bubble_outline_rounded,
+      title: "Aklında Ne Var?",
+      subtitle: "Sadece sohbet etmek ve içini dökmek için buradayım.",
+      onTap: () => onPromptSelected('neutral'),
+      delay: 600.ms,
+    ));
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const CircleAvatar(
-          backgroundColor: AppTheme.secondaryColor,
-          radius: 40,
-          child: Icon(Icons.auto_awesome, size: 40, color: AppTheme.primaryColor),
-        ).animate().fadeIn(delay: 200.ms).scale(),
+        const CircleAvatar(backgroundColor: AppTheme.secondaryColor, radius: 40,
+            child: Icon(Icons.auto_awesome, size: 40, color: AppTheme.primaryColor))
+            .animate().fadeIn(delay: 200.ms).scale(),
         const SizedBox(height: 24),
-        Text(
-          "Bugün nasıl hissediyorsun?",
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: AppTheme.textColor),
-        ).animate().fadeIn(delay: 300.ms),
+        Text("Zihinsel Harbiye'ye Hoş Geldin", style: Theme.of(context).textTheme.headlineSmall)
+            .animate().fadeIn(delay: 300.ms),
+        const SizedBox(height: 8),
+        Text("Sana nasıl yardımcı olabilirim?", style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.secondaryTextColor))
+            .animate().fadeIn(delay: 300.ms),
         const SizedBox(height: 40),
-        _MoodButton(
-          label: "Odaklanmış",
-          icon: "🔥",
-          onTap: () => onMoodSelected(Mood.focused),
-          delay: 500.ms,
-        ),
-        _MoodButton(
-          label: "Normal",
-          icon: "😊",
-          onTap: () => onMoodSelected(Mood.neutral),
-          delay: 600.ms,
-        ),
-        _MoodButton(
-          label: "Yorgun",
-          icon: "😩",
-          onTap: () => onMoodSelected(Mood.tired),
-          delay: 700.ms,
-        ),
-        _MoodButton(
-          label: "Stresli",
-          icon: "😐",
-          onTap: () => onMoodSelected(Mood.stressed),
-          delay: 800.ms,
-        ),
+        ...briefingCards,
       ],
     );
   }
 }
 
-class _MoodButton extends StatelessWidget {
-  final String label;
-  final String icon;
+class _BriefingButton extends StatelessWidget {
+  final String title, subtitle;
+  final IconData icon;
   final VoidCallback onTap;
   final Duration delay;
-
-  const _MoodButton({
-    required this.label,
-    required this.icon,
-    required this.onTap,
-    required this.delay,
-  });
+  const _BriefingButton({required this.title, required this.subtitle, required this.icon, required this.onTap, required this.delay});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 40),
-      child: OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          side: BorderSide(color: AppTheme.lightSurfaceColor.withOpacity(0.5)),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 16),
-            Text(label, style: Theme.of(context).textTheme.titleLarge),
-          ],
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 24),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Icon(icon, size: 32, color: AppTheme.secondaryColor),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: Theme.of(context).textTheme.titleLarge),
+                    Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ).animate().fadeIn(delay: delay).slideY(begin: 0.5, curve: Curves.easeOutCubic);
+  }
+}
+
+class _BattleSummaryCard extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProfileProvider).value;
+    final tests = ref.watch(testsProvider).value;
+    if (user == null || tests == null || tests.isEmpty) return const SizedBox.shrink();
+
+    final lastTestNet = tests.first.totalNet.toStringAsFixed(1);
+    final streak = user.streak.toString();
+    final avgNet = (user.totalNetSum / user.testCount).toStringAsFixed(1);
+
+    return Card(
+      margin: const EdgeInsets.fromLTRB(16, 90, 16, 8),
+      color: Colors.black.withOpacity(0.2),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _SummaryItem(label: "Son Net", value: lastTestNet),
+            _SummaryItem(label: "Ort. Net", value: avgNet),
+            _SummaryItem(label: "Seri", value: streak),
+          ],
+        ),
+      ),
+    ).animate().fadeIn().slideY(begin: -0.5);
+  }
+}
+
+class _SummaryItem extends StatelessWidget {
+  final String label, value;
+  const _SummaryItem({required this.label, required this.value});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
+      ],
+    );
   }
 }
 
@@ -359,7 +380,6 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.isUser;
-
     return Animate(
       effects: [
         FadeEffect(duration: 500.ms, curve: Curves.easeIn),
@@ -371,12 +391,8 @@ class _MessageBubble extends StatelessWidget {
           mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            if (!isUser)
-              const CircleAvatar(
-                backgroundColor: AppTheme.secondaryColor,
-                child: Icon(Icons.auto_awesome, size: 20, color: AppTheme.primaryColor),
-                radius: 16,
-              ),
+            if (!isUser) const CircleAvatar(backgroundColor: AppTheme.secondaryColor,
+                child: Icon(Icons.auto_awesome, size: 20, color: AppTheme.primaryColor), radius: 16),
             if (!isUser) const SizedBox(width: 8),
             Flexible(
               child: Container(
@@ -384,16 +400,13 @@ class _MessageBubble extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: isUser ? AppTheme.secondaryColor : AppTheme.lightSurfaceColor,
                   borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(20),
-                    topRight: const Radius.circular(20),
+                    topLeft: const Radius.circular(20), topRight: const Radius.circular(20),
                     bottomLeft: isUser ? const Radius.circular(20) : const Radius.circular(4),
                     bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(20),
                   ),
                 ),
-                child: Text(
-                  message.text,
-                  style: TextStyle(color: isUser ? AppTheme.primaryColor : Colors.white, fontSize: 16, height: 1.4, fontWeight: isUser ? FontWeight.w500 : FontWeight.normal),
-                ),
+                child: Text(message.text, style: TextStyle(color: isUser ? AppTheme.primaryColor : Colors.white,
+                    fontSize: 16, height: 1.4, fontWeight: isUser ? FontWeight.w500 : FontWeight.normal)),
               ),
             ),
           ],
@@ -415,44 +428,25 @@ class _TypingBubble extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const CircleAvatar(
-              backgroundColor: AppTheme.secondaryColor,
-              child: Icon(Icons.auto_awesome, size: 20, color: AppTheme.primaryColor),
-              radius: 16,
-            ),
+            const CircleAvatar(backgroundColor: AppTheme.secondaryColor,
+                child: Icon(Icons.auto_awesome, size: 20, color: AppTheme.primaryColor), radius: 16),
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.lightSurfaceColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
-                  bottomLeft: Radius.circular(4),
-                ),
-              ),
+              decoration: BoxDecoration(color: AppTheme.lightSurfaceColor,
+                  borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), topRight: Radius.circular(20),
+                      bottomRight: Radius.circular(20), bottomLeft: Radius.circular(4))),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: List.generate(3, (index) {
                   return Animate(
-                    delay: (index * 200).ms,
-                    onPlay: (c) => c.repeat(reverse: true),
-                    effects: const [
-                      ScaleEffect(
-                          duration: Duration(milliseconds: 600),
-                          curve: Curves.easeInOut,
-                          begin: Offset(0.7, 0.7),
-                          end: Offset(1.1, 1.1))
-                    ],
+                    delay: (index * 200).ms, onPlay: (c) => c.repeat(reverse: true),
+                    effects: const [ScaleEffect(duration: Duration(milliseconds: 600), curve: Curves.easeInOut,
+                        begin: Offset(0.7, 0.7), end: Offset(1.1, 1.1))],
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 3),
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondaryTextColor.withOpacity(0.7),
-                        shape: BoxShape.circle,
-                      ),
+                      width: 8, height: 8,
+                      decoration: BoxDecoration(color: AppTheme.secondaryTextColor.withOpacity(0.7), shape: BoxShape.circle),
                     ),
                   );
                 }),

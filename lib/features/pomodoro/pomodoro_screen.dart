@@ -5,18 +5,15 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'logic/pomodoro_notifier.dart';
 import 'widgets/pomodoro_stats_view.dart';
-import 'widgets/starcharting_view.dart';
-import 'widgets/calibration_view.dart';
-import 'widgets/voyage_view.dart';
-import 'widgets/discovery_view.dart';
-import 'widgets/stargazing_view.dart';
+import 'widgets/pomodoro_timer_view.dart'; // YENİ WIDGET
 
 class PomodoroScreen extends ConsumerWidget {
   const PomodoroScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final pomodoroState = ref.watch(pomodoroProvider);
+    final pomodoro = ref.watch(pomodoroProvider);
+    final showTimerView = pomodoro.sessionState != PomodoroSessionState.idle || !pomodoro.isPaused;
 
     return Scaffold(
       appBar: AppBar(
@@ -33,7 +30,7 @@ class PomodoroScreen extends ConsumerWidget {
             center: Alignment.center,
             radius: 1.2,
             colors: [
-              _getBackgroundColor(pomodoroState.currentState).withOpacity(0.3),
+              _getBackgroundColor(pomodoro.sessionState).withOpacity(0.3),
               AppTheme.primaryColor,
             ],
           ),
@@ -41,44 +38,28 @@ class PomodoroScreen extends ConsumerWidget {
         child: Center(
           child: AnimatedSwitcher(
             duration: 800.ms,
-            transitionBuilder: (child, animation) => FadeTransition(opacity: animation, child: ScaleTransition(scale: animation, child: child)),
-            child: _buildCurrentView(pomodoroState.currentState),
+            transitionBuilder: (child, animation) => FadeTransition(
+                opacity: animation,
+                child: ScaleTransition(scale: animation, child: child)),
+            // IDLE durumunda istatistikleri, diğer durumlarda zamanlayıcıyı göster
+            child: showTimerView
+                ? const PomodoroTimerView(key: ValueKey('timer'))
+                : const PomodoroStatsView(key: ValueKey('stats')),
           ),
         ),
       ),
     );
   }
 
-  Color _getBackgroundColor(PomodoroState currentState) {
+  Color _getBackgroundColor(PomodoroSessionState currentState) {
     switch (currentState) {
-      case PomodoroState.voyage:
+      case PomodoroSessionState.work:
         return AppTheme.secondaryColor;
-      case PomodoroState.stargazing:
+      case PomodoroSessionState.shortBreak:
+      case PomodoroSessionState.longBreak:
         return AppTheme.successColor;
-      case PomodoroState.calibration:
-        return Colors.blueAccent;
-      case PomodoroState.stats:
-      case PomodoroState.starcharting:
+      case PomodoroSessionState.idle:
         return AppTheme.lightSurfaceColor;
-      case PomodoroState.discovery:
-        return AppTheme.lightSurfaceColor;
-    }
-  }
-
-  Widget _buildCurrentView(PomodoroState currentState) {
-    switch (currentState) {
-      case PomodoroState.stats:
-        return const PomodoroStatsView();
-      case PomodoroState.starcharting:
-        return const StarchartingView();
-      case PomodoroState.calibration:
-        return const CalibrationView();
-      case PomodoroState.voyage:
-        return const VoyageView();
-      case PomodoroState.discovery:
-        return const DiscoveryView();
-      case PomodoroState.stargazing:
-        return const StargazingView();
     }
   }
 }

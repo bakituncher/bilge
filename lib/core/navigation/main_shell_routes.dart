@@ -18,7 +18,6 @@ import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
 import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/command_center_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
-// Yeni ekranı import ediyoruz
 import 'package:bilge_ai/features/strategic_planning/screens/strategy_review_screen.dart';
 import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
@@ -70,10 +69,9 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
                   path: AppRoutes.strategicPlanning,
                   parentNavigatorKey: rootNavigatorKey,
                   builder: (context, state) => const StrategicPlanningScreen(),
-                  // Yeni Strateji Onay Ekranı'nı, Stratejik Planlama'nın bir alt rotası yapıyoruz
                   routes: [
                     GoRoute(
-                      path: AppRoutes.strategyReview, // 'strategy-review'
+                      path: AppRoutes.strategyReview,
                       parentNavigatorKey: rootNavigatorKey,
                       builder: (context, state) {
                         final result = state.extra as Map<String, dynamic>;
@@ -84,7 +82,13 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
               ),
               GoRoute(path: AppRoutes.commandCenter, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => CommandCenterScreen(user: state.extra as UserModel)),
               GoRoute(path: AppRoutes.weaknessWorkshop, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeaknessWorkshopScreen()),
-              GoRoute(path: AppRoutes.motivationChat, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const MotivationChatScreen()),
+              // DÜZELTME: Rota tanımı güncellendi
+              GoRoute(path: AppRoutes.motivationChat, parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) {
+                  final prompt = state.extra as String?;
+                  return MotivationChatScreen(initialPromptType: prompt);
+                },
+              ),
               GoRoute(
                   path: AppRoutes.coachPushed,
                   parentNavigatorKey: rootNavigatorKey,

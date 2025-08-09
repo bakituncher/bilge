@@ -58,7 +58,8 @@ class PomodoroStatsView extends ConsumerWidget {
                 ),
                 const SizedBox(height: 48),
                 ElevatedButton.icon(
-                  onPressed: () => ref.read(pomodoroProvider.notifier).startStarcharting(),
+                  // DÜZELTME: Artık 'startStarcharting' yerine yeni 'prepareForWork' metodu çağrılıyor.
+                  onPressed: () => ref.read(pomodoroProvider.notifier).prepareForWork(),
                   icon: const Icon(Icons.rocket_launch_rounded),
                   label: const Text("Yolculuğa Başla"),
                 ).animate().fadeIn(delay: 800.ms),
