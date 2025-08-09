@@ -6,13 +6,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_header.dart';
-import 'package:bilge_ai/features/home/widgets/todays_mission_card.dart';
-import 'package:bilge_ai/features/home/widgets/todays_plan.dart';
+import 'package:bilge_ai/features/home/widgets/todays_plan.dart'; // Artık ana görev kartını da içeriyor
 import 'package:bilge_ai/features/home/widgets/dashboard_widgets/motivational_quote_card.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_widgets/dashboard_stats_row.dart';
 import 'package:bilge_ai/features/home/widgets/dashboard_widgets/action_center.dart';
 
-// Motivasyon sözleri listesi aynı kalabilir.
+// Motivasyon sözleri listesi
 const List<String> motivationalQuotes = [
   "Başarının sırrı, başlamaktır.",
   "Bugünün emeği, yarının zaferidir.",
@@ -68,9 +67,8 @@ class DashboardScreen extends ConsumerWidget {
                 // Bu, kullanıcının "Bugün ne yapmalıyım?" sorusuna net bir cevap verir.
                 Text("Günlük Harekat Merkezi", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
-                const TodaysMissionCard(), // Bu kart artık ana görevi belirtiyor.
-                const SizedBox(height: 12),
-                const TodaysPlan(), // Bu ise o görevi destekleyen adımları listeliyor.
+                // TodaysPlan widget'ı artık TodaysMissionCard'ın işlevini de üstleniyor.
+                const TodaysPlan(),
                 const SizedBox(height: 24),
 
                 // 3. BÖLÜM: HIZLI EYLEMLER

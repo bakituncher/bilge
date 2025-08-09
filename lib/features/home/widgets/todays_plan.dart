@@ -8,6 +8,8 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
+import 'package:bilge_ai/data/models/exam_model.dart';
+import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 
 // Seçili günü yönetmek için yeni bir state provider
 final selectedDayProvider = StateProvider.autoDispose<int>((ref) {
@@ -15,6 +17,7 @@ final selectedDayProvider = StateProvider.autoDispose<int>((ref) {
   return todayIndex.clamp(0, 6);
 });
 
+// DEV DEĞİŞİKLİK: Bu widget artık hem ana görevi hem de günlük planı içeriyor.
 class TodaysPlan extends ConsumerWidget {
   const TodaysPlan({super.key});
 
@@ -32,21 +35,145 @@ class TodaysPlan extends ConsumerWidget {
       weeklyPlan = WeeklyPlan.fromJson(weeklyPlanData);
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text("Günün Görevleri", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 12),
-        weeklyPlan == null || weeklyPlan.plan.isEmpty
-            ? const _EmptyStateCard()
-            : _PlanView(weeklyPlan: weeklyPlan, userId: userId),
-      ],
+    // Ana Görev Kartı ve Planı tek bir çatı altında birleştiriyoruz.
+    return Card(
+      elevation: 4,
+      shadowColor: AppTheme.secondaryColor.withOpacity(0.2),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          // Ana görev (eski TodaysMissionCard) burada gösteriliyor
+          _MissionHeader(),
+
+          // Eğer haftalık plan varsa, divider ve plan gösteriliyor.
+          if (weeklyPlan != null && weeklyPlan.plan.isNotEmpty)
+            const Divider(height: 1, color: AppTheme.lightSurfaceColor),
+
+          // Haftalık planın gösterildiği bölüm
+          _PlanView(weeklyPlan: weeklyPlan, userId: userId),
+        ],
+      ),
     );
   }
 }
 
+// YENİ WIDGET: Ana görevi gösteren başlık kısmı
+class _MissionHeader extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tests = ref.watch(testsProvider).valueOrNull;
+    final user = ref.watch(userProfileProvider).valueOrNull;
+
+    if (user == null || tests == null) {
+      return const Padding(
+        padding: EdgeInsets.all(20.0),
+        child: Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+      );
+    }
+    if (user.selectedExam == null) {
+      return const SizedBox.shrink();
+    }
+
+    final examType = ExamType.values.byName(user.selectedExam!);
+
+    return FutureBuilder<Exam>(
+      future: ExamData.getExamByType(examType),
+      builder: (context, examSnapshot) {
+        if (!examSnapshot.hasData) {
+          return const SizedBox.shrink();
+        }
+
+        final exam = examSnapshot.data!;
+        final textTheme = Theme.of(context).textTheme;
+
+        IconData icon;
+        String title;
+        String subtitle;
+        VoidCallback? onTap;
+        String buttonText;
+
+        if (tests.isEmpty) {
+          title = "Yolculuğa Başla";
+          subtitle = "Potansiyelini ortaya çıkarmak için ilk deneme sonucunu ekle.";
+          onTap = () => context.go('${AppRoutes.home}/${AppRoutes.addTest}');
+          buttonText = "İlk Denemeni Ekle";
+          icon = Icons.add_chart_rounded;
+        } else {
+          final analysis = StatsAnalysis(tests, user.topicPerformances, exam, user: user);
+          final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
+          title = "Günün Önceliği";
+          subtitle = weakestTopicInfo != null
+              ? "BilgeAI, en zayıf noktanın **'${weakestTopicInfo['subject']}'** dersindeki **'${weakestTopicInfo['topic']}'** konusu olduğunu tespit etti. Bu cevheri işlemeye hazır mısın?"
+              : "Harika gidiyorsun! Şu an belirgin bir zayıf noktan tespit edilmedi. Yeni konu verileri girerek analizi derinleştirebilirsin.";
+          onTap = weakestTopicInfo != null ? () => context.push('${AppRoutes.aiHub}/${AppRoutes.weaknessWorkshop}') : null;
+          buttonText = "Cevher Atölyesine Git";
+          icon = Icons.construction_rounded;
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20.0),
+          decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppTheme.secondaryColor.withOpacity(0.1), AppTheme.cardColor],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              )
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, size: 28, color: AppTheme.secondaryColor),
+                  const SizedBox(width: 12),
+                  Text(title, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _buildRichTextFromMarkdown(
+                  subtitle,
+                  baseStyle: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
+                  boldStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.textColor)
+              ),
+              if (onTap != null) ...[
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: ElevatedButton(
+                    onPressed: onTap,
+                    child: Text(buttonText),
+                  ),
+                )
+              ]
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRichTextFromMarkdown(String text, {TextStyle? baseStyle, TextStyle? boldStyle}) {
+    List<TextSpan> spans = [];
+    final RegExp regExp = RegExp(r"\*\*(.*?)\*\*");
+    text.splitMapJoin(regExp,
+        onMatch: (m) {
+          spans.add(TextSpan(text: m.group(1), style: boldStyle ?? baseStyle?.copyWith(fontWeight: FontWeight.bold)));
+          return '';
+        },
+        onNonMatch: (n) {
+          spans.add(TextSpan(text: n));
+          return '';
+        }
+    );
+    return RichText(text: TextSpan(style: baseStyle, children: spans));
+  }
+}
+
+
 class _PlanView extends ConsumerWidget {
-  final WeeklyPlan weeklyPlan;
+  final WeeklyPlan? weeklyPlan;
   final String userId;
   final List<String> _daysOfWeek = const ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
   final List<String> _daysOfWeekShort = const ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
@@ -55,9 +182,15 @@ class _PlanView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+
+    // Eğer haftalık plan yoksa, kullanıcıyı plan oluşturmaya yönlendir.
+    if (weeklyPlan == null || weeklyPlan!.plan.isEmpty) {
+      return const _EmptyStateCard();
+    }
+
     final selectedDayIndex = ref.watch(selectedDayProvider);
     final dayName = _daysOfWeek[selectedDayIndex];
-    final dailyPlan = weeklyPlan.plan.firstWhere(
+    final dailyPlan = weeklyPlan!.plan.firstWhere(
           (p) => p.day == dayName,
       orElse: () => DailyPlan(day: dayName, schedule: []),
     );
@@ -67,52 +200,48 @@ class _PlanView extends ConsumerWidget {
     final dateKey = DateFormat('yyyy-MM-dd').format(dateForTab);
 
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          _DaySelector(days: _daysOfWeekShort),
-          const Divider(height: 1, color: AppTheme.lightSurfaceColor),
-          AnimatedSize(
-            duration: 300.ms,
-            curve: Curves.easeInOut,
-            child: SizedBox(
-              height: 220,
-              child: dailyPlan.schedule.isEmpty
-                  ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text(
-                        "Bugün için özel bir görev planlanmamış.\nDinlen ve gücünü topla!",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: AppTheme.secondaryTextColor, fontStyle: FontStyle.italic)
-                    ),
-                  ))
-                  : ListView.builder(
-                // *** KESİN VE NİHAİ ÇÖZÜM BURADA ***
-                // Bu anahtar, listenin kaydırma pozisyonunu hafızasına alır
-                // ve yeniden çizimlerde kaybolmasını ENGELLER.
-                key: PageStorageKey<String>(dayName),
-                padding: const EdgeInsets.all(16),
-                itemCount: dailyPlan.schedule.length,
-                itemBuilder: (context, index) {
-                  final scheduleItem = dailyPlan.schedule[index];
-                  return _TaskCard(
-                    key: ValueKey("$dateKey-${scheduleItem.time}-${scheduleItem.activity}"),
-                    item: scheduleItem,
-                    dateKey: dateKey,
-                    userId: userId,
-                  ).animate().fadeIn(delay: (50 * index).ms).slideX(begin: 0.2);
-                },
-              ),
+    return Column(
+      children: [
+        _DaySelector(days: _daysOfWeekShort),
+        const Divider(height: 1, color: AppTheme.lightSurfaceColor),
+        AnimatedSize(
+          duration: 300.ms,
+          curve: Curves.easeInOut,
+          child: SizedBox(
+            height: 220,
+            child: dailyPlan.schedule.isEmpty
+                ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: const Text(
+                      "Bugün için özel bir görev planlanmamış.\nDinlen ve gücünü topla!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.secondaryTextColor, fontStyle: FontStyle.italic)
+                  ).animate().fadeIn(),
+                ))
+                : ListView.builder(
+              key: PageStorageKey<String>(dayName),
+              padding: const EdgeInsets.all(16),
+              itemCount: dailyPlan.schedule.length,
+              itemBuilder: (context, index) {
+                final scheduleItem = dailyPlan.schedule[index];
+                return _TaskCard(
+                  key: ValueKey("$dateKey-${scheduleItem.time}-${scheduleItem.activity}"),
+                  item: scheduleItem,
+                  dateKey: dateKey,
+                  userId: userId,
+                ).animate().fadeIn(delay: (50 * index).ms).slideX(begin: 0.2);
+              },
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
 
+// _DaySelector, _TaskCard, _EmptyStateCard widget'ları öncekiyle aynı kalabilir.
+// (Kopyala-yapıştır ile eklenecekler, burada yer kaplamaması için yazılmadı)
 class _DaySelector extends ConsumerWidget {
   final List<String> days;
   const _DaySelector({required this.days});
@@ -237,31 +366,29 @@ class _EmptyStateCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0),
-        child: Column(
-          children: [
-            const Icon(Icons.auto_awesome, color: AppTheme.secondaryColor, size: 40),
-            const SizedBox(height: 16),
-            Text(
-              "Kader parşömenin mühürlenmeyi bekliyor.",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              "Stratejik planını oluşturarak görevlerini buraya yazdır.",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () => context.go('${AppRoutes.aiHub}/${AppRoutes.strategicPlanning}'),
-              child: const Text('Stratejini Oluştur'),
-            )
-          ],
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 16.0),
+      child: Column(
+        children: [
+          const Icon(Icons.auto_awesome, color: AppTheme.secondaryColor, size: 40),
+          const SizedBox(height: 16),
+          Text(
+            "Kader parşömenin mühürlenmeyi bekliyor.",
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Stratejik planını oluşturarak görevlerini buraya yazdır.",
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: () => context.go('${AppRoutes.aiHub}/${AppRoutes.strategicPlanning}'),
+            child: const Text('Stratejini Oluştur'),
+          )
+        ],
       ),
     ).animate().fadeIn(duration: 500.ms);
   }
