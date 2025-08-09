@@ -6,12 +6,12 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 class DashboardHeader extends StatelessWidget {
   const DashboardHeader({
     super.key,
-    required this.greeting,
     required this.name,
+    required this.title,
   });
 
-  final String greeting;
   final String name;
+  final String title;
 
   @override
   Widget build(BuildContext context) {
@@ -22,13 +22,13 @@ class DashboardHeader extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(greeting, style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w300, color: AppTheme.secondaryTextColor)),
-            Text(name.split(' ').first, style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(name, style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
+            Text(title, style: textTheme.titleMedium?.copyWith(color: AppTheme.secondaryColor, fontStyle: FontStyle.italic)),
           ],
         ),
         IconButton(
           icon: const Icon(Icons.history_edu_rounded, color: AppTheme.secondaryTextColor, size: 28),
-          tooltip: 'Bilgelik Kütüphanesi',
+          tooltip: 'Performans Arşivi',
           onPressed: () => context.go('/library'),
         ),
       ],
