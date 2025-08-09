@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'logic/pomodoro_notifier.dart';
+import 'widgets/pomodoro_stats_view.dart';
 import 'widgets/starcharting_view.dart';
 import 'widgets/calibration_view.dart';
 import 'widgets/voyage_view.dart';
@@ -50,20 +51,34 @@ class PomodoroScreen extends ConsumerWidget {
 
   Color _getBackgroundColor(PomodoroState currentState) {
     switch (currentState) {
-      case PomodoroState.voyage: return AppTheme.secondaryColor;
-      case PomodoroState.stargazing: return AppTheme.successColor;
-      case PomodoroState.calibration: return Colors.blueAccent;
-      default: return AppTheme.lightSurfaceColor;
+      case PomodoroState.voyage:
+        return AppTheme.secondaryColor;
+      case PomodoroState.stargazing:
+        return AppTheme.successColor;
+      case PomodoroState.calibration:
+        return Colors.blueAccent;
+      case PomodoroState.stats:
+      case PomodoroState.starcharting:
+        return AppTheme.lightSurfaceColor;
+      case PomodoroState.discovery:
+        return AppTheme.lightSurfaceColor;
     }
   }
 
   Widget _buildCurrentView(PomodoroState currentState) {
     switch (currentState) {
-      case PomodoroState.starcharting: return const StarchartingView();
-      case PomodoroState.calibration: return const CalibrationView();
-      case PomodoroState.voyage: return const VoyageView();
-      case PomodoroState.discovery: return const DiscoveryView();
-      case PomodoroState.stargazing: return const StargazingView();
+      case PomodoroState.stats:
+        return const PomodoroStatsView();
+      case PomodoroState.starcharting:
+        return const StarchartingView();
+      case PomodoroState.calibration:
+        return const CalibrationView();
+      case PomodoroState.voyage:
+        return const VoyageView();
+      case PomodoroState.discovery:
+        return const DiscoveryView();
+      case PomodoroState.stargazing:
+        return const StargazingView();
     }
   }
 }
