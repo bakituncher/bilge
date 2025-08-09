@@ -27,7 +27,6 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
   @override
   void initState() {
     super.initState();
-    // Başlangıç sayfasını belirlemek için ref'i burada okuyamayız, build içinde yapacağız.
     _pageController = PageController(viewportFraction: 0.9);
     _pageController.addListener(() {
       if (_pageController.page?.round() != _currentPage) {
@@ -53,54 +52,12 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
       return const SizedBox(height: 420); // Yüklenirken boşluk bırak
     }
 
-    // Haftalık plan tamamlama oranını hesapla
-    final weeklyPlan = user.weeklyPlan != null ? WeeklyPlan.fromJson(user.weeklyPlan!) : null;
-    int totalTasks = 0;
-    int completedCount = 0;
-    if (weeklyPlan != null) {
-      totalTasks = weeklyPlan.plan.expand((day) => day.schedule).length;
-      if (totalTasks > 0) {
-        final today = DateTime.now();
-        final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-        for (var dailyPlan in weeklyPlan.plan) {
-          final dayIndex = weeklyPlan.plan.indexWhere((p) => p.day == dailyPlan.day);
-          if (dayIndex == -1) continue;
-          final dateForDay = startOfWeek.add(Duration(days: dayIndex));
-          final dateKey = DateFormat('yyyy-MM-dd').format(dateForDay);
-          final completedForThisDay = user.completedDailyTasks[dateKey] ?? [];
-          for (var task in dailyPlan.schedule) {
-            final taskIdentifier = '${task.time}-${task.activity}';
-            if (completedForThisDay.contains(taskIdentifier)) {
-              completedCount++;
-            }
-          }
-        }
-      }
-    }
-
-    final bool isPlanBehind = totalTasks > 0 && (completedCount / totalTasks) < 0.5;
-    // Eğer başlangıç sayfası değiştiyse ve controller'ın bir sayfası varsa, atla.
-    final initialPage = isPlanBehind ? 1 : 0;
-    if (_pageController.hasClients && _pageController.page?.round() != initialPage && _currentPage != initialPage) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if(mounted) {
-          _pageController.jumpToPage(initialPage);
-        }
-      });
-    }
-
     final List<Widget> pages = [
       const _TodaysMissionCard(),
       const _WeeklyPlanCard(),
-      _PerformanceCard(user: user, tests: tests), // YENİ KART
+      // DEĞİŞİKLİK: Eski performans kartı, yeni analiz kartı ile değiştirildi.
+      _PerformanceAnalysisCard(user: user, tests: tests),
     ];
-
-    if (isPlanBehind) {
-      // Haftalık Plan'ı başa al
-      final weeklyPlanCard = pages.removeAt(1);
-      pages.insert(0, weeklyPlanCard);
-    }
-
 
     return Column(
       children: [
@@ -137,7 +94,98 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
   }
 }
 
-// ... (Diğer kartlar aynı kalıyor, _WeeklyPlanCard'da küçük iyileştirmeler var)
+// YENİ WIDGET: PERFORMANS ANALİZ KARTI
+class _PerformanceAnalysisCard extends ConsumerWidget {
+  final UserModel user;
+  final List<TestModel> tests;
+  const _PerformanceAnalysisCard({required this.user, required this.tests});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Card(
+        margin: const EdgeInsets.only(left: 8, right: 16),
+        elevation: 4,
+        shadowColor: AppTheme.successColor.withOpacity(0.2),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        clipBehavior: Clip.antiAlias,
+        child: FutureBuilder<Exam?>(
+            future: user.selectedExam != null ? ExamData.getExamByType(ExamType.values.byName(user.selectedExam!)) : null,
+            builder: (context, examSnapshot) {
+              if (!examSnapshot.hasData || tests.length < 2) {
+                return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24.0),
+                      child: Text("Performans trendini görebilmek için en az 2 deneme sonucu girmelisin.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: AppTheme.secondaryTextColor, height: 1.5)),
+                    )
+                );
+              }
+              final analysis = StatsAnalysis(tests, user.topicPerformances, examSnapshot.data!, user: user);
+              final trend = analysis.trend;
+              String title;
+              String subtitle;
+              IconData icon;
+              Color iconColor;
+
+              if (trend > 0.1) {
+                title = "Yükseliştesin!";
+                subtitle = "Netlerin deneme başına ortalama ${trend.toStringAsFixed(2)} artıyor. Bu harika gidişatı sürdürmek için kaleyi ve zayıf noktalarını gözden geçirelim.";
+                icon = Icons.trending_up_rounded;
+                iconColor = AppTheme.successColor;
+              } else if (trend < -0.1) {
+                title = "Stratejiyi Gözden Geçir";
+                subtitle = "Son denemelerde bir düşüş var gibi görünüyor. Endişelenme, bu durumu tersine çevirmek için buradayız. Nerede hata yaptığımızı görmek için istatistikleri inceleyelim.";
+                icon = Icons.trending_down_rounded;
+                iconColor = AppTheme.accentColor;
+              } else {
+                title = "İstikrarını Koruyorsun";
+                subtitle = "Netlerin stabil bir seyir izliyor. Şimdi bu platoyu aşıp yeni zirvelere ulaşma zamanı. Hadi gidişatı detaylıca inceleyelim.";
+                icon = Icons.trending_flat_rounded;
+                iconColor = AppTheme.secondaryColor;
+              }
+
+
+              return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(icon, size: 28, color: iconColor),
+                          const SizedBox(width: 12),
+                          Text(title, style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      const Spacer(),
+                      Text(
+                        subtitle,
+                        style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
+                      ),
+                      const Spacer(),
+                      Align(
+                          alignment: Alignment.bottomRight,
+                          child: ElevatedButton(
+                              onPressed: ()=> context.push('/home/stats'),
+                              child: const Text("İstatistik Kalesine Git")
+                          )
+                      ),
+                    ],
+                  )
+              );
+            }
+        )
+    );
+  }
+}
+
+
+// AŞAĞIDAKİ KARTLARDA DEĞİŞİKLİK YOK, OLDUĞU GİBİ KALABİLİR.
 
 class _TodaysMissionCard extends ConsumerWidget {
   const _TodaysMissionCard();
@@ -269,91 +317,6 @@ class _TodaysMissionCard extends ConsumerWidget {
     return RichText(text: TextSpan(style: baseStyle, children: spans));
   }
 }
-
-// YENİ WIDGET: PERFORMANS KARTI
-class _PerformanceCard extends ConsumerWidget {
-  final UserModel user;
-  final List<TestModel> tests;
-  const _PerformanceCard({required this.user, required this.tests});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return Card(
-        margin: const EdgeInsets.only(left: 8, right: 16),
-        elevation: 4,
-        shadowColor: AppTheme.successColor.withOpacity(0.2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        clipBehavior: Clip.antiAlias,
-        child: FutureBuilder<Exam?>(
-            future: user.selectedExam != null ? ExamData.getExamByType(ExamType.values.byName(user.selectedExam!)) : null,
-            builder: (context, examSnapshot) {
-              if (!examSnapshot.hasData || tests.isEmpty) {
-                return const Center(child: Text("Analiz için veri bekleniyor...", style: TextStyle(color: AppTheme.secondaryTextColor)));
-              }
-              final analysis = StatsAnalysis(tests, user.topicPerformances, examSnapshot.data!, user: user);
-              final warriorScore = analysis.warriorScore;
-
-              return Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text("Savaşçı Skoru", style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: 150,
-                        height: 150,
-                        child: TweenAnimationBuilder<double>(
-                          tween: Tween(begin: 0.0, end: warriorScore / 100),
-                          duration: 1200.ms,
-                          curve: Curves.elasticOut,
-                          builder: (context, value, child) {
-                            return Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                CircularProgressIndicator(
-                                  value: value,
-                                  strokeWidth: 10,
-                                  backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Color.lerp(AppTheme.accentColor, AppTheme.successColor, value)!,
-                                  ),
-                                  strokeCap: StrokeCap.round,
-                                ),
-                                Center(
-                                  child: Text(
-                                    warriorScore.toStringAsFixed(1),
-                                    style: textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Text(
-                        "Genel net, doğruluk ve istikrarını birleştiren özel puanın.",
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
-                      ),
-                      const Spacer(),
-                      Align(
-                          alignment: Alignment.bottomRight,
-                          child: TextButton(onPressed: ()=> context.push(AppRoutes.stats), child: const Text("Detaylı Analiz"))
-                      ),
-                    ],
-                  )
-              );
-            }
-        )
-    );
-  }
-}
-
 
 class _WeeklyPlanCard extends ConsumerWidget {
   const _WeeklyPlanCard();
