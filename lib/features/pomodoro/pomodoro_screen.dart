@@ -5,61 +5,136 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'logic/pomodoro_notifier.dart';
 import 'widgets/pomodoro_stats_view.dart';
-import 'widgets/pomodoro_timer_view.dart'; // YENİ WIDGET
+import 'widgets/pomodoro_timer_view.dart';
+import 'widgets/pomodoro_completed_view.dart';
 
-class PomodoroScreen extends ConsumerWidget {
+class PomodoroScreen extends ConsumerStatefulWidget {
   const PomodoroScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PomodoroScreen> createState() => _PomodoroScreenState();
+}
+
+class _PomodoroScreenState extends ConsumerState<PomodoroScreen> with TickerProviderStateMixin {
+  late final AnimationController _bgController;
+
+  @override
+  void initState() {
+    super.initState();
+    _bgController = AnimationController(vsync: this, duration: 20.seconds)..repeat();
+  }
+
+  @override
+  void dispose() {
+    _bgController.dispose();
+    super.dispose();
+  }
+
+  // **HATA DÜZELTİLDİ: `build` metodunun imzası düzeltildi.**
+  @override
+  Widget build(BuildContext context) {
     final pomodoro = ref.watch(pomodoroProvider);
-    final showTimerView = pomodoro.sessionState != PomodoroSessionState.idle || !pomodoro.isPaused;
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('Zihinsel Gözlemevi'),
         backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
-      extendBodyBehindAppBar: true,
       body: AnimatedContainer(
-        duration: 800.ms,
-        curve: Curves.easeInOut,
+        duration: 1.seconds,
+        curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
           color: AppTheme.primaryColor,
           gradient: RadialGradient(
-            center: Alignment.center,
-            radius: 1.2,
+            center: const Alignment(0, -1.2),
+            radius: 1.5,
             colors: [
-              _getBackgroundColor(pomodoro.sessionState).withOpacity(0.3),
+              _getBackgroundColor(pomodoro.sessionState).withOpacity(0.4),
               AppTheme.primaryColor,
             ],
+            stops: const [0.0, 0.7],
           ),
         ),
-        child: Center(
-          child: AnimatedSwitcher(
-            duration: 800.ms,
-            transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: ScaleTransition(scale: animation, child: child)),
-            // IDLE durumunda istatistikleri, diğer durumlarda zamanlayıcıyı göster
-            child: showTimerView
-                ? const PomodoroTimerView(key: ValueKey('timer'))
-                : const PomodoroStatsView(key: ValueKey('stats')),
-          ),
+        child: Stack(
+          children: [
+            _StarsBackground(controller: _bgController),
+            Center(
+              child: AnimatedSwitcher(
+                duration: 800.ms,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: ScaleTransition(scale: animation, alignment: Alignment.center, child: child),
+                ),
+                child: _buildCurrentView(pomodoro),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
+  Widget _buildCurrentView(PomodoroModel pomodoro) {
+    switch(pomodoro.sessionState) {
+      case PomodoroSessionState.idle:
+        return const PomodoroStatsView(key: ValueKey('stats'));
+      case PomodoroSessionState.completed:
+        return PomodoroCompletedView(key: const ValueKey('completed'), result: pomodoro.lastResult!);
+      default:
+        return const PomodoroTimerView(key: ValueKey('timer'));
+    }
+  }
+
   Color _getBackgroundColor(PomodoroSessionState currentState) {
     switch (currentState) {
-      case PomodoroSessionState.work:
-        return AppTheme.secondaryColor;
+      case PomodoroSessionState.work: return AppTheme.secondaryColor;
       case PomodoroSessionState.shortBreak:
-      case PomodoroSessionState.longBreak:
-        return AppTheme.successColor;
-      case PomodoroSessionState.idle:
-        return AppTheme.lightSurfaceColor;
+      case PomodoroSessionState.longBreak: return AppTheme.successColor;
+      case PomodoroSessionState.completed: return Colors.purple.shade300;
+      case PomodoroSessionState.idle: return AppTheme.lightSurfaceColor;
     }
+  }
+}
+
+class _StarsBackground extends StatelessWidget {
+  final AnimationController controller;
+  const _StarsBackground({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return Animate(
+      controller: controller,
+      effects: [
+        CustomEffect(
+          duration: controller.duration,
+          builder: _starfieldBuilder,
+        ),
+      ],
+      child: Container(),
+    );
+  }
+
+  static Widget _starfieldBuilder(BuildContext context, double value, Widget child) {
+    final stars = List.generate(100, (index) {
+      final size = 1.0 + ((index * 3) % 3);
+      final x = ( (index * 31.41592) % 100) / 100;
+      final y = ( (index * 52.5321) % 100) / 100;
+      final speed = 0.1 + ((index * 7) % 4) * 0.05;
+      return Positioned(
+        left: x * MediaQuery.of(context).size.width,
+        top: ( (y + (value * speed)) % 1.0) * MediaQuery.of(context).size.height,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.3 + ((index*5)%7)/10),
+            shape: BoxShape.circle,
+          ),
+        ),
+      );
+    });
+    return Stack(children: stars);
   }
 }

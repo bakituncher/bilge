@@ -1,29 +1,41 @@
 // lib/features/pomodoro/logic/pomodoro_notifier.dart
-import 'dart:async';
+import 'dart:async'; // HATA DÜZELTİLDİ: 'dart;' -> 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:intl/intl.dart';
 
-// Yeni, daha anlaşılır durumlar
-enum PomodoroSessionState { idle, work, shortBreak, longBreak }
+// Mabet'in Kutsal Durumları
+enum PomodoroSessionState {
+  idle, // Başlangıç Meditasyonu
+  work, // Yaratım Anı
+  shortBreak, // Nefes Arası
+  longBreak, // Zihinsel Yolculuk
+  completed // Başarı Kutlaması
+}
 
+// Tamamlanmış bir Yaratım Anı'nın özeti
+class FocusSessionResult {
+  final int totalFocusSeconds;
+  final int roundsCompleted;
+  final String task;
+  FocusSessionResult({required this.totalFocusSeconds, required this.roundsCompleted, required this.task});
+}
+
+// Mabet'in Anlık Durumunu Tutan Kadim Model
 class PomodoroModel {
   final PomodoroSessionState sessionState;
   final int timeRemaining;
   final bool isPaused;
-
-  // Ayarlar
   final int workDuration;
   final int shortBreakDuration;
   final int longBreakDuration;
-  final int longBreakInterval; // Kaç turda bir uzun mola verileceği
-
-  // Takip
+  final int longBreakInterval;
   final int currentRound;
   final String currentTask;
   final String? currentTaskIdentifier;
+  final FocusSessionResult? lastResult;
 
   PomodoroModel({
     this.sessionState = PomodoroSessionState.idle,
@@ -36,6 +48,7 @@ class PomodoroModel {
     this.currentRound = 1,
     this.currentTask = "Genel Çalışma",
     this.currentTaskIdentifier,
+    this.lastResult,
   });
 
   PomodoroModel copyWith({
@@ -50,6 +63,8 @@ class PomodoroModel {
     String? currentTask,
     String? currentTaskIdentifier,
     bool clearTaskIdentifier = false,
+    FocusSessionResult? lastResult,
+    bool clearLastResult = false,
   }) {
     return PomodoroModel(
       sessionState: sessionState ?? this.sessionState,
@@ -62,10 +77,12 @@ class PomodoroModel {
       currentRound: currentRound ?? this.currentRound,
       currentTask: currentTask ?? this.currentTask,
       currentTaskIdentifier: clearTaskIdentifier ? null : currentTaskIdentifier ?? this.currentTaskIdentifier,
+      lastResult: clearLastResult ? null : lastResult ?? this.lastResult,
     );
   }
 }
 
+// Mabet'in Ruhunu Yöneten Bilge Varlık
 class PomodoroNotifier extends StateNotifier<PomodoroModel> {
   final Ref _ref;
   Timer? _timer;
@@ -88,31 +105,23 @@ class PomodoroNotifier extends StateNotifier<PomodoroModel> {
   void _handleSessionEnd() {
     if (state.sessionState == PomodoroSessionState.work) {
       _saveSession(state.currentTask, state.workDuration);
-
-      if (state.currentRound % state.longBreakInterval == 0) {
-        state = state.copyWith(
-          sessionState: PomodoroSessionState.longBreak,
-          timeRemaining: state.longBreakDuration,
-          isPaused: true,
-        );
-      } else {
-        state = state.copyWith(
-          sessionState: PomodoroSessionState.shortBreak,
-          timeRemaining: state.shortBreakDuration,
-          isPaused: true,
-        );
-      }
+      final result = FocusSessionResult(
+        totalFocusSeconds: state.workDuration,
+        roundsCompleted: state.currentRound,
+        task: state.currentTask,
+      );
+      state = state.copyWith(sessionState: PomodoroSessionState.completed, isPaused: true, lastResult: result);
     } else {
       state = state.copyWith(
         sessionState: PomodoroSessionState.work,
         timeRemaining: state.workDuration,
-        currentRound: state.currentRound + 1,
         isPaused: true,
+        currentRound: (state.sessionState == PomodoroSessionState.longBreak) ? 1 : state.currentRound + 1,
       );
     }
   }
 
-  // YENİ METOT: Zamanlayıcıyı başlatmadan, sadece çalışma ekranına geçmek için.
+  // **HATA DÜZELTİLDİ: EKSİK METOT EKLENDİ**
   void prepareForWork() {
     if (state.sessionState == PomodoroSessionState.idle) {
       state = state.copyWith(
@@ -124,13 +133,37 @@ class PomodoroNotifier extends StateNotifier<PomodoroModel> {
     }
   }
 
+  void startNextSession() {
+    if (state.lastResult == null) return;
+    final previousRound = state.lastResult!.roundsCompleted;
+    final isLongBreakTime = previousRound % state.longBreakInterval == 0;
+
+    if (isLongBreakTime) {
+      state = state.copyWith(
+        sessionState: PomodoroSessionState.longBreak,
+        timeRemaining: state.longBreakDuration,
+        isPaused: true,
+        clearLastResult: true,
+        currentRound: previousRound,
+      );
+    } else {
+      state = state.copyWith(
+        sessionState: PomodoroSessionState.shortBreak,
+        timeRemaining: state.shortBreakDuration,
+        isPaused: true,
+        clearLastResult: true,
+        currentRound: previousRound,
+      );
+    }
+  }
+
   void start() {
     if (state.sessionState == PomodoroSessionState.idle) {
       state = state.copyWith(
-        sessionState: PomodoroSessionState.work,
-        timeRemaining: state.workDuration,
-        currentRound: 1,
-      );
+          sessionState: PomodoroSessionState.work,
+          timeRemaining: state.workDuration,
+          currentRound: 1,
+          clearLastResult: true);
     }
     _startTimer();
   }
@@ -142,11 +175,11 @@ class PomodoroNotifier extends StateNotifier<PomodoroModel> {
 
   void reset() {
     _timer?.cancel();
-    state = state.copyWith(
-      sessionState: PomodoroSessionState.idle,
-      timeRemaining: state.workDuration,
-      isPaused: true,
-      currentRound: 1,
+    state = PomodoroModel(
+      workDuration: state.workDuration,
+      shortBreakDuration: state.shortBreakDuration,
+      longBreakDuration: state.longBreakDuration,
+      longBreakInterval: state.longBreakInterval,
     );
   }
 
@@ -160,7 +193,8 @@ class PomodoroNotifier extends StateNotifier<PomodoroModel> {
 
   void markTaskAsCompleted() {
     if (state.currentTaskIdentifier == null) return;
-    final userId = _ref.read(authControllerProvider).value!.uid;
+    final userId = _ref.read(authControllerProvider).value?.uid;
+    if (userId == null) return;
     final dateKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
     _ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
       userId: userId,
@@ -178,8 +212,9 @@ class PomodoroNotifier extends StateNotifier<PomodoroModel> {
       longBreakDuration: (long ?? (state.longBreakDuration ~/ 60)) * 60,
       longBreakInterval: interval ?? state.longBreakInterval,
     );
+
     if (state.sessionState == PomodoroSessionState.idle ||
-        (state.isPaused && state.timeRemaining == state.workDuration)) {
+        (state.isPaused && state.sessionState == PomodoroSessionState.work)) {
       state = state.copyWith(timeRemaining: newWorkDuration);
     }
   }

@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
-import 'package:bilge_ai/shared/widgets/score_slider.dart'; // DÜZELTME: Eksik import eklendi
-import 'package:intl/intl.dart'; // DÜZELTME: Eksik import eklendi
+import 'package:bilge_ai/shared/widgets/score_slider.dart';
+import 'package:intl/intl.dart';
 import '../logic/pomodoro_notifier.dart';
 
 class PomodoroTimerView extends ConsumerWidget {
@@ -17,56 +17,29 @@ class PomodoroTimerView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final pomodoro = ref.watch(pomodoroProvider);
     final notifier = ref.read(pomodoroProvider.notifier);
-    final totalDuration = _getTotalDuration(pomodoro);
 
-    final String sessionTitle;
-    final Color progressColor;
-
-    switch (pomodoro.sessionState) {
-      case PomodoroSessionState.work:
-        sessionTitle = "Odaklan";
-        progressColor = AppTheme.secondaryColor;
-        break;
-      case PomodoroSessionState.shortBreak:
-        sessionTitle = "Kısa Mola";
-        progressColor = AppTheme.successColor;
-        break;
-      case PomodoroSessionState.longBreak:
-        sessionTitle = "Uzun Mola";
-        progressColor = AppTheme.successColor;
-        break;
-      default:
-        sessionTitle = "Hazır";
-        progressColor = AppTheme.lightSurfaceColor;
-    }
+    final (title, progressColor) = switch (pomodoro.sessionState) {
+      PomodoroSessionState.work => ("Odaklanma Modu", AppTheme.secondaryColor),
+      PomodoroSessionState.shortBreak => ("Kısa Mola", AppTheme.successColor),
+      PomodoroSessionState.longBreak => ("Uzun Mola", AppTheme.successColor),
+      _ => ("Beklemede", AppTheme.lightSurfaceColor),
+    };
 
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildHeader(context, sessionTitle, pomodoro, notifier, ref), // DÜZELTME: ref eklendi
-          _buildTimerDial(context, pomodoro, totalDuration, progressColor),
-          _buildControls(context, pomodoro, notifier, ref), // DÜZELTME: ref eklendi
+          const SizedBox(height: 50),
+          _buildHeader(context, title, pomodoro, ref),
+          Expanded(child: _TimerDial(pomodoro: pomodoro, color: progressColor)),
+          _buildControls(context, pomodoro, notifier, ref),
         ],
       ),
     );
   }
 
-  int _getTotalDuration(PomodoroModel pomodoro) {
-    switch (pomodoro.sessionState) {
-      case PomodoroSessionState.work:
-        return pomodoro.workDuration;
-      case PomodoroSessionState.shortBreak:
-        return pomodoro.shortBreakDuration;
-      case PomodoroSessionState.longBreak:
-        return pomodoro.longBreakDuration;
-      default:
-        return pomodoro.workDuration;
-    }
-  }
-
-  Widget _buildHeader(BuildContext context, String title, PomodoroModel pomodoro, PomodoroNotifier notifier, WidgetRef ref) { // DÜZELTME: ref eklendi
+  Widget _buildHeader(BuildContext context, String title, PomodoroModel pomodoro, WidgetRef ref) {
     return Column(
       children: [
         Text(title, style: Theme.of(context).textTheme.headlineMedium),
@@ -80,44 +53,10 @@ class PomodoroTimerView extends ConsumerWidget {
         Text("Tur: ${pomodoro.currentRound} / ${pomodoro.longBreakInterval}",
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor)),
       ],
-    );
+    ).animate().fadeIn(duration: 500.ms);
   }
 
-  Widget _buildTimerDial(BuildContext context, PomodoroModel pomodoro, int totalDuration, Color progressColor) {
-    final time = Duration(seconds: pomodoro.timeRemaining);
-    final minutes = time.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = time.inSeconds.remainder(60).toString().padLeft(2, '0');
-
-    return AspectRatio(
-      aspectRatio: 1,
-      child: Animate(
-        target: pomodoro.isPaused ? 1 : 0,
-        effects: [
-          ScaleEffect(duration: 300.ms, curve: Curves.easeOut, begin: const Offset(1,1), end: const Offset(0.95, 0.95))
-        ],
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CircularProgressIndicator(
-              value: totalDuration > 0 ? pomodoro.timeRemaining / totalDuration : 1,
-              strokeWidth: 12,
-              backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
-              valueColor: AlwaysStoppedAnimation<Color>(progressColor),
-              strokeCap: StrokeCap.round,
-            ),
-            Center(
-              child: Text(
-                '$minutes:$seconds',
-                style: Theme.of(context).textTheme.displayLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildControls(BuildContext context, PomodoroModel pomodoro, PomodoroNotifier notifier, WidgetRef ref) { // DÜZELTME: ref eklendi
+  Widget _buildControls(BuildContext context, PomodoroModel pomodoro, PomodoroNotifier notifier, WidgetRef ref) {
     return Column(
       children: [
         Row(
@@ -157,10 +96,10 @@ class PomodoroTimerView extends ConsumerWidget {
             ),
           )
       ],
-    );
+    ).animate().fadeIn(duration: 500.ms);
   }
 
-  Future<void> _showTaskSelectionSheet(BuildContext context, WidgetRef ref) async { // DÜZELTME: ref eklendi
+  Future<void> _showTaskSelectionSheet(BuildContext context, WidgetRef ref) async {
     final user = ref.read(userProfileProvider).value;
     final List<({String task, String? identifier})> tasks = [
       (task: "Genel Çalışma", identifier: null),
@@ -203,7 +142,7 @@ class PomodoroTimerView extends ConsumerWidget {
     }
   }
 
-  Future<void> _showSettingsSheet(BuildContext context, WidgetRef ref) async { // DÜZELTME: ref eklendi
+  Future<void> _showSettingsSheet(BuildContext context, WidgetRef ref) async {
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
@@ -211,6 +150,94 @@ class PomodoroTimerView extends ConsumerWidget {
     );
   }
 }
+
+
+class _TimerDial extends StatelessWidget {
+  final PomodoroModel pomodoro;
+  final Color color;
+  const _TimerDial({required this.pomodoro, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    final totalDuration = switch (pomodoro.sessionState) {
+      PomodoroSessionState.work => pomodoro.workDuration,
+      PomodoroSessionState.shortBreak => pomodoro.shortBreakDuration,
+      PomodoroSessionState.longBreak => pomodoro.longBreakDuration,
+      _ => pomodoro.workDuration,
+    };
+    final time = Duration(seconds: pomodoro.timeRemaining);
+    final minutes = time.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = time.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final progress = totalDuration > 0 ? pomodoro.timeRemaining / totalDuration : 1.0;
+
+    return Animate(
+      target: pomodoro.isPaused ? 1 : 0,
+      effects: [ScaleEffect(duration: 400.ms, curve: Curves.easeOutBack, begin: const Offset(1,1), end: const Offset(0.9, 0.9))],
+      child: AspectRatio(
+        aspectRatio: 1,
+        child: CustomPaint(
+          painter: _DialPainter(
+            progress: progress,
+            color: color,
+            isPaused: pomodoro.isPaused,
+          ),
+          child: Center(
+            child: Text('$minutes:$seconds', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontWeight: FontWeight.bold)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// FÜTÜRİSTİK KADRAN PAINTER'I
+class _DialPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  final bool isPaused;
+  _DialPainter({required this.progress, required this.color, required this.isPaused});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    // Arka plan çizgisi
+    final backgroundPaint = Paint()
+      ..color = AppTheme.lightSurfaceColor.withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 12;
+    canvas.drawCircle(center, radius, backgroundPaint);
+
+    // Ana ilerleme çizgisi
+    final progressPaint = Paint()
+      ..shader = SweepGradient(
+        colors: [color.withOpacity(0.5), color],
+        startAngle: -pi / 2,
+        endAngle: -pi/2 + (2 * pi),
+        transform: GradientRotation(-2 * pi * progress),
+      ).createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 14
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(rect, -pi / 2, 2 * pi * progress, false, progressPaint);
+
+    // Dış parlama (Sadece zamanlayıcı çalışırken)
+    final glowPaint = Paint()
+      ..color = color.withOpacity(isPaused ? 0.0 : 0.4)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 20
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15);
+    canvas.drawCircle(center, radius, glowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _DialPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color || oldDelegate.isPaused != isPaused;
+  }
+}
+
 
 class PomodoroSettingsSheet extends ConsumerStatefulWidget {
   const PomodoroSettingsSheet({super.key});
