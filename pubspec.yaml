@@ -53,6 +53,7 @@ flutter:
   # YENİ EKLENEN KISIM
   assets:
     - assets/data/
+    - assets/images/
 
   # Şimdilik hiçbir asset kullanmıyoruz, bu yüzden burası temiz kalabilir.
   # assets:

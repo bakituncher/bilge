@@ -20,8 +20,13 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
 
   Future<void> createUserProfile(User user, String name) async {
-    final userProfile = UserModel(id: user.uid, email: user.email!, name: name);
+    final userProfile = UserModel(id: user.uid, email: user.email!, name: name, tutorialCompleted: false); // tutorialCompleted: false olarak ayarlandı
     await _usersCollection.doc(user.uid).set(userProfile.toJson());
+  }
+
+  // YENİ METOT: Öğreticiyi tamamlama durumunu günceller
+  Future<void> markTutorialAsCompleted(String userId) async {
+    await _usersCollection.doc(userId).update({'tutorialCompleted': true});
   }
 
   Future<void> updateOnboardingData({
