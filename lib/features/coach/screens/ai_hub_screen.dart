@@ -4,6 +4,11 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 
+// Öğretici için GlobalKey'ler
+final GlobalKey strategicPlanningKey = GlobalKey();
+final GlobalKey weaknessWorkshopKey = GlobalKey();
+final GlobalKey motivationChatKey = GlobalKey();
+
 class AiHubScreen extends StatelessWidget {
   const AiHubScreen({super.key});
 
@@ -22,10 +27,8 @@ class AiHubScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               const Spacer(),
-              // BİLGEAI DEVRİMİ: O MEŞHUR PARLAYAN TOP GERİ DÖNDÜ!
               GestureDetector(
                 onTap: () {
-                  // Çekirdeğe dokunulduğunda birincil eylemi (Stratejik Planlama) tetikle.
                   context.go('/ai-hub/strategic-planning');
                 },
                 child: Animate(
@@ -84,6 +87,7 @@ class AiHubScreen extends StatelessWidget {
                     () => context.go('/ai-hub/strategic-planning'),
                 Icons.insights_rounded,
                 delay: 200.ms,
+                key: strategicPlanningKey,
               ),
               _buildAiToolButton(
                 context,
@@ -92,6 +96,7 @@ class AiHubScreen extends StatelessWidget {
                     () => context.go('/ai-hub/weakness-workshop'),
                 Icons.construction_rounded,
                 delay: 300.ms,
+                key: weaknessWorkshopKey,
               ),
               _buildAiToolButton(
                 context,
@@ -100,6 +105,7 @@ class AiHubScreen extends StatelessWidget {
                     () => context.go('/ai-hub/motivation-chat'),
                 Icons.forum_rounded,
                 delay: 400.ms,
+                key: motivationChatKey,
               ),
               const Spacer(),
             ],
@@ -109,11 +115,12 @@ class AiHubScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAiToolButton(BuildContext context, String title, String subtitle, VoidCallback onTap, IconData icon, {required Duration delay}) {
+  Widget _buildAiToolButton(BuildContext context, String title, String subtitle, VoidCallback onTap, IconData icon, {required Duration delay, required GlobalKey key}) {
     return Animate(
       delay: delay,
       effects: [const FadeEffect(duration: Duration(milliseconds: 500)), const SlideEffect(begin: Offset(0, 0.2))],
       child: Card(
+        key: key,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(16),

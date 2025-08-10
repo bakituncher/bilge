@@ -12,9 +12,36 @@ import 'package:bilge_ai/features/home/widgets/dashboard_header.dart';
 import 'package:bilge_ai/features/home/widgets/todays_plan.dart';
 import 'package:bilge_ai/shared/widgets/stat_card.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
+import 'package:bilge_ai/features/onboarding/providers/tutorial_provider.dart';
 
-class DashboardScreen extends ConsumerWidget {
+// Widget'ları vurgulamak için GlobalKey'ler
+final GlobalKey todaysPlanKey = GlobalKey();
+final GlobalKey addTestKey = GlobalKey();
+final GlobalKey coachKey = GlobalKey();
+final GlobalKey arenaKey = GlobalKey();
+final GlobalKey profileKey = GlobalKey();
+final GlobalKey aiHubFabKey = GlobalKey();
+
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+
+  @override
+  void initState() {
+    super.initState();
+    // Ekran yüklendiğinde öğreticiyi kontrol et ve başlat
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(userProfileProvider).value;
+      if (user != null && !user.tutorialCompleted) {
+        ref.read(tutorialProvider.notifier).start();
+      }
+    });
+  }
 
   String _getWarriorTitle(int testCount, double avgNet) {
     if (testCount < 5) return "Acemi Kâşif";
@@ -25,61 +52,54 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final userAsync = ref.watch(userProfileProvider);
     final testsAsync = ref.watch(testsProvider);
 
-    return Scaffold(
-      body: SafeArea(
-        child: userAsync.when(
-          data: (user) {
-            if (user == null) {
-              return const Center(child: Text('Kullanıcı verisi yüklenemedi.'));
-            }
-            final tests = testsAsync.valueOrNull ?? [];
-            final testCount = tests.length;
-            final avgNet = testCount > 0 ? (user.totalNetSum / testCount) : 0.0;
-            final warriorTitle = _getWarriorTitle(testCount, avgNet);
+    return userAsync.when(
+      data: (user) {
+        if (user == null) {
+          return const Center(child: Text('Kullanıcı verisi yüklenemedi.'));
+        }
+        final tests = testsAsync.valueOrNull ?? [];
+        final testCount = tests.length;
+        final avgNet = testCount > 0 ? (user.totalNetSum / testCount) : 0.0;
+        final warriorTitle = _getWarriorTitle(testCount, avgNet);
 
-            return ListView(
-              padding: const EdgeInsets.symmetric(vertical: 16.0),
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: DashboardHeader(
-                    name: user.name ?? 'Savaşçı',
-                    title: warriorTitle,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // DEĞİŞİKLİK: Kaydırılabilir kartlar artık burada tek başına duruyor.
-                const TodaysPlan(),
-                const SizedBox(height: 24),
-                // KALDIRILDI: Gereksiz _WeeklyCampaignProgress widget'ı kaldırıldı.
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: _QuickStats(tests: tests, user: user),
-                ),
-                const SizedBox(height: 24),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: _ActionCenter(),
-                ),
-              ]
-                  .animate(interval: 80.ms)
-                  .fadeIn(duration: 400.ms)
-                  .slideY(begin: 0.1),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-          error: (e, s) => Center(child: Text('Bir hata oluştu: $e')),
-        ),
-      ),
+        return ListView(
+          padding: const EdgeInsets.symmetric(vertical: 16.0),
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: DashboardHeader(
+                name: user.name ?? 'Savaşçı',
+                title: warriorTitle,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Container(key: todaysPlanKey, child: const TodaysPlan()),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: _QuickStats(tests: tests, user: user),
+            ),
+            const SizedBox(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Container(key: addTestKey, child: _ActionCenter()),
+            ),
+          ]
+              .animate(interval: 80.ms)
+              .fadeIn(duration: 400.ms)
+              .slideY(begin: 0.1),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+      error: (e, s) => Center(child: Text('Bir hata oluştu: $e')),
     );
   }
 }
 
-// ... Diğer alt widget'lar aynı kalıyor (değişiklik yok)
 
 class _QuickStats extends StatelessWidget {
   final List<TestModel> tests;
