@@ -1,3 +1,4 @@
+// lib/features/home/screens/dashboard_screen.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -11,18 +12,7 @@ import 'package:bilge_ai/features/home/widgets/dashboard_header.dart';
 import 'package:bilge_ai/features/home/widgets/todays_plan.dart';
 import 'package:bilge_ai/shared/widgets/stat_card.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
-// KALDIRIN: Artık burada tutorial provider'a ihtiyaç yok.
-// import 'packagepackage:bilge_ai/features/onboarding/providers/tutorial_provider.dart';
 
-// Widget'ları vurgulamak için GlobalKey'ler
-final GlobalKey todaysPlanKey = GlobalKey();
-final GlobalKey addTestKey = GlobalKey();
-final GlobalKey coachKey = GlobalKey();
-final GlobalKey arenaKey = GlobalKey();
-final GlobalKey profileKey = GlobalKey();
-final GlobalKey aiHubFabKey = GlobalKey();
-
-// DEĞİŞİKLİK 4: Daha basit bir ConsumerWidget'a geri dönün.
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
@@ -39,50 +29,57 @@ class DashboardScreen extends ConsumerWidget {
     final userAsync = ref.watch(userProfileProvider);
     final testsAsync = ref.watch(testsProvider);
 
-    return userAsync.when(
-      data: (user) {
-        if (user == null) {
-          return const Center(child: Text('Kullanıcı verisi yüklenemedi.'));
-        }
-        final tests = testsAsync.valueOrNull ?? [];
-        final testCount = tests.length;
-        final avgNet = testCount > 0 ? (user.totalNetSum / testCount) : 0.0;
-        final warriorTitle = _getWarriorTitle(testCount, avgNet);
+    return Scaffold(
+      body: SafeArea(
+        child: userAsync.when(
+          data: (user) {
+            if (user == null) {
+              return const Center(child: Text('Kullanıcı verisi yüklenemedi.'));
+            }
+            final tests = testsAsync.valueOrNull ?? [];
+            final testCount = tests.length;
+            final avgNet = testCount > 0 ? (user.totalNetSum / testCount) : 0.0;
+            final warriorTitle = _getWarriorTitle(testCount, avgNet);
 
-        return ListView(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: DashboardHeader(
-                name: user.name ?? 'Savaşçı',
-                title: warriorTitle,
-              ),
-            ),
-            const SizedBox(height: 24),
-            Container(key: todaysPlanKey, child: const TodaysPlan()),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: _QuickStats(tests: tests, user: user),
-            ),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(key: addTestKey, child: _ActionCenter()),
-            ),
-          ]
-              .animate(interval: 80.ms)
-              .fadeIn(duration: 400.ms)
-              .slideY(begin: 0.1),
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-      error: (e, s) => Center(child: Text('Bir hata oluştu: $e')),
+            return ListView(
+              padding: const EdgeInsets.symmetric(vertical: 16.0),
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: DashboardHeader(
+                    name: user.name ?? 'Savaşçı',
+                    title: warriorTitle,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // DEĞİŞİKLİK: Kaydırılabilir kartlar artık burada tek başına duruyor.
+                const TodaysPlan(),
+                const SizedBox(height: 24),
+                // KALDIRILDI: Gereksiz _WeeklyCampaignProgress widget'ı kaldırıldı.
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: _QuickStats(tests: tests, user: user),
+                ),
+                const SizedBox(height: 24),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: _ActionCenter(),
+                ),
+              ]
+                  .animate(interval: 80.ms)
+                  .fadeIn(duration: 400.ms)
+                  .slideY(begin: 0.1),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+          error: (e, s) => Center(child: Text('Bir hata oluştu: $e')),
+        ),
+      ),
     );
   }
 }
 
+// ... Diğer alt widget'lar aynı kalıyor (değişiklik yok)
 
 class _QuickStats extends StatelessWidget {
   final List<TestModel> tests;

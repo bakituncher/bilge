@@ -10,7 +10,6 @@ class UserModel {
   final List<String>? challenges;
   final double? weeklyStudyGoal;
   final bool onboardingCompleted;
-  final bool tutorialCompleted; // YENİ EKLENDİ
   final int streak;
   final DateTime? lastStreakUpdate;
   final String? selectedExam;
@@ -24,7 +23,7 @@ class UserModel {
   final String? longTermStrategy;
   final Map<String, dynamic>? weeklyPlan;
   final Map<String, List<String>> weeklyAvailability;
-  final List<String> masteredTopics;
+  final List<String> masteredTopics; // YENİ EKLENDİ: Fethedilen konuların listesi
 
   UserModel({
     required this.id,
@@ -34,7 +33,6 @@ class UserModel {
     this.challenges,
     this.weeklyStudyGoal,
     this.onboardingCompleted = false,
-    this.tutorialCompleted = false, // YENİ EKLENDİ
     this.streak = 0,
     this.lastStreakUpdate,
     this.selectedExam,
@@ -48,12 +46,12 @@ class UserModel {
     this.longTermStrategy,
     this.weeklyPlan,
     this.weeklyAvailability = const {},
-    this.masteredTopics = const [],
+    this.masteredTopics = const [], // YENİ EKLENDİ
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
-
+    // ... (diğer fromSnapshot kodları aynı kalıyor)
     final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
     if (data['topicPerformances'] is Map<String, dynamic>) {
       final subjectMap = data['topicPerformances'] as Map<String, dynamic>;
@@ -88,7 +86,6 @@ class UserModel {
       challenges: List<String>.from(data['challenges'] ?? []),
       weeklyStudyGoal: (data['weeklyStudyGoal'] as num?)?.toDouble(),
       onboardingCompleted: data['onboardingCompleted'] ?? false,
-      tutorialCompleted: data['tutorialCompleted'] ?? false, // YENİ EKLENDİ
       streak: data['streak'] ?? 0,
       lastStreakUpdate: (data['lastStreakUpdate'] as Timestamp?)?.toDate(),
       selectedExam: data['selectedExam'],
@@ -106,12 +103,13 @@ class UserModel {
               (key, value) => MapEntry(key, List<String>.from(value)),
         ),
       ),
-      masteredTopics: List<String>.from(data['masteredTopics'] ?? []),
+      masteredTopics: List<String>.from(data['masteredTopics'] ?? []), // YENİ EKLENDİ
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      // ... (diğer toJson kodları aynı kalıyor)
       'id': id,
       'email': email,
       'name': name,
@@ -119,7 +117,6 @@ class UserModel {
       'challenges': challenges,
       'weeklyStudyGoal': weeklyStudyGoal,
       'onboardingCompleted': onboardingCompleted,
-      'tutorialCompleted': tutorialCompleted, // YENİ EKLENDİ
       'streak': streak,
       'lastStreakUpdate': lastStreakUpdate != null ? Timestamp.fromDate(lastStreakUpdate!) : null,
       'selectedExam': selectedExam,
@@ -138,7 +135,7 @@ class UserModel {
       'longTermStrategy': longTermStrategy,
       'weeklyPlan': weeklyPlan,
       'weeklyAvailability': weeklyAvailability,
-      'masteredTopics': masteredTopics,
+      'masteredTopics': masteredTopics, // YENİ EKLENDİ
     };
   }
 }
