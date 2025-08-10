@@ -28,6 +28,7 @@ dependencies:
 
   # Grafikler
   fl_chart: ^0.68.0
+  confetti: ^0.7.0 # BU SATIRI EKLE
 
   # Font
   google_fonts: ^6.2.1

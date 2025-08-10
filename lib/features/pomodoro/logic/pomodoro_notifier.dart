@@ -1,21 +1,13 @@
 // lib/features/pomodoro/logic/pomodoro_notifier.dart
-import 'dart:async'; // HATA DÜZELTİLDİ: 'dart;' -> 'dart:async';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:intl/intl.dart';
 
-// Mabet'in Kutsal Durumları
-enum PomodoroSessionState {
-  idle, // Başlangıç Meditasyonu
-  work, // Yaratım Anı
-  shortBreak, // Nefes Arası
-  longBreak, // Zihinsel Yolculuk
-  completed // Başarı Kutlaması
-}
+enum PomodoroSessionState { idle, work, shortBreak, longBreak, completed }
 
-// Tamamlanmış bir Yaratım Anı'nın özeti
 class FocusSessionResult {
   final int totalFocusSeconds;
   final int roundsCompleted;
@@ -23,7 +15,6 @@ class FocusSessionResult {
   FocusSessionResult({required this.totalFocusSeconds, required this.roundsCompleted, required this.task});
 }
 
-// Mabet'in Anlık Durumunu Tutan Kadim Model
 class PomodoroModel {
   final PomodoroSessionState sessionState;
   final int timeRemaining;
@@ -82,7 +73,6 @@ class PomodoroModel {
   }
 }
 
-// Mabet'in Ruhunu Yöneten Bilge Varlık
 class PomodoroNotifier extends StateNotifier<PomodoroModel> {
   final Ref _ref;
   Timer? _timer;
@@ -121,7 +111,6 @@ class PomodoroNotifier extends StateNotifier<PomodoroModel> {
     }
   }
 
-  // **HATA DÜZELTİLDİ: EKSİK METOT EKLENDİ**
   void prepareForWork() {
     if (state.sessionState == PomodoroSessionState.idle) {
       state = state.copyWith(

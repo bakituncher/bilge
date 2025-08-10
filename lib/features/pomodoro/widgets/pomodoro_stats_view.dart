@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
-import 'package:bilge_ai/data/models/focus_session_model.dart';
-import 'package:bilge_ai/features/profile/screens/profile_screen.dart'; // focusSessionsProvider için
+import 'package:bilge_ai/features/profile/screens/profile_screen.dart'; // HATA DÜZELTİLDİ: Doğru import
 import 'package:bilge_ai/features/pomodoro/logic/pomodoro_notifier.dart';
 
 class PomodoroStatsView extends ConsumerWidget {
@@ -58,16 +57,23 @@ class PomodoroStatsView extends ConsumerWidget {
                 ),
                 const SizedBox(height: 48),
                 ElevatedButton.icon(
-                  // DÜZELTME: Artık 'startStarcharting' yerine yeni 'prepareForWork' metodu çağrılıyor.
                   onPressed: () => ref.read(pomodoroProvider.notifier).prepareForWork(),
                   icon: const Icon(Icons.rocket_launch_rounded),
-                  label: const Text("Yolculuğa Başla"),
+                  label: const Text("Mabedi Harekete Geçir"),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  ),
                 ).animate().fadeIn(delay: 800.ms),
+                const SizedBox(height: 8),
+                Text(
+                    "Odaklanma ayinine başla.",
+                    style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 12)
+                ).animate().fadeIn(delay: 900.ms),
               ],
             ),
           );
         },
-        loading: () => const CircularProgressIndicator(color: AppTheme.secondaryColor),
+        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
         error: (e, s) => Text('Veriler yüklenemedi: $e'),
       ),
     );

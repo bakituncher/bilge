@@ -18,11 +18,11 @@ class PomodoroTimerView extends ConsumerWidget {
     final pomodoro = ref.watch(pomodoroProvider);
     final notifier = ref.read(pomodoroProvider.notifier);
 
-    final (title, progressColor) = switch (pomodoro.sessionState) {
-      PomodoroSessionState.work => ("Odaklanma Modu", AppTheme.secondaryColor),
-      PomodoroSessionState.shortBreak => ("Kısa Mola", AppTheme.successColor),
-      PomodoroSessionState.longBreak => ("Uzun Mola", AppTheme.successColor),
-      _ => ("Beklemede", AppTheme.lightSurfaceColor),
+    final (title, progressColor, message) = switch (pomodoro.sessionState) {
+      PomodoroSessionState.work => ("Odaklanma Modu", AppTheme.secondaryColor, "Yaratım anındasın. Evren sessiz."),
+      PomodoroSessionState.shortBreak => ("Kısa Mola", AppTheme.successColor, "Nefes al. Zihnin berraklaşsın."),
+      PomodoroSessionState.longBreak => ("Uzun Mola", AppTheme.successColor, "Harika iş! Zihinsel bir yolculuğa çık."),
+      _ => ("Beklemede", AppTheme.lightSurfaceColor, "Mabet seni bekliyor."),
     };
 
     return Padding(
@@ -31,7 +31,7 @@ class PomodoroTimerView extends ConsumerWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           const SizedBox(height: 50),
-          _buildHeader(context, title, pomodoro, ref),
+          _buildHeader(context, title, message, pomodoro, ref),
           Expanded(child: _TimerDial(pomodoro: pomodoro, color: progressColor)),
           _buildControls(context, pomodoro, notifier, ref),
         ],
@@ -39,11 +39,13 @@ class PomodoroTimerView extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, String title, PomodoroModel pomodoro, WidgetRef ref) {
+  Widget _buildHeader(BuildContext context, String title, String message, PomodoroModel pomodoro, WidgetRef ref) {
     return Column(
       children: [
         Text(title, style: Theme.of(context).textTheme.headlineMedium),
-        const SizedBox(height: 8),
+        const SizedBox(height: 4),
+        Text(message, style: TextStyle(color: AppTheme.secondaryTextColor, fontStyle: FontStyle.italic)),
+        const SizedBox(height: 12),
         ActionChip(
           avatar: const Icon(Icons.assignment_outlined, size: 18),
           label: Text(pomodoro.currentTask, overflow: TextOverflow.ellipsis),
@@ -65,7 +67,7 @@ class PomodoroTimerView extends ConsumerWidget {
             IconButton.filled(
               onPressed: () => _showSettingsSheet(context, ref),
               icon: const Icon(Icons.settings),
-              style: IconButton.styleFrom(backgroundColor: AppTheme.lightSurfaceColor),
+              style: IconButton.styleFrom(backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5)),
             ),
             const SizedBox(width: 20),
             IconButton.filled(
@@ -77,7 +79,7 @@ class PomodoroTimerView extends ConsumerWidget {
             IconButton.filled(
               onPressed: notifier.reset,
               icon: const Icon(Icons.replay_rounded),
-              style: IconButton.styleFrom(backgroundColor: AppTheme.lightSurfaceColor),
+              style: IconButton.styleFrom(backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5)),
             ),
           ],
         ),
@@ -88,7 +90,7 @@ class PomodoroTimerView extends ConsumerWidget {
                 onPressed: (){
                   notifier.markTaskAsCompleted();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("'${pomodoro.currentTask}' tamamlandı!"), backgroundColor: AppTheme.successColor),
+                    SnackBar(content: Text("'${pomodoro.currentTask}' tamamlandı olarak işaretlendi!"), backgroundColor: AppTheme.successColor),
                   );
                 },
                 icon: const Icon(Icons.check_circle, color: AppTheme.successColor),
@@ -128,10 +130,17 @@ class PomodoroTimerView extends ConsumerWidget {
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            children: tasks.map((task) => ListTile(
-              title: Text(task.task, maxLines: 2, overflow: TextOverflow.ellipsis),
-              onTap: () => Navigator.of(context).pop(task),
-            )).toList(),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Text("Bugünkü Görevler", style: Theme.of(context).textTheme.headlineSmall),
+              ),
+              ...tasks.map((task) => ListTile(
+                leading: Icon(task.identifier == null ? Icons.workspaces_outline : Icons.checklist_rtl_rounded),
+                title: Text(task.task, maxLines: 2, overflow: TextOverflow.ellipsis),
+                onTap: () => Navigator.of(context).pop(task),
+              )).toList(),
+            ],
           ),
         ),
       ),
@@ -146,11 +155,11 @@ class PomodoroTimerView extends ConsumerWidget {
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
+        backgroundColor: Colors.transparent,
         builder: (context) => const PomodoroSettingsSheet()
     );
   }
 }
-
 
 class _TimerDial extends StatelessWidget {
   final PomodoroModel pomodoro;
@@ -177,12 +186,12 @@ class _TimerDial extends StatelessWidget {
         aspectRatio: 1,
         child: CustomPaint(
           painter: _DialPainter(
-            progress: progress,
+            progress: 1 - progress, // Painter 0'dan 1'e doğru çizer
             color: color,
             isPaused: pomodoro.isPaused,
           ),
           child: Center(
-            child: Text('$minutes:$seconds', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontWeight: FontWeight.bold)),
+            child: Text('$minutes:$seconds', style: Theme.of(context).textTheme.displayLarge?.copyWith(fontWeight: FontWeight.bold, letterSpacing: 2)),
           ),
         ),
       ),
@@ -190,7 +199,7 @@ class _TimerDial extends StatelessWidget {
   }
 }
 
-// FÜTÜRİSTİK KADRAN PAINTER'I
+// EVRİM GEÇİRMİŞ KADER ÇARKI PAINTER'I
 class _DialPainter extends CustomPainter {
   final double progress;
   final Color color;
@@ -205,7 +214,7 @@ class _DialPainter extends CustomPainter {
 
     // Arka plan çizgisi
     final backgroundPaint = Paint()
-      ..color = AppTheme.lightSurfaceColor.withOpacity(0.3)
+      ..color = AppTheme.lightSurfaceColor.withOpacity(0.2)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 12;
     canvas.drawCircle(center, radius, backgroundPaint);
@@ -213,32 +222,30 @@ class _DialPainter extends CustomPainter {
     // Ana ilerleme çizgisi
     final progressPaint = Paint()
       ..shader = SweepGradient(
-        colors: [color.withOpacity(0.5), color],
+        colors: [color, color.withOpacity(0.5)],
         startAngle: -pi / 2,
-        endAngle: -pi/2 + (2 * pi),
-        transform: GradientRotation(-2 * pi * progress),
+        endAngle: -pi/2 + (2 * pi * progress),
+        transform: const GradientRotation(-pi / 2),
       ).createShader(rect)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 14
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(rect, -pi / 2, 2 * pi * progress, false, progressPaint);
 
-    // Dış parlama (Sadece zamanlayıcı çalışırken)
-    final glowPaint = Paint()
-      ..color = color.withOpacity(isPaused ? 0.0 : 0.4)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 20
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 15);
-    canvas.drawCircle(center, radius, glowPaint);
+    // İç "nefes alma" efekti
+    final breath = sin(DateTime.now().millisecondsSinceEpoch / (isPaused ? 2000 : 500)) * 5;
+    final breathPaint = Paint()
+      ..color = color.withOpacity(isPaused ? 0.05 : 0.1)
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10);
+    canvas.drawCircle(center, radius - 20 + breath, breathPaint);
   }
 
   @override
-  bool shouldRepaint(covariant _DialPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color || oldDelegate.isPaused != isPaused;
-  }
+  bool shouldRepaint(covariant _DialPainter oldDelegate) => true; // Sürekli yeniden çizim
 }
 
-
+// AYARLAR EKRANI (DEĞİŞİKLİK YOK, SADECE MAKYAJ)
 class PomodoroSettingsSheet extends ConsumerStatefulWidget {
   const PomodoroSettingsSheet({super.key});
 
@@ -261,9 +268,13 @@ class _PomodoroSettingsSheetState extends ConsumerState<PomodoroSettingsSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Container(
-        padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+    return Container(
+      padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor.withOpacity(0.95),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
