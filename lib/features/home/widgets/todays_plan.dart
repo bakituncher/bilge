@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
+import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
@@ -30,9 +32,11 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
     _pageController = PageController(viewportFraction: 0.9);
     _pageController.addListener(() {
       if (_pageController.page?.round() != _currentPage) {
-        setState(() {
-          _currentPage = _pageController.page!.round();
-        });
+        if(mounted){
+          setState(() {
+            _currentPage = _pageController.page!.round();
+          });
+        }
       }
     });
   }
@@ -52,12 +56,58 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
       return const SizedBox(height: 420); // Yüklenirken boşluk bırak
     }
 
-    // ARTIK KARTLARIMIZ TAMAMEN MODÜLER
-    final List<Widget> pages = [
+    // =======================================================================
+    // HATANIN ÇÖZÜLDÜĞÜ YENİ STRATEJİK MANTIK
+    // =======================================================================
+    final weeklyPlan = user.weeklyPlan != null ? WeeklyPlan.fromJson(user.weeklyPlan!) : null;
+    int totalTasksSoFar = 0;
+    int completedTasksSoFar = 0;
+    bool isPlanBehind = false;
+
+    if (weeklyPlan != null) {
+      final today = DateTime.now();
+      final currentDayIndex = today.weekday - 1; // Pazartesi = 0, Pazar = 6
+      final startOfWeek = today.subtract(Duration(days: currentDayIndex));
+
+      // Sadece bugüne kadar olan günleri hesaba kat
+      final relevantDays = weeklyPlan.plan.take(currentDayIndex + 1);
+      totalTasksSoFar = relevantDays.expand((day) => day.schedule).length;
+
+      if (totalTasksSoFar > 0) {
+        // İlgili günler için tamamlanan görevleri say
+        for (int i = 0; i <= currentDayIndex; i++) {
+          if (i >= weeklyPlan.plan.length) continue;
+
+          final dailyPlan = weeklyPlan.plan[i];
+          final dateForDay = startOfWeek.add(Duration(days: i));
+          final dateKey = DateFormat('yyyy-MM-dd').format(dateForDay);
+          final completedForThisDay = user.completedDailyTasks[dateKey] ?? [];
+
+          for (var task in dailyPlan.schedule) {
+            final taskIdentifier = '${task.time}-${task.activity}';
+            if (completedForThisDay.contains(taskIdentifier)) {
+              completedTasksSoFar++;
+            }
+          }
+        }
+        // O güne kadarki ortalama %50'nin altındaysa planın gerisinde say
+        isPlanBehind = (completedTasksSoFar / totalTasksSoFar) < 0.5;
+      }
+    }
+    // =======================================================================
+
+    // Kartların standart sırası
+    List<Widget> pages = [
       const MissionCard(),
       const WeeklyPlanCard(),
       PerformanceAnalysisCard(user: user, tests: tests),
     ];
+
+    // Eğer planda geri kalınmışsa, Haftalık Plan kartını en başa al
+    if (isPlanBehind) {
+      final weeklyPlanCard = pages.removeAt(1);
+      pages.insert(0, weeklyPlanCard);
+    }
 
     return Column(
       children: [
