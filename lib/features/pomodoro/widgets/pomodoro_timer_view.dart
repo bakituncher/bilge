@@ -152,6 +152,39 @@ class PomodoroTimerView extends ConsumerWidget {
   }
 
   Future<void> _showSettingsSheet(BuildContext context, WidgetRef ref) async {
+    final pomodoro = ref.read(pomodoroProvider);
+    final notifier = ref.read(pomodoroProvider.notifier);
+
+    // Eğer zamanlayıcı aktif ve duraklatılmamış ise, kullanıcıyı uyar.
+    if (pomodoro.sessionState != PomodoroSessionState.idle && !pomodoro.isPaused) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: AppTheme.cardColor,
+          title: const Text("Uyarı"),
+          content: const Text("Ayarları değiştirmek mevcut oturumu sıfırlayacaktır. Devam etmek istiyor musunuz?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text("İptal"),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text("Sıfırla ve Devam Et", style: TextStyle(color: AppTheme.accentColor)),
+            ),
+          ],
+        ),
+      );
+
+      // Kullanıcı iptal ederse, işlemi durdur.
+      if (confirm != true) {
+        return;
+      }
+
+      // Kullanıcı onaylarsa, ayarlar menüsünü açmadan önce oturumu sıfırla.
+      notifier.reset();
+    }
+
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
