@@ -40,9 +40,9 @@ class ScaffoldWithNavBar extends ConsumerWidget {
       ),
       TutorialStep( // Adım 3
         highlightKey: coachKey,
-        title: "Stratejik Deha: Koç",
-        text: "Şimdi en güçlü silahımızın olduğu yere, yani BilgeAI Çekirdeği'ne gidelim. Lütfen aşağıdaki 'Koç' ikonuna dokun.",
-        buttonText: "Anladım, Koç'a Gidiyorum!",
+        title: "Bilgi Galaksisi",
+        text: "Şimdi en güçlü silahımızın olduğu yer, çözdüğün testlerin sonuçlarını bu kısıma girerek yapay zekanın sana özel koçluk yapmasını sağlayabilirsin.",
+        buttonText: "Harika! ",
         isNavigational: true,
         requiredScreenIndex: 0,
       ),
