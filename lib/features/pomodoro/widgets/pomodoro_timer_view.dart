@@ -199,7 +199,7 @@ class _TimerDial extends StatelessWidget {
   }
 }
 
-// EVRİM GEÇİRMİŞ KADER ÇARKI PAINTER'I
+// EVRİM GEÇİRMİŞ KADER ÇARKI PAINTER'I (HATASIZ)
 class _DialPainter extends CustomPainter {
   final double progress;
   final Color color;
@@ -220,17 +220,18 @@ class _DialPainter extends CustomPainter {
     canvas.drawCircle(center, radius, backgroundPaint);
 
     // Ana ilerleme çizgisi
-    final progressPaint = Paint()
-      ..shader = SweepGradient(
-        colors: [color, color.withOpacity(0.5)],
-        startAngle: -pi / 2,
-        endAngle: -pi/2 + (2 * pi * progress),
-        transform: const GradientRotation(-pi / 2),
-      ).createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 14
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect, -pi / 2, 2 * pi * progress, false, progressPaint);
+    if (progress > 0.0) { // Sadece ilerleme varsa çiz
+      final progressPaint = Paint()
+        ..shader = SweepGradient(
+          colors: [color.withOpacity(0.5), color],
+          startAngle: -pi / 2,
+          transform: const GradientRotation(-pi / 2),
+        ).createShader(rect)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 14
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(rect, -pi / 2, 2 * pi * progress, false, progressPaint);
+    }
 
     // İç "nefes alma" efekti
     final breath = sin(DateTime.now().millisecondsSinceEpoch / (isPaused ? 2000 : 500)) * 5;
@@ -245,7 +246,8 @@ class _DialPainter extends CustomPainter {
   bool shouldRepaint(covariant _DialPainter oldDelegate) => true; // Sürekli yeniden çizim
 }
 
-// AYARLAR EKRANI (DEĞİŞİKLİK YOK, SADECE MAKYAJ)
+
+// AYARLAR EKRANI
 class PomodoroSettingsSheet extends ConsumerStatefulWidget {
   const PomodoroSettingsSheet({super.key});
 
