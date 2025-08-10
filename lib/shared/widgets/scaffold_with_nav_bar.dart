@@ -4,12 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/features/home/screens/dashboard_screen.dart';
 import 'package:bilge_ai/features/onboarding/providers/tutorial_provider.dart';
 import 'package:bilge_ai/features/onboarding/widgets/tutorial_overlay.dart';
 import 'package:bilge_ai/features/onboarding/models/tutorial_step.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 
-class ScaffoldWithNavBar extends ConsumerWidget {
+class ScaffoldWithNavBar extends ConsumerStatefulWidget {
   final StatefulNavigationShell navigationShell;
 
   const ScaffoldWithNavBar({
@@ -17,15 +19,51 @@ class ScaffoldWithNavBar extends ConsumerWidget {
     required this.navigationShell,
   });
 
+  @override
+  ConsumerState<ScaffoldWithNavBar> createState() => _ScaffoldWithNavBarState();
+}
+
+class _ScaffoldWithNavBarState extends ConsumerState<ScaffoldWithNavBar> {
+  // YENİ: Eğiticinin bu oturumda kontrol edilip edilmediğini tutar.
+  bool _isTutorialCheckPerformed = false;
+
+  // KALDIRILDI: Artık initState'e ihtiyacımız yok.
+  /*
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(userProfileProvider).value;
+      if (user != null && !user.tutorialCompleted) {
+        ref.read(tutorialProvider.notifier).start();
+      }
+    });
+  }
+  */
+
   void _onTap(int index) {
-    navigationShell.goBranch(
+    widget.navigationShell.goBranch(
       index,
-      initialLocation: index == navigationShell.currentIndex,
+      initialLocation: index == widget.navigationShell.currentIndex,
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    // YENİ: Kullanıcı profilini dinleyerek eğiticiyi başlatma mantığı
+    ref.listen<AsyncValue<UserModel?>>(userProfileProvider, (previous, next) {
+      final user = next.value;
+      // Kullanıcı verisi geldiyse, eğiticiyi tamamlamadıysa ve bu oturumda henüz kontrol yapılmadıysa...
+      if (user != null && !user.tutorialCompleted && !_isTutorialCheckPerformed) {
+        // Eğiticiyi başlat.
+        ref.read(tutorialProvider.notifier).start();
+        // Kontrolün yapıldığını işaretle ki tekrar başlamasın.
+        setState(() {
+          _isTutorialCheckPerformed = true;
+        });
+      }
+    });
+
     final List<TutorialStep> tutorialSteps = [
       TutorialStep(
         title: "Karargaha Hoş Geldin!",
@@ -61,20 +99,18 @@ class ScaffoldWithNavBar extends ConsumerWidget {
       ),
     ];
 
-    // DÜZELTME: ProviderScope ve override, bu widget'ın en dışına sarıldı.
     return ProviderScope(
       overrides: [
-        tutorialProvider.overrideWith((ref) => TutorialNotifier(tutorialSteps.length, navigationShell)),
+        tutorialProvider.overrideWith((ref) => TutorialNotifier(tutorialSteps.length, widget.navigationShell)),
       ],
-      child: Consumer( // Consumer, ProviderScope'un hemen içinde olmalı
+      child: Consumer(
           builder: (context, ref, child) {
-            // Bu, override edilmiş provider'ı dinlememizi sağlar.
             ref.watch(tutorialProvider);
 
             return Stack(
               children: [
                 Scaffold(
-                  body: navigationShell,
+                  body: widget.navigationShell,
                   extendBody: true,
                   floatingActionButton: FloatingActionButton(
                     key: aiHubFabKey,
@@ -96,7 +132,6 @@ class ScaffoldWithNavBar extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildNavItem(context, icon: Icons.dashboard_rounded, label: 'Panel', index: 0, key: null),
-                        // DÜZELTME: Koç'un doğru index'i 1'dir. FAB butonu 2. index'teki sayfayı açar (goBranch(2)).
                         _buildNavItem(context, icon: Icons.school_rounded, label: 'Koç', index: 1, key: coachKey),
                         const SizedBox(width: 56),
                         _buildNavItem(context, icon: Icons.military_tech_rounded, label: 'Arena', index: 3, key: arenaKey),
@@ -105,7 +140,6 @@ class ScaffoldWithNavBar extends ConsumerWidget {
                     ),
                   ),
                 ),
-                // Öğretici katmanını en üste ekle
                 TutorialOverlay(steps: tutorialSteps),
               ],
             );
@@ -115,7 +149,7 @@ class ScaffoldWithNavBar extends ConsumerWidget {
   }
 
   Widget _buildNavItem(BuildContext context, {required IconData icon, required String label, required int index, required GlobalKey? key}) {
-    final isSelected = navigationShell.currentIndex == index;
+    final isSelected = widget.navigationShell.currentIndex == index;
     return IconButton(
       key: key,
       icon: Icon(icon, color: isSelected ? AppTheme.secondaryColor : AppTheme.secondaryTextColor, size: 28),

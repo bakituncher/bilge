@@ -1,4 +1,3 @@
-// lib/features/home/screens/dashboard_screen.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -12,7 +11,8 @@ import 'package:bilge_ai/features/home/widgets/dashboard_header.dart';
 import 'package:bilge_ai/features/home/widgets/todays_plan.dart';
 import 'package:bilge_ai/shared/widgets/stat_card.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
-import 'package:bilge_ai/features/onboarding/providers/tutorial_provider.dart'; // YENİ ve DOĞRU
+// KALDIRIN: Artık burada tutorial provider'a ihtiyaç yok.
+// import 'packagepackage:bilge_ai/features/onboarding/providers/tutorial_provider.dart';
 
 // Widget'ları vurgulamak için GlobalKey'ler
 final GlobalKey todaysPlanKey = GlobalKey();
@@ -22,26 +22,9 @@ final GlobalKey arenaKey = GlobalKey();
 final GlobalKey profileKey = GlobalKey();
 final GlobalKey aiHubFabKey = GlobalKey();
 
-class DashboardScreen extends ConsumerStatefulWidget {
+// DEĞİŞİKLİK 4: Daha basit bir ConsumerWidget'a geri dönün.
+class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
-
-  @override
-  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends ConsumerState<DashboardScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // Ekran yüklendiğinde öğreticiyi kontrol et ve başlat
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final user = ref.read(userProfileProvider).value;
-      if (user != null && !user.tutorialCompleted) {
-        // HATA DÜZELTİLDİ: Doğru provider çağrılıyor.
-        ref.read(tutorialProvider.notifier).start();
-      }
-    });
-  }
 
   String _getWarriorTitle(int testCount, double avgNet) {
     if (testCount < 5) return "Acemi Kâşif";
@@ -52,7 +35,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProfileProvider);
     final testsAsync = ref.watch(testsProvider);
 
