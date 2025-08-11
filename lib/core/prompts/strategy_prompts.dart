@@ -7,7 +7,7 @@ String _getRevisionBlock(String? revisionRequest) {
     return """
       // REVİZYON EMRİ:
       // BU ÇOK ÖNEMLİ! KULLANICI MEVCUT PLANDAN MEMNUN DEĞİL VE AŞAĞIDAKİ DEĞİŞİKLİKLERİ İSTİYOR.
-      // YENİ PLANI BU TALEPLERİ MERKEZE ALARAK, SIFIRDAN OLUŞTUR.
+      // YENİ PLANI BU TALEPLERİ MERKEZE ALARAK, SIFRDAN OLUŞTUR.
       // KULLANICI TALEPLERİ:
       $revisionRequest
       """;
@@ -30,7 +30,7 @@ String getYksPrompt(
     String availabilityJson,
     String? weeklyPlanJson,
     String completedTasksJson,
-    {String? revisionRequest} // YENİ EKLENDİ
+    {String? revisionRequest}
     ) {
   return """
       // KİMLİK:
@@ -42,13 +42,14 @@ String getYksPrompt(
       3.  **ACIMASIZ YOĞUNLUK:** Pazar günü tatil değil, "HESAPLAŞMA GÜNÜ"dür. O gün, gerçek bir sınav simülasyonu, ardından saatler süren analiz ve haftanın tüm konularının genel tekrarı yapılacak.
 
       // YENİ VE EN ÖNEMLİ DİREKTİF: ZAMANLAMA
-      4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak. Müsait zaman dilimlerine en az bir, en fazla iki görev ata. Görev saatlerini, o zaman diliminin içinde kalacak şekilde mantıklı olarak belirle (örneğin "Sabah Erken (06-09)" için "07:00-08:30" gibi).
+      4.  **KESİN UYUM:** Haftalık planı oluştururken, aşağıdaki "KULLANICI MÜSAİTLİK TAKVİMİ"ne %100 uymak zorundasın. Sadece ve sadece kullanıcının belirttiği zaman dilimlerine görev ata. Eğer bir gün için hiç müsait zaman belirtilmemişse, o günü "Dinlenme ve Strateji Gözden Geçirme Günü" olarak planla ve schedule listesini boş bırak. Müsait zaman dilimlerine en az bir, en fazla iki görev ata. Görev saatlerini, o zaman diliminin içinde kalacak şekilde mantıklı olarak belirle (örneğin "07:00-09:00" için "07:30-08:45" gibi).
 
       ${_getRevisionBlock(revisionRequest)}
 
       // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
       // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
-      // Zaman Dilimleri: "Sabah Erken (06-09)", "Sabah Geç (09-12)", "Öğle (13-15)", "Öğleden Sonra (15-18)", "Akşam (19-21)", "Gece (21-24)"
+      // *** KESİN ÇÖZÜM: AI'YE DOĞRU FORMATI ÖĞRETİYORUZ ***
+      // Örnek Zaman Dilimi Formatı: "05:00-07:00", "23:00-01:00", "03:00-05:00"
       $availabilityJson
 
       // İSTİHBARAT RAPORU (YKS):
@@ -97,7 +98,7 @@ String getLgsPrompt(
     int daysUntilExam,
     String topicPerformancesJson,
     String availabilityJson,
-    {String? revisionRequest} // YENİ EKLENDİ
+    {String? revisionRequest}
     ) {
   return """
       // KİMLİK:
@@ -115,7 +116,8 @@ String getLgsPrompt(
 
       // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
       // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
-      // Zaman Dilimleri: "Sabah Erken (06-09)", "Sabah Geç (09-12)", "Öğle (13-15)", "Öğleden Sonra (15-18)", "Akşam (19-21)", "Gece (21-24)"
+      // *** KESİN ÇÖZÜM: AI'YE DOĞRU FORMATI ÖĞRETİYORUZ ***
+      // Örnek Zaman Dilimi Formatı: "05:00-07:00", "23:00-01:00", "03:00-05:00"
       $availabilityJson
 
       // İSTİHBARAT RAPORU (LGS):
@@ -162,7 +164,7 @@ String getKpssPrompt(
     String topicPerformancesJson,
     String availabilityJson,
     String examName,
-    {String? revisionRequest} // YENİ EKLENDİ
+    {String? revisionRequest}
     ) {
   return """
       // KİMLİK:
@@ -180,7 +182,8 @@ String getKpssPrompt(
 
       // KULLANICI MÜSAİTLİK TAKVİMİ (BU PLANA HARFİYEN UY!):
       // HAFTALIK PLANI SADECE VE SADECE AŞAĞIDA BELİRTİLEN GÜN VE ZAMAN DİLİMLERİ İÇİNDE OLUŞTUR.
-      // Zaman Dilimleri: "Sabah Erken (06-09)", "Sabah Geç (09-12)", "Öğle (13-15)", "Öğleden Sonra (15-18)", "Akşam (19-21)", "Gece (21-24)"
+      // *** KESİN ÇÖZÜM: AI'YE DOĞRU FORMATI ÖĞRETİYORUZ ***
+      // Örnek Zaman Dilimi Formatı: "05:00-07:00", "23:00-01:00", "03:00-05:00"
       $availabilityJson
 
       // İSTİHBARAT RAPORU (KPSS):
