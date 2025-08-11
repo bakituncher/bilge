@@ -22,6 +22,16 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
   StrategyGenerationNotifier(this._ref) : super(const AsyncValue.data(null));
 
+  // YENİ EKLENEN AKILLI TEMİZLEYİCİ FONKSİYON
+  String? _extractJson(String rawResponse) {
+    final startIndex = rawResponse.indexOf('{');
+    final endIndex = rawResponse.lastIndexOf('}');
+    if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+      return rawResponse.substring(startIndex, endIndex + 1);
+    }
+    return null;
+  }
+
   Future<void> _generateAndNavigate(BuildContext context, {String? revisionRequest}) async {
     state = const AsyncValue.loading();
     _ref.read(planningStepProvider.notifier).state = PlanningStep.loading;
@@ -40,10 +50,24 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
         user: user,
         tests: tests,
         pacing: pacing.name,
-        revisionRequest: revisionRequest, // Revizyon talebini iletiyoruz
+        revisionRequest: revisionRequest,
       );
 
-      final decodedData = jsonDecode(resultJson);
+      dynamic decodedData;
+      try {
+        // İlk olarak doğrudan parse etmeyi dene
+        decodedData = jsonDecode(resultJson);
+      } catch (e) {
+        // Hata olursa, metni temizleyip tekrar parse etmeyi dene
+        final cleanedJson = _extractJson(resultJson);
+        if (cleanedJson != null) {
+          decodedData = jsonDecode(cleanedJson);
+        } else {
+          // Temizleme de başarısız olursa, hatayı fırlat
+          throw Exception("Yapay zekadan gelen yanıt JSON formatında değil ve düzeltilemedi.");
+        }
+      }
+
 
       if (decodedData.containsKey('error')) {
         throw Exception(decodedData['error']);
@@ -56,7 +80,6 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
       };
 
       if (context.mounted) {
-        // İster ilk oluşturma olsun, ister revizyon, her zaman onay ekranına git.
         context.push('/ai-hub/strategic-planning/${AppRoutes.strategyReview}', extra: result);
       }
 
@@ -178,9 +201,6 @@ class StrategicPlanningScreen extends ConsumerWidget {
     }
   }
 
-  // *******************************************************************
-  // * HATANIN ÇÖZÜLDÜĞÜ YER *
-  // *******************************************************************
   Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref, UserModel user) {
     return Scaffold(
       appBar: AppBar(title: const Text("Stratejik Planın Hazır")),
@@ -205,7 +225,6 @@ class StrategicPlanningScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
-                // Yönlendirme komutu, tam yolu içerecek şekilde düzeltildi.
                 onPressed: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
                 icon: const Icon(Icons.map_rounded),
                 label: const Text("Komuta Merkezine Git"),

@@ -63,7 +63,7 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
     // YENİ KONTROL MANTIĞI
     // Eğer plan 7 gün veya daha eskiyse, normal planı göstermek yerine
     // kullanıcıyı yeni plan oluşturmaya yönlendiren özel bir kart göster.
-    if (weeklyPlan != null && DateTime.now().difference(weeklyPlan.creationDate).inDays >= 0) {
+    if (weeklyPlan != null && DateTime.now().difference(weeklyPlan.creationDate).inDays >= 7) {
       return const _NewPlanPromptCard();
     }
 
