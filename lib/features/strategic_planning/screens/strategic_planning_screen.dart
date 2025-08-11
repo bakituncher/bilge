@@ -10,6 +10,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:intl/intl.dart';
+import 'package:bilge_ai/data/models/plan_model.dart';
 
 enum Pacing { relaxed, moderate, intense }
 enum PlanningStep { dataCheck, confirmation, pacing, loading }
@@ -40,7 +41,7 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
         user: user,
         tests: tests,
         pacing: pacing.name,
-        revisionRequest: revisionRequest, // Revizyon talebini iletiyoruz
+        revisionRequest: revisionRequest,
       );
 
       final decodedData = jsonDecode(resultJson);
@@ -56,7 +57,6 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
       };
 
       if (context.mounted) {
-        // İster ilk oluşturma olsun, ister revizyon, her zaman onay ekranına git.
         context.push('/ai-hub/strategic-planning/${AppRoutes.strategyReview}', extra: result);
       }
 
@@ -110,11 +110,31 @@ class StrategicPlanningScreen extends ConsumerWidget {
           return const Scaffold(body: Center(child: Text("Kullanıcı verisi bulunamadı.")));
         }
 
-        if (user.longTermStrategy != null && user.weeklyPlan != null) {
-          if(step != PlanningStep.confirmation && step != PlanningStep.pacing && step != PlanningStep.loading) {
-            return _buildStrategyDisplay(context, ref, user);
+        // =======================================================================
+        // **NİHAİ VE HATASIZ MANTIK BLOKU**
+        // =======================================================================
+        bool hasPlan = user.longTermStrategy != null && user.weeklyPlan != null;
+        bool isPlanExpired = false;
+
+        if (hasPlan) {
+          final weeklyPlan = WeeklyPlan.fromJson(user.weeklyPlan!);
+          if (DateTime.now().difference(weeklyPlan.creationDate).inDays >= 7) {
+            isPlanExpired = true;
           }
         }
+
+        // Eğer planın süresi dolmuşsa ve henüz bir işlem başlamadıysa (dataCheck),
+        // kullanıcıyı doğrudan yeni plan oluşturma adımlarına yönlendir.
+        if (isPlanExpired && step == PlanningStep.dataCheck) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
+          });
+        }
+        // Eğer geçerli bir plan varsa ve bir işlem başlamadıysa, "Mevcut Plan" ekranını göster.
+        else if (hasPlan && !isPlanExpired && step == PlanningStep.dataCheck) {
+          return _buildStrategyDisplay(context, ref, user);
+        }
+        // =======================================================================
 
         return Scaffold(
           appBar: AppBar(title: const Text('Strateji Oturumu')),
@@ -141,46 +161,6 @@ class StrategicPlanningScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStep(BuildContext context, WidgetRef ref, PlanningStep step, bool hasTests) {
-    if (!hasTests) {
-      return _buildDataMissingView(context);
-    }
-
-    if (step == PlanningStep.dataCheck && hasTests) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
-      });
-      return const SizedBox.shrink();
-    }
-
-    switch (step) {
-      case PlanningStep.confirmation:
-        return _buildConfirmationView(context, ref);
-      case PlanningStep.pacing:
-        return _buildPacingView(context, ref);
-      case PlanningStep.loading:
-        return Center(
-            key: const ValueKey('loading'),
-            child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(color: AppTheme.secondaryColor),
-                  const SizedBox(height: 24),
-                  Text("Strateji güncelleniyor,\nbekleyin komutanım...",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16)
-                  )
-                ]
-            )
-        );
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
-  // *******************************************************************
-  // * HATANIN ÇÖZÜLDÜĞÜ YER *
-  // *******************************************************************
   Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref, UserModel user) {
     return Scaffold(
       appBar: AppBar(title: const Text("Stratejik Planın Hazır")),
@@ -205,7 +185,6 @@ class StrategicPlanningScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
-                // Yönlendirme komutu, tam yolu içerecek şekilde düzeltildi.
                 onPressed: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
                 icon: const Icon(Icons.map_rounded),
                 label: const Text("Komuta Merkezine Git"),
@@ -220,6 +199,44 @@ class StrategicPlanningScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+
+  Widget _buildStep(BuildContext context, WidgetRef ref, PlanningStep step, bool hasTests) {
+    if (!hasTests) {
+      return _buildDataMissingView(context);
+    }
+
+    if (step == PlanningStep.dataCheck) {
+      // Bu durum, planı olmayan bir kullanıcı için veya planı eski olan
+      // bir kullanıcı için bir sonraki adıma geçiş anında kısa bir süre görünür.
+      return const Center(child: CircularProgressIndicator());
+    }
+
+
+    switch (step) {
+      case PlanningStep.confirmation:
+        return _buildConfirmationView(context, ref);
+      case PlanningStep.pacing:
+        return _buildPacingView(context, ref);
+      case PlanningStep.loading:
+        return Center(
+            key: const ValueKey('loading'),
+            child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: AppTheme.secondaryColor),
+                  const SizedBox(height: 24),
+                  Text("Strateji güncelleniyor,\nbekleyin komutanım...",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 16)
+                  )
+                ]
+            )
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   Widget _buildDataMissingView(BuildContext context) {

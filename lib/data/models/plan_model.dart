@@ -1,4 +1,5 @@
 // lib/data/models/plan_model.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Bir günlük plandaki tek bir görevi (saat, aktivite, tür) temsil eder.
 class ScheduleItem {
@@ -60,8 +61,14 @@ class WeeklyPlan {
   final String planTitle;
   final String strategyFocus;
   final List<DailyPlan> plan;
+  final DateTime creationDate; // YENİ EKLENEN ALAN
 
-  WeeklyPlan({required this.planTitle, required this.strategyFocus, required this.plan});
+  WeeklyPlan({
+    required this.planTitle,
+    required this.strategyFocus,
+    required this.plan,
+    required this.creationDate, // YENİ EKLENEN ALAN
+  });
 
   factory WeeklyPlan.fromJson(Map<String, dynamic> json) {
     var list = (json['plan'] as List?) ?? [];
@@ -70,6 +77,11 @@ class WeeklyPlan {
       planTitle: json['planTitle'] ?? "Haftalık Stratejik Plan",
       strategyFocus: json['strategyFocus'] ?? "Strateji belirlenemedi.",
       plan: dailyPlans,
+      // YENİ EKLENEN MANTIK: Firestore'dan gelen Timestamp'i DateTime'a çevir.
+      // Eğer veri yoksa (eski planlar için), şimdiki zamanı ata.
+      creationDate: json.containsKey('creationDate') && json['creationDate'] != null
+          ? (json['creationDate'] as Timestamp).toDate()
+          : DateTime.now(),
     );
   }
 }

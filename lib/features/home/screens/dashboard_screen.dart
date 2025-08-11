@@ -66,32 +66,36 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         final avgNet = testCount > 0 ? (user.totalNetSum / testCount) : 0.0;
         final warriorTitle = _getWarriorTitle(testCount, avgNet);
 
-        return ListView(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: DashboardHeader(
-                name: user.name ?? 'Savaşçı',
-                title: warriorTitle,
+        // **ÇÖZÜM: ListView'i SafeArea ile sardık.**
+        // Bu, içeriğin sistem çubuklarının (örn: saat, pil) altına girmesini sağlar.
+        return SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 16.0),
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: DashboardHeader(
+                  name: user.name ?? 'Savaşçı',
+                  title: warriorTitle,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            Container(key: todaysPlanKey, child: const TodaysPlan()),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: _QuickStats(tests: tests, user: user),
-            ),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(key: addTestKey, child: _ActionCenter()),
-            ),
-          ]
-              .animate(interval: 80.ms)
-              .fadeIn(duration: 400.ms)
-              .slideY(begin: 0.1),
+              const SizedBox(height: 24),
+              Container(key: todaysPlanKey, child: const TodaysPlan()),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: _QuickStats(tests: tests, user: user),
+              ),
+              const SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Container(key: addTestKey, child: _ActionCenter()),
+              ),
+            ]
+                .animate(interval: 80.ms)
+                .fadeIn(duration: 400.ms)
+                .slideY(begin: 0.1),
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
