@@ -22,16 +22,6 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref _ref;
   StrategyGenerationNotifier(this._ref) : super(const AsyncValue.data(null));
 
-  // YENİ EKLENEN AKILLI TEMİZLEYİCİ FONKSİYON
-  String? _extractJson(String rawResponse) {
-    final startIndex = rawResponse.indexOf('{');
-    final endIndex = rawResponse.lastIndexOf('}');
-    if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
-      return rawResponse.substring(startIndex, endIndex + 1);
-    }
-    return null;
-  }
-
   Future<void> _generateAndNavigate(BuildContext context, {String? revisionRequest}) async {
     state = const AsyncValue.loading();
     _ref.read(planningStepProvider.notifier).state = PlanningStep.loading;
@@ -53,21 +43,8 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
         revisionRequest: revisionRequest,
       );
 
-      dynamic decodedData;
-      try {
-        // İlk olarak doğrudan parse etmeyi dene
-        decodedData = jsonDecode(resultJson);
-      } catch (e) {
-        // Hata olursa, metni temizleyip tekrar parse etmeyi dene
-        final cleanedJson = _extractJson(resultJson);
-        if (cleanedJson != null) {
-          decodedData = jsonDecode(cleanedJson);
-        } else {
-          // Temizleme de başarısız olursa, hatayı fırlat
-          throw Exception("Yapay zekadan gelen yanıt JSON formatında değil ve düzeltilemedi.");
-        }
-      }
-
+      // Artık AI Service'den temizlenmiş JSON geldiği için doğrudan decode edebiliriz.
+      final decodedData = jsonDecode(resultJson);
 
       if (decodedData.containsKey('error')) {
         throw Exception(decodedData['error']);

@@ -57,7 +57,24 @@ class AiService {
         if (response.statusCode == 200) {
           final data = jsonDecode(utf8.decode(response.bodyBytes));
           if (data['candidates'] != null && data['candidates'][0]['content'] != null) {
-            return data['candidates'][0]['content']['parts'][0]['text'];
+            String rawResponse = data['candidates'][0]['content']['parts'][0]['text'];
+
+            // YENİ EKLENEN AKILLI TEMİZLEYİCİ
+            // Yanıtın içinde ```json ... ``` bloğu varsa sadece o bloğu al.
+            final jsonMarkdownMatch = RegExp(r'```json\s*([\s\S]*?)\s*```').firstMatch(rawResponse);
+            if (jsonMarkdownMatch != null) {
+              return jsonMarkdownMatch.group(1)!;
+            }
+
+            // Markdown bloğu yoksa, sadece { ve } arasındaki ilk ve son bloğu bulmayı dene.
+            final startIndex = rawResponse.indexOf('{');
+            final endIndex = rawResponse.lastIndexOf('}');
+            if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+              return rawResponse.substring(startIndex, endIndex + 1);
+            }
+
+            // Hiçbiri eşleşmezse, orijinal yanıtı olduğu gibi döndür.
+            return rawResponse;
           } else {
             throw Exception('Yapay zeka servisinden beklenmedik bir formatta cevap alındı.');
           }

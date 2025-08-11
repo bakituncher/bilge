@@ -1,5 +1,5 @@
 // lib/data/models/plan_model.dart
-import 'package:cloud_firestore/cloud_firestore.dart'; // <<<--- ERROR FIXED HERE
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // Bir günlük plandaki tek bir görevi (saat, aktivite, tür) temsil eder.
 class ScheduleItem {
@@ -37,7 +37,16 @@ class DailyPlan {
 
     if (json['schedule'] is List) {
       var list = (json['schedule'] as List);
-      scheduleItems = list.map((i) => ScheduleItem.fromMap(i)).toList();
+      // GÜNCELLENMİŞ, SAĞLAMLAŞTIRILMIŞ PARSER
+      for (var item in list) {
+        if (item is Map<String, dynamic>) {
+          scheduleItems.add(ScheduleItem.fromMap(item));
+        }
+        // AI'ın bazen harita yerine sadece bir metin gönderme ihtimaline karşı
+        else if (item is String) {
+          scheduleItems.add(ScheduleItem(time: "Görev", activity: item, type: "study"));
+        }
+      }
     } else if (json['schedule'] is String) {
       rawString = json['schedule'] as String;
     }

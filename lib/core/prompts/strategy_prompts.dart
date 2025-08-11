@@ -74,7 +74,9 @@ String getYksPrompt(
           "strategyFocus": "Bu haftanın stratejisi: Zayıflıkların kökünü kazımak. Direnmek faydasız. Uygula.",
           "weekNumber": 1,
           "plan": [
-            {"day": "Pazartesi", "schedule": []},
+            {"day": "Pazartesi", "schedule": [
+                // ÖRNEK GÖREV FORMATI: {"time": "19:00-20:30", "activity": "AYT Matematik: Türev Konu Çalışması", "type": "study"}, {"time": "21:00-22:00", "activity": "Türev - 50 Soru Çözümü", "type": "practice"}
+            ]},
             {"day": "Salı", "schedule": []},
             {"day": "Çarşamba", "schedule": []},
             {"day": "Perşembe", "schedule": []},
@@ -136,7 +138,9 @@ String getLgsPrompt(
           "strategyFocus": "Okul sonrası hayatın bu hafta iptal edildi. Tek odak: Zayıf konuların imhası.",
           "weekNumber": 1,
           "plan": [
-             {"day": "Pazartesi", "schedule": []},
+             {"day": "Pazartesi", "schedule": [
+                // ÖRNEK GÖREV FORMATI: {"time": "19:00-20:30", "activity": "Matematik: Çarpanlar ve Katlar Konu Tekrarı", "type": "review"}, {"time": "21:00-22:00", "activity": "Çarpanlar ve Katlar - 40 Yeni Nesil Soru", "type": "practice"}
+             ]},
             {"day": "Salı", "schedule": []},
             {"day": "Çarşamba", "schedule": []},
             {"day": "Perşembe", "schedule": []},
@@ -199,7 +203,9 @@ String getKpssPrompt(
           "strategyFocus": "Bu hafta iş ve özel hayat bahaneleri bir kenara bırakılıyor. Tek odak atanmak. Plan tavizsiz uygulanacak.",
           "weekNumber": 1,
           "plan": [
-             {"day": "Pazartesi", "schedule": []},
+             {"day": "Pazartesi", "schedule": [
+                // ÖRNEK GÖREV FORMATI: {"time": "20:00-21:00", "activity": "Tarih: İslamiyet Öncesi Türk Tarihi Tekrarı", "type": "review"}, {"time": "21:00-22:00", "activity": "Coğrafya: Türkiye'nin İklimi Soru Çözümü", "type": "practice"}
+             ]},
             {"day": "Salı", "schedule": []},
             {"day": "Çarşamba", "schedule": []},
             {"day": "Perşembe", "schedule": []},
