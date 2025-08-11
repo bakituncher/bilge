@@ -2,12 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 
 // MODÜLER KARTLARI İÇERİ AKTAR
 import 'dashboard_cards/mission_card.dart';
@@ -56,10 +58,18 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
       return const SizedBox(height: 420); // Yüklenirken boşluk bırak
     }
 
+    final weeklyPlan = user.weeklyPlan != null ? WeeklyPlan.fromJson(user.weeklyPlan!) : null;
+
+    // YENİ KONTROL MANTIĞI
+    // Eğer plan 7 gün veya daha eskiyse, normal planı göstermek yerine
+    // kullanıcıyı yeni plan oluşturmaya yönlendiren özel bir kart göster.
+    if (weeklyPlan != null && DateTime.now().difference(weeklyPlan.creationDate).inDays >= 0) {
+      return const _NewPlanPromptCard();
+    }
+
     // =======================================================================
     // HATANIN ÇÖZÜLDÜĞÜ YENİ STRATEJİK MANTIK
     // =======================================================================
-    final weeklyPlan = user.weeklyPlan != null ? WeeklyPlan.fromJson(user.weeklyPlan!) : null;
     int totalTasksSoFar = 0;
     int completedTasksSoFar = 0;
     bool isPlanBehind = false;
@@ -140,6 +150,56 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
           ),
         );
       }),
+    );
+  }
+}
+
+// YENİ EKLENEN WIDGET
+class _NewPlanPromptCard extends StatelessWidget {
+  const _NewPlanPromptCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8.0),
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 8),
+        elevation: 4,
+        shadowColor: AppTheme.secondaryColor.withOpacity(0.3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Container(
+          height: 400, // Diğer kartlarla aynı boyutta olması için
+          padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(Icons.auto_awesome, color: AppTheme.secondaryColor, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                'Yeni Bir Hafta, Yeni Bir Strateji!',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Geçen haftanın planı tamamlandı. Performansını güncelleyerek bu hafta için yeni bir zafer yolu çizelim.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
+              ),
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: () => context.go('${AppRoutes.aiHub}/${AppRoutes.strategicPlanning}'),
+                icon: const Icon(Icons.insights_rounded),
+                label: const Text('Yeni Stratejini Oluştur'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              )
+            ],
+          ),
+        ),
+      ).animate().fadeIn(duration: 500.ms).scale(begin: const Offset(0.95, 0.95)),
     );
   }
 }
