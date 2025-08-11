@@ -10,7 +10,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:intl/intl.dart';
-import 'package:bilge_ai/data/models/plan_model.dart';
 
 enum Pacing { relaxed, moderate, intense }
 enum PlanningStep { dataCheck, confirmation, pacing, loading }
@@ -41,7 +40,7 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
         user: user,
         tests: tests,
         pacing: pacing.name,
-        revisionRequest: revisionRequest,
+        revisionRequest: revisionRequest, // Revizyon talebini iletiyoruz
       );
 
       final decodedData = jsonDecode(resultJson);
@@ -57,6 +56,7 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
       };
 
       if (context.mounted) {
+        // İster ilk oluşturma olsun, ister revizyon, her zaman onay ekranına git.
         context.push('/ai-hub/strategic-planning/${AppRoutes.strategyReview}', extra: result);
       }
 
@@ -110,31 +110,11 @@ class StrategicPlanningScreen extends ConsumerWidget {
           return const Scaffold(body: Center(child: Text("Kullanıcı verisi bulunamadı.")));
         }
 
-        // =======================================================================
-        // **NİHAİ VE HATASIZ MANTIK BLOKU**
-        // =======================================================================
-        bool hasPlan = user.longTermStrategy != null && user.weeklyPlan != null;
-        bool isPlanExpired = false;
-
-        if (hasPlan) {
-          final weeklyPlan = WeeklyPlan.fromJson(user.weeklyPlan!);
-          if (DateTime.now().difference(weeklyPlan.creationDate).inDays >= 7) {
-            isPlanExpired = true;
+        if (user.longTermStrategy != null && user.weeklyPlan != null) {
+          if(step != PlanningStep.confirmation && step != PlanningStep.pacing && step != PlanningStep.loading) {
+            return _buildStrategyDisplay(context, ref, user);
           }
         }
-
-        // Eğer planın süresi dolmuşsa ve henüz bir işlem başlamadıysa (dataCheck),
-        // kullanıcıyı doğrudan yeni plan oluşturma adımlarına yönlendir.
-        if (isPlanExpired && step == PlanningStep.dataCheck) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
-          });
-        }
-        // Eğer geçerli bir plan varsa ve bir işlem başlamadıysa, "Mevcut Plan" ekranını göster.
-        else if (hasPlan && !isPlanExpired && step == PlanningStep.dataCheck) {
-          return _buildStrategyDisplay(context, ref, user);
-        }
-        // =======================================================================
 
         return Scaffold(
           appBar: AppBar(title: const Text('Strateji Oturumu')),
@@ -161,58 +141,17 @@ class StrategicPlanningScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref, UserModel user) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("Stratejik Planın Hazır")),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.shield_moon_rounded, size: 80, color: AppTheme.successColor),
-              const SizedBox(height: 24),
-              Text(
-                "Mevcut Bir Stratejin Var",
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 12),
-              Text(
-                "Uzun vadeli zafer planın ve bu haftaki görevlerin zaten belirlenmiş. Komuta merkezinden planını takip edebilirsin.",
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
-                icon: const Icon(Icons.map_rounded),
-                label: const Text("Komuta Merkezine Git"),
-              ),
-              TextButton(
-                  onPressed: () {
-                    ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
-                  },
-                  child: const Text("Yeni Strateji Oluştur"))
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-
   Widget _buildStep(BuildContext context, WidgetRef ref, PlanningStep step, bool hasTests) {
     if (!hasTests) {
       return _buildDataMissingView(context);
     }
 
-    if (step == PlanningStep.dataCheck) {
-      // Bu durum, planı olmayan bir kullanıcı için veya planı eski olan
-      // bir kullanıcı için bir sonraki adıma geçiş anında kısa bir süre görünür.
-      return const Center(child: CircularProgressIndicator());
+    if (step == PlanningStep.dataCheck && hasTests) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
+      });
+      return const SizedBox.shrink();
     }
-
 
     switch (step) {
       case PlanningStep.confirmation:
@@ -237,6 +176,50 @@ class StrategicPlanningScreen extends ConsumerWidget {
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  // *******************************************************************
+  // * HATANIN ÇÖZÜLDÜĞÜ YER *
+  // *******************************************************************
+  Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref, UserModel user) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Stratejik Planın Hazır")),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.shield_moon_rounded, size: 80, color: AppTheme.successColor),
+              const SizedBox(height: 24),
+              Text(
+                "Mevcut Bir Stratejin Var",
+                style: Theme.of(context).textTheme.headlineSmall,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "Uzun vadeli zafer planın ve bu haftaki görevlerin zaten belirlenmiş. Komuta merkezinden planını takip edebilirsin.",
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                // Yönlendirme komutu, tam yolu içerecek şekilde düzeltildi.
+                onPressed: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
+                icon: const Icon(Icons.map_rounded),
+                label: const Text("Komuta Merkezine Git"),
+              ),
+              TextButton(
+                  onPressed: () {
+                    ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
+                  },
+                  child: const Text("Yeni Strateji Oluştur"))
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildDataMissingView(BuildContext context) {

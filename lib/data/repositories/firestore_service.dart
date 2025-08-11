@@ -153,14 +153,10 @@ class FirestoreService {
     required String longTermStrategy,
     required Map<String, dynamic> weeklyPlan,
   }) async {
-    // YENİ EKLENEN KOD: Plan objesine güncel tarihi ekle.
-    final planWithDate = Map<String, dynamic>.from(weeklyPlan);
-    planWithDate['creationDate'] = Timestamp.now();
-
     await _usersCollection.doc(userId).update({
       'studyPacing': pacing,
       'longTermStrategy': longTermStrategy,
-      'weeklyPlan': planWithDate, // Güncellenmiş planı gönder
+      'weeklyPlan': weeklyPlan,
     });
     await updateEngagementScore(userId, 100);
   }
