@@ -1,4 +1,5 @@
 // lib/features/weakness_workshop/screens/weakness_workshop_screen.dart
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
@@ -38,11 +39,15 @@ final workshopSessionProvider = FutureProvider.autoDispose<StudyGuideAndQuiz>((r
     return Future.error("Analiz için kullanıcı veya test verisi bulunamadı.");
   }
 
+  // YAVAŞLIK İÇİN İYİLEŞTİRME: 30 saniye sonra zaman aşımına uğrat.
   final jsonString = await ref.read(aiServiceProvider).generateStudyGuideAndQuiz(
     user,
     tests,
     topicOverride: selectedTopic,
     difficulty: difficulty,
+  ).timeout(
+    const Duration(seconds: 30),
+    onTimeout: () => throw TimeoutException("Yapay zeka çok uzun süredir yanıt vermiyor. Lütfen tekrar deneyin."),
   );
 
   final decodedJson = jsonDecode(jsonString);
@@ -140,12 +145,12 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
 
     final sessionAsync = ref.watch(workshopSessionProvider);
     return sessionAsync.when(
-      loading: () => Center(key: const ValueKey('loading'), child: Column(mainAxisSize: MainAxisSize.min, children: [const CircularProgressIndicator(), const SizedBox(height: 16), Text("Cevher işleniyor...", style: TextStyle(color: AppTheme.secondaryTextColor))])),
+      loading: () => const _LoadingCevherView(key: ValueKey('loading')), // YENİ YÜKLENME EKRANI
       error: (e, s) {
         if (e.toString().contains("Konu seçilmedi")) {
           return const Center(key: ValueKey('waiting'), child: CircularProgressIndicator());
         }
-        return Center(key: const ValueKey('error'), child: Padding(padding: const EdgeInsets.all(16.0), child: Text("Bir hata oluştu: ${e.toString()}", textAlign: TextAlign.center,)));
+        return Center(key: ValueKey('error'), child: Padding(padding: const EdgeInsets.all(16.0), child: Text("Bir hata oluştu: ${e.toString()}", textAlign: TextAlign.center,)));
       },
       data: (material) {
         switch (_currentStep) {
@@ -171,6 +176,37 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
     );
   }
 }
+
+// YENİ WIDGET: GELİŞMİŞ YÜKLENME EKRANI
+class _LoadingCevherView extends StatelessWidget {
+  const _LoadingCevherView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Image.asset('assets/images/bilge_baykus.png', height: 120)
+              .animate(onPlay: (c) => c.repeat(reverse: true))
+              .moveY(duration: 1500.ms, begin: -10, end: 10, curve: Curves.easeInOut),
+          const SizedBox(height: 24),
+          Text(
+            "Bilge Baykuş senin için\nözel bir çalışma hazırlıyor...",
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.secondaryTextColor),
+          ),
+          const SizedBox(height: 16),
+          const SizedBox(
+            width: 150,
+            child: LinearProgressIndicator(color: AppTheme.secondaryColor),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 
 class _BriefingView extends ConsumerWidget {
   final Function(Map<String, String>) onTopicSelected;

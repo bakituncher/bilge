@@ -40,9 +40,15 @@ class QuizQuestion {
   });
 
   factory QuizQuestion.fromJson(Map<String, dynamic> json) {
+    // METİN TEMİZLEME FONKSİYONU
+    // Bu fonksiyon, AI'dan gelebilecek gereksiz karakterleri temizler.
+    String cleanText(String text) {
+      return text.replaceAll(RegExp(r'[\\*_]'), '').trim();
+    }
+
     return QuizQuestion(
-      question: json['question'] ?? 'Soru yüklenemedi.',
-      options: List<String>.from(json['options'] ?? []),
+      question: cleanText(json['question'] ?? 'Soru yüklenemedi.'),
+      options: (List<String>.from(json['options'] ?? [])).map(cleanText).toList(),
       correctOptionIndex: json['correctOptionIndex'] ?? 0,
     );
   }

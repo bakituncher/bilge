@@ -69,8 +69,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return ListView(
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           children: [
+            // *** DÜZELTME BURADA YAPILDI ***
+            // Üstten boşluk vermek için Padding güncellendi.
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
               child: DashboardHeader(
                 name: user.name ?? 'Savaşçı',
                 title: warriorTitle,
