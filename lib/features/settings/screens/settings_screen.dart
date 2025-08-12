@@ -14,6 +14,119 @@ import 'package:bilge_ai/features/settings/widgets/settings_tile.dart';
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
+  // ONAY AKIŞINI YÖNETEN FONKSİYONLAR
+
+  void _showExamChangeFlow(BuildContext context, WidgetRef ref) {
+    // 1. Onay Diyaloğu
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.cardColor,
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: AppTheme.accentColor),
+            SizedBox(width: 10),
+            Text("Çok Önemli Uyarı"),
+          ],
+        ),
+        content: const Text(
+            "Sınav türünü değiştirmek, mevcut ilerlemenizi tamamen sıfırlayacaktır.\n\n"
+                "• Tüm deneme sonuçlarınız\n"
+                "• Haftalık planlarınız ve stratejileriniz\n"
+                "• Konu analizleriniz ve istatistikleriniz\n\n"
+                "kalıcı olarak silinecektir. Bu işlem geri alınamaz. Devam etmek istediğinizden emin misiniz?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("İptal Et"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentColor),
+            onPressed: () {
+              Navigator.of(context).pop();
+              _showFinalConfirmationDialog(context, ref); // 2. Onay Diyaloğuna geç
+            },
+            child: const Text("Anladım, Devam Et"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFinalConfirmationDialog(BuildContext context, WidgetRef ref) {
+    final confirmationController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    const confirmationText = "SİL";
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // İşlem sırasında kapatılmasını engelle
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: AppTheme.cardColor,
+              title: const Text("Son Onay"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                      "Bu son adımdır. Devam etmek için lütfen aşağıdaki alana büyük harflerle 'SİL' yazın."),
+                  const SizedBox(height: 20),
+                  Form(
+                    key: formKey,
+                    child: TextFormField(
+                      controller: confirmationController,
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: "Onay Metni",
+                        hintText: confirmationText,
+                      ),
+                      onChanged: (value) => setState(() {}), // Buton durumunu güncellemek için
+                      validator: (value) {
+                        if (value != confirmationText) {
+                          return "Lütfen 'SİL' yazın.";
+                        }
+                        return null;
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text("Vazgeç"),
+                ),
+                Consumer(
+                  builder: (context, ref, child) {
+                    final isLoading = ref.watch(settingsNotifierProvider).isLoading;
+                    return ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accentColor),
+                      onPressed: (confirmationController.text == confirmationText && !isLoading)
+                          ? () {
+                        if (formKey.currentState!.validate()) {
+                          // SADECE İŞLEMİ TETİKLE VE DİYALOĞU KAPAT.
+                          // NAVİGASYON YAPMA! GoRouter halledecek.
+                          Navigator.of(dialogContext).pop();
+                          ref.read(settingsNotifierProvider.notifier).resetAccountForNewExam();
+                        }
+                      }
+                          : null, // Butonu pasif yap
+                      child: isLoading
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Text("Tüm Verileri Sil ve Değiştir"),
+                    );
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   // İsim değiştirme diyalogunu gösteren fonksiyon
   void _showEditNameDialog(BuildContext context, WidgetRef ref, String currentName) {
     final formKey = GlobalKey<FormState>();
@@ -136,6 +249,19 @@ class SettingsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Sadece hata durumunda kullanıcıya mesaj göstermek için dinle
+    ref.listen<SettingsState>(settingsNotifierProvider, (previous, next) {
+      if (next.resetStatus == ResetStatus.failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Veriler sıfırlanırken bir hata oluştu. Lütfen tekrar deneyin."),
+            backgroundColor: AppTheme.accentColor,
+          ),
+        );
+        ref.read(settingsNotifierProvider.notifier).resetOperationStatus();
+      }
+    });
+
     final user = ref.watch(userProfileProvider).value;
 
     return Scaffold(
@@ -168,11 +294,11 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
           const SettingsSection(title: "Sınav ve Planlama"),
-          SettingsTile( // İSTEDİĞİNİZ GÜNCELLEME BURADA
+          SettingsTile(
             icon: Icons.school_outlined,
             title: "Sınavı Değiştir",
-            subtitle: "Hazırlandığınız sınavı veya alanı güncelleyin",
-            onTap: () => context.push(AppRoutes.examSelection),
+            subtitle: "Tüm ilerlemeniz sıfırlanacak",
+            onTap: () => _showExamChangeFlow(context, ref),
           ),
           SettingsTile(
             icon: Icons.edit_calendar_outlined,

@@ -28,7 +28,6 @@ class FirestoreService {
     await _usersCollection.doc(user.uid).set(userProfile.toJson());
   }
 
-  // YENİ EKLENDİ: Sadece kullanıcı adını güncelleyen fonksiyon
   Future<void> updateUserName({required String userId, required String newName}) async {
     await _usersCollection.doc(userId).update({'name': newName});
   }
@@ -182,5 +181,49 @@ class FirestoreService {
     await _usersCollection.doc(userId).update({
       'masteredTopics': FieldValue.arrayUnion([uniqueIdentifier])
     });
+  }
+
+  // YENİ EKLENEN FONKSİYON
+  Future<void> resetUserDataForNewExam(String userId) async {
+    final WriteBatch batch = _firestore.batch();
+
+    // 1. Kullanıcı belgesindeki alanları sıfırla
+    final userDocRef = _usersCollection.doc(userId);
+    batch.update(userDocRef, {
+      'onboardingCompleted': false,
+      'tutorialCompleted': false,
+      'selectedExam': null,
+      'selectedExamSection': null,
+      'testCount': 0,
+      'totalNetSum': 0.0,
+      'engagementScore': 0,
+      'topicPerformances': {},
+      'completedDailyTasks': {},
+      'studyPacing': null,
+      'longTermStrategy': null,
+      'weeklyPlan': null,
+      'weeklyAvailability': {},
+      'masteredTopics': [],
+      'goal': null,
+      'challenges': [],
+      'weeklyStudyGoal': null,
+      'streak': 0,
+      'lastStreakUpdate': null,
+    });
+
+    // 2. Kullanıcıya ait tüm deneme (tests) kayıtlarını sil
+    final testsSnapshot = await _testsCollection.where('userId', isEqualTo: userId).get();
+    for (final doc in testsSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // 3. Kullanıcıya ait tüm odaklanma (focusSessions) kayıtlarını sil
+    final focusSnapshot = await _focusSessionsCollection.where('userId', isEqualTo: userId).get();
+    for (final doc in focusSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // 4. Tüm işlemleri tek seferde gerçekleştir
+    await batch.commit();
   }
 }
