@@ -24,6 +24,11 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
     with TickerProviderStateMixin {
   TabController? _tabController;
 
+  // DÜZELTME: Anahtarları güvenli hale getiren merkezi fonksiyon
+  String _sanitizeKey(String key) {
+    return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
+  }
+
   Map<String, List<SubjectTopic>> _getRelevantSubjects(
       UserModel user, Exam exam) {
     final subjects = <String, List<SubjectTopic>>{};
@@ -146,6 +151,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
                   return _SubjectGalaxyView(
                     key: ValueKey(subjectName),
                     user: user,
+                    exam: exam,
                     subjectName: subjectName,
                     topics: topics,
                   );
@@ -168,27 +174,46 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
 
 class _SubjectGalaxyView extends ConsumerWidget {
   final UserModel user;
+  final Exam exam;
   final String subjectName;
   final List<SubjectTopic> topics;
 
   const _SubjectGalaxyView({
     super.key,
     required this.user,
+    required this.exam,
     required this.subjectName,
     required this.topics,
   });
 
+  // DÜZELTME: Anahtarları güvenli hale getiren merkezi fonksiyon
+  String _sanitizeKey(String key) {
+    return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final performances = user.topicPerformances[subjectName] ?? {};
+    // DÜZELTME: Veriye erişirken temizlenmiş anahtar kullanılıyor.
+    final performances = user.topicPerformances[_sanitizeKey(subjectName)] ?? {};
     int totalQuestions = 0;
     int totalCorrect = 0;
+    int totalWrong = 0;
+
+    final relevantSection = exam.sections.firstWhere(
+          (s) => s.subjects.containsKey(subjectName),
+      orElse: () => exam.sections.first,
+    );
+    final penaltyCoefficient = relevantSection.penaltyCoefficient;
+
     performances.forEach((key, value) {
       totalQuestions += value.questionCount;
       totalCorrect += value.correctCount;
+      totalWrong += value.wrongCount;
     });
+
+    final double overallNet = totalCorrect - (totalWrong * penaltyCoefficient);
     final double overallMastery =
-    totalQuestions == 0 ? 0.0 : totalCorrect / totalQuestions;
+    totalQuestions == 0 ? 0.0 : (overallNet / totalQuestions).clamp(0.0, 1.0);
 
     final auraColor = Color.lerp(
         AppTheme.accentColor, AppTheme.successColor, overallMastery)!
@@ -204,9 +229,6 @@ class _SubjectGalaxyView extends ConsumerWidget {
         ),
       ),
       child: SingleChildScrollView(
-        // SORUNUN ÇÖZÜLDÜĞÜ YER BURASI:
-        // Alt boşluğu artırarak içeriğin navigasyon barının üzerinde
-        // rahatça kaydırılabilmesini sağlıyoruz.
         padding: const EdgeInsets.fromLTRB(20.0, 20.0, 20.0, 100.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -218,11 +240,13 @@ class _SubjectGalaxyView extends ConsumerWidget {
               runSpacing: 20.0,
               alignment: WrapAlignment.center,
               children: topics.map((topic) {
+                // DÜZELTME: Konu verisine erişirken temizlenmiş anahtar kullanılıyor.
                 final performance =
-                    performances[topic.name] ?? TopicPerformanceModel();
+                    performances[_sanitizeKey(topic.name)] ?? TopicPerformanceModel();
                 return MasteryTopicBubble(
                   topic: topic,
                   performance: performance,
+                  penaltyCoefficient: penaltyCoefficient,
                   onTap: () => context.go(
                     '/coach/update-topic-performance',
                     extra: {
@@ -256,7 +280,7 @@ class _SubjectGalaxyView extends ConsumerWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Bu sistemdeki gezegenlerin %$masteryPercent oranında kontrolü sende.',
+            'Bu sistemdeki gezegenlerin %$masteryPercent oranında net hakimiyeti sende.',
             style: textTheme.titleMedium
                 ?.copyWith(color: AppTheme.secondaryTextColor),
           ),

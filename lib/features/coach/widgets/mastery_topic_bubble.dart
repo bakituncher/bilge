@@ -8,12 +8,14 @@ import 'package:bilge_ai/data/models/exam_model.dart';
 class MasteryTopicBubble extends StatefulWidget {
   final SubjectTopic topic;
   final TopicPerformanceModel performance;
+  final double penaltyCoefficient; // HATA BURADAYDI: Bu satır eksikti.
   final VoidCallback onTap;
 
   const MasteryTopicBubble({
     super.key,
     required this.topic,
     required this.performance,
+    required this.penaltyCoefficient, // HATA BURADAYDI: Bu satır eksikti.
     required this.onTap,
   });
 
@@ -30,11 +32,10 @@ class _MasteryTopicBubbleState extends State<MasteryTopicBubble>
   @override
   void initState() {
     super.initState();
-    // Animasyon kontrolcüsünü başlat
     _animationController = AnimationController(
       vsync: this,
       duration: Duration(milliseconds: 1500 + Random().nextInt(1000)),
-    )..repeat(reverse: true); // Sürekli tekrarla (ileri-geri)
+    )..repeat(reverse: true);
 
     _scaleAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(
@@ -52,26 +53,23 @@ class _MasteryTopicBubbleState extends State<MasteryTopicBubble>
 
   @override
   Widget build(BuildContext context) {
-    // Hakimiyet seviyesini hesapla
-    // 5'ten az soru çözülmüşse, veri yetersiz kabul edelim (-1)
+    final double netCorrect = widget.performance.correctCount - (widget.performance.wrongCount * widget.penaltyCoefficient);
     final double mastery = widget.performance.questionCount < 5
         ? -1
         : widget.performance.questionCount == 0
         ? 0
-        : (widget.performance.correctCount / widget.performance.questionCount);
+        : (netCorrect / widget.performance.questionCount).clamp(0.0, 1.0);
 
-    // Hakimiyet seviyesine göre rengi belirle
     final Color color = switch (mastery) {
-      < 0 => AppTheme.lightSurfaceColor, // Veri Yetersiz
-      >= 0 && < 0.4 => AppTheme.accentColor, // Zayıf
-      >= 0.4 && < 0.7 => AppTheme.secondaryColor, // Orta
-      _ => AppTheme.successColor, // Güçlü
+      < 0 => AppTheme.lightSurfaceColor,
+      >= 0 && < 0.4 => AppTheme.accentColor,
+      >= 0.4 && < 0.7 => AppTheme.secondaryColor,
+      _ => AppTheme.successColor,
     };
 
-    // Tooltip mesajını oluştur
     final String tooltipMessage = mastery < 0
         ? "${widget.topic.name}\n(Analiz için en az 5 soru çözülmeli)"
-        : "${widget.topic.name}\nHakimiyet: %${(mastery * 100).toStringAsFixed(0)}\nD:${widget.performance.correctCount} Y:${widget.performance.wrongCount}";
+        : "${widget.topic.name}\nNet Hakimiyet: %${(mastery * 100).toStringAsFixed(0)}\nD:${widget.performance.correctCount} Y:${widget.performance.wrongCount}";
 
     return Tooltip(
       message: tooltipMessage,

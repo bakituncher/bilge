@@ -59,6 +59,11 @@ class StatsAnalysis {
   late String weakestSubjectByNet;
   late String strongestSubjectByNet;
 
+  // DÜZELTME: Anahtarları güvenli hale getiren merkezi fonksiyon
+  String _sanitizeKey(String key) {
+    return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
+  }
+
   StatsAnalysis(this.tests, this.topicPerformances, this.examData, {this.user}) {
     if (tests.isEmpty && topicPerformances.isEmpty) {
       _initializeEmpty();
@@ -162,14 +167,41 @@ class StatsAnalysis {
 
   List<Map<String, dynamic>> _getRankedTopics() {
     final List<Map<String, dynamic>> allTopics = [];
-    topicPerformances.forEach((subject, topics) {
-      topics.forEach((topic, performance) {
+    final relevantSections = examData.sections;
+
+    topicPerformances.forEach((sanitizedSubjectKey, topics) {
+      // Find the original subject name and details
+      String originalSubjectName = "";
+      SubjectDetails? subjectDetails;
+
+      for (var section in relevantSections) {
+        for (var entry in section.subjects.entries) {
+          if (_sanitizeKey(entry.key) == sanitizedSubjectKey) {
+            originalSubjectName = entry.key;
+            subjectDetails = entry.value;
+            break;
+          }
+        }
+        if (originalSubjectName.isNotEmpty) break;
+      }
+      if (originalSubjectName.isEmpty) return; // Skip if no matching subject found
+
+      final penalty = relevantSections
+          .firstWhere((s) => s.subjects.containsKey(originalSubjectName))
+          .penaltyCoefficient;
+
+      topics.forEach((sanitizedTopicKey, performance) {
+        final originalTopicName = subjectDetails?.topics
+            .firstWhere((t) => _sanitizeKey(t.name) == sanitizedTopicKey, orElse: () => SubjectTopic(name: ''))
+            .name ?? '';
+        if (originalTopicName.isEmpty) return;
+
         if (performance.questionCount > 3) {
-          final mastery = (performance.correctCount - (performance.wrongCount * 0.25)) / performance.questionCount;
+          final mastery = (performance.correctCount - (performance.wrongCount * penalty)) / performance.questionCount;
           final weightedScore = mastery - (performance.questionCount / 1000);
           allTopics.add({
-            'subject': subject,
-            'topic': topic,
+            'subject': originalSubjectName,
+            'topic': originalTopicName,
             'mastery': mastery.clamp(0.0, 1.0),
             'weightedScore': weightedScore,
           });
@@ -181,27 +213,20 @@ class StatsAnalysis {
     return allTopics;
   }
 
-  // *******************************************************************
-  // * İŞTE O ÜÇ ALTIN KURALIN HAYAT BULDUĞU YER *
-  // *******************************************************************
   List<Map<String, dynamic>> getWorkshopSuggestions({int count = 3}) {
     final rankedTopics = _getRankedTopics();
 
-    // ** KURAL 3: Fethedilen Topraklar Unutulmaz **
-    // Kullanıcının daha önce "fethettiği" konuları listeden çıkarıyoruz.
     final unmasteredTopics = rankedTopics.where((topic) {
-      final uniqueIdentifier = '${topic['subject']}-${topic['topic']}';
+      final sanitizedSubject = _sanitizeKey(topic['subject']);
+      final sanitizedTopic = _sanitizeKey(topic['topic']);
+      final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
       return !(user?.masteredTopics.contains(uniqueIdentifier) ?? false);
     }).toList();
 
-    // ** KURAL 1: Sadece Kanıtlanmış Zayıflıklar **
-    // Eğer filtrelenmiş, kanıtlanmış zayıflıklar varsa, onları öneriyoruz.
     if (unmasteredTopics.isNotEmpty) {
       return unmasteredTopics.take(count).toList();
     }
 
-    // ** KURAL 2: Boşluk Anında Rehberlik **
-    // Eğer hiç kanıtlanmış zayıflık yoksa, "Keşif Noktaları" öneriyoruz.
     final suggestions = <Map<String, dynamic>>[];
     final random = Random();
 

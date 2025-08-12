@@ -11,6 +11,11 @@ class FirestoreService {
   final FirebaseFirestore _firestore;
   FirestoreService(this._firestore);
 
+  // DÜZELTME: Veritabanı anahtarlarını güvenli hale getiren merkezi fonksiyon
+  String _sanitizeKey(String key) {
+    return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
+  }
+
   String? getUserId() {
     return FirebaseAuth.instance.currentUser?.uid;
   }
@@ -110,7 +115,10 @@ class FirestoreService {
     required TopicPerformanceModel performance,
   }) async {
     final userDocRef = _usersCollection.doc(userId);
-    final fieldPath = 'topicPerformances.$subject.$topic';
+    // DÜZELTME: Anahtarlar veritabanına yazılmadan önce temizleniyor.
+    final sanitizedSubject = _sanitizeKey(subject);
+    final sanitizedTopic = _sanitizeKey(topic);
+    final fieldPath = 'topicPerformances.$sanitizedSubject.$sanitizedTopic';
     await userDocRef.update({
       fieldPath: performance.toMap(),
     });
@@ -165,7 +173,10 @@ class FirestoreService {
       {required String userId,
         required String subject,
         required String topic}) async {
-    final uniqueIdentifier = '$subject-$topic';
+    // DÜZELTME: Anahtarlar veritabanına yazılmadan önce temizleniyor.
+    final sanitizedSubject = _sanitizeKey(subject);
+    final sanitizedTopic = _sanitizeKey(topic);
+    final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
     await _usersCollection.doc(userId).update({
       'masteredTopics': FieldValue.arrayUnion([uniqueIdentifier])
     });
