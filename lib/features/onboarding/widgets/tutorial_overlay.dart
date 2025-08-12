@@ -6,8 +6,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/onboarding/models/tutorial_step.dart';
 import 'package:bilge_ai/features/onboarding/providers/tutorial_provider.dart';
-import 'package:bilge_ai/data/providers/firestore_providers.dart';
-import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'tutorial_painter.dart';
 
 class TutorialOverlay extends ConsumerWidget {
@@ -15,10 +13,7 @@ class TutorialOverlay extends ConsumerWidget {
   const TutorialOverlay({super.key, required this.steps});
 
   void _finishTutorial(WidgetRef ref) {
-    final userId = ref.read(authControllerProvider).value?.uid;
-    if (userId != null) {
-      ref.read(firestoreServiceProvider).markTutorialAsCompleted(userId);
-    }
+    // DEĞİŞİKLİK: Bitirme mantığı artık merkezi olarak yönetiliyor.
     ref.read(tutorialProvider.notifier).finish();
   }
 

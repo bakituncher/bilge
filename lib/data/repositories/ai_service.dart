@@ -28,7 +28,7 @@ class AiService {
 
   final String _apiKey = AppConfig.geminiApiKey;
   final String _apiUrl =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"; //kesinlikle flash modelini kullan, pro modelini istemiyorum
 
   Future<String> _callGemini(String prompt, {bool expectJson = false}) async {
     if (_apiKey.isEmpty || _apiKey == "YOUR_GEMINI_API_KEY_HERE") {

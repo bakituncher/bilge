@@ -78,7 +78,8 @@ class ScaffoldWithNavBar extends ConsumerWidget {
 
     return ProviderScope(
       overrides: [
-        tutorialProvider.overrideWith((ref) => TutorialNotifier(tutorialSteps.length, navigationShell)),
+        // DEĞİŞİKLİK: Notifier'a veritabanı işlemleri için 'ref' parametresi aktarılıyor.
+        tutorialProvider.overrideWith((ref) => TutorialNotifier(tutorialSteps.length, navigationShell, ref)),
       ],
       child: Consumer(
           builder: (context, ref, child) {

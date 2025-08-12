@@ -1,12 +1,15 @@
 // lib/features/onboarding/providers/tutorial_provider.dart
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
+import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 class TutorialNotifier extends StateNotifier<int?> {
   final int totalSteps;
   final StatefulNavigationShell? navigationShell;
+  final Ref _ref;
 
-  TutorialNotifier(this.totalSteps, this.navigationShell) : super(null); // Başlangıçta null (kapalı)
+  TutorialNotifier(this.totalSteps, this.navigationShell, this._ref) : super(null); // Başlangıçta null (kapalı)
 
   void start() {
     state = 0; // Öğreticiyi ilk adımdan başlat
@@ -40,6 +43,11 @@ class TutorialNotifier extends StateNotifier<int?> {
     // Tur bitince ana ekrana (index 0) dön
     if (navigationShell?.currentIndex != 0) {
       navigationShell?.goBranch(0);
+    }
+    // DEĞİŞİKLİK: Kullanıcının eğitimi tamamladığı bilgisi burada veritabanına kaydediliyor.
+    final userId = _ref.read(authControllerProvider).value?.uid;
+    if (userId != null) {
+      _ref.read(firestoreServiceProvider).markTutorialAsCompleted(userId);
     }
     state = null; // Öğreticiyi bitir ve kapat
   }
