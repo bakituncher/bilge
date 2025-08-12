@@ -49,11 +49,32 @@ class AddTestNotifier extends StateNotifier<AddTestState> {
   AddTestNotifier() : super(const AddTestState());
 
   // Komut: Sınav verisi yüklendi, durumu başlat.
-  void initialize(List<ExamSection> sections) {
-    state = state.copyWith(availableSections: sections);
-    // NİHAİ ÇÖZÜM: Eğer tek seçenek varsa, ANINDA seçimi yap.
-    if (sections.length == 1) {
-      state = state.copyWith(selectedSection: sections.first);
+  // DEĞİŞİKLİK: LGS için özel mantık eklendi.
+  void initialize(List<ExamSection> sections, ExamType examType) {
+    // Eğer sınav LGS ise ve birden fazla bölüm içeriyorsa (Sözel, Sayısal)...
+    if (examType == ExamType.lgs && sections.length > 1) {
+      // ...tüm dersleri tek bir haritada birleştir.
+      final Map<String, SubjectDetails> combinedSubjects = {};
+      for (var section in sections) {
+        combinedSubjects.addAll(section.subjects);
+      }
+      // "LGS" adında yeni, birleşik bir sanal bölüm oluştur.
+      final combinedSection = ExamSection(
+        name: 'LGS', // Artık tek bir isim var.
+        subjects: combinedSubjects,
+        penaltyCoefficient: sections.first.penaltyCoefficient,
+      );
+      // Durumu, sadece bu birleşik bölümü içerecek şekilde güncelle.
+      state = state.copyWith(
+        availableSections: [combinedSection],
+        selectedSection: combinedSection, // Ve otomatik olarak seç.
+      );
+    } else {
+      // Diğer sınavlar için eski mantık devam ediyor.
+      state = state.copyWith(availableSections: sections);
+      if (sections.length == 1) {
+        state = state.copyWith(selectedSection: sections.first);
+      }
     }
   }
 

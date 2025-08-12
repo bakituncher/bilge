@@ -37,6 +37,8 @@ class AddTestScreen extends ConsumerWidget {
         if (snapshot.hasData && addTestState.availableSections.isEmpty) {
           final exam = snapshot.data!;
           List<ExamSection> availableSections;
+
+          // DEĞİŞİKLİK: YKS ve LGS için bölüm mantığı ayrıldı.
           if (selectedExamType == ExamType.yks) {
             final tytSection = exam.sections.firstWhere((s) => s.name == 'TYT');
             final userAytSection = exam.sections.firstWhere(
@@ -45,11 +47,14 @@ class AddTestScreen extends ConsumerWidget {
             );
             availableSections = (tytSection.name == userAytSection.name) ? [tytSection] : [tytSection, userAytSection];
           } else {
+            // LGS ve diğer sınavlar için tüm bölümleri al.
             availableSections = exam.sections;
           }
+
           // Veri hazır olduğunda, beyni (Notifier) anında bilgilendir.
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            ref.read(addTestProvider.notifier).initialize(availableSections);
+            // DEĞİŞİKLİK: Notifier'a hangi sınav türüyle çalıştığı bilgisi gönderiliyor.
+            ref.read(addTestProvider.notifier).initialize(availableSections, selectedExamType);
           });
         }
 
