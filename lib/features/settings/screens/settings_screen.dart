@@ -7,14 +7,14 @@ import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
-import 'package:bilge_ai/features/settings/logic/settings_notifier.dart'; // YENİ: Notifier import edildi
+import 'package:bilge_ai/features/settings/logic/settings_notifier.dart';
 import 'package:bilge_ai/features/settings/widgets/settings_section.dart';
 import 'package:bilge_ai/features/settings/widgets/settings_tile.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
-  // YENİ: İsim değiştirme diyalogunu gösteren fonksiyon
+  // İsim değiştirme diyalogunu gösteren fonksiyon
   void _showEditNameDialog(BuildContext context, WidgetRef ref, String currentName) {
     final formKey = GlobalKey<FormState>();
     final nameController = TextEditingController(text: currentName);
@@ -103,7 +103,7 @@ class SettingsScreen extends ConsumerWidget {
     );
     if (!await launchUrl(emailUri)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('E-posta uygulaması bulunamadı.')),
+        const SnackBar(content: Text('E-posta uygulaması bulunamadı.')),
       );
     }
   }
@@ -168,7 +168,7 @@ class SettingsScreen extends ConsumerWidget {
             },
           ),
           const SettingsSection(title: "Sınav ve Planlama"),
-          SettingsTile(
+          SettingsTile( // İSTEDİĞİNİZ GÜNCELLEME BURADA
             icon: Icons.school_outlined,
             title: "Sınavı Değiştir",
             subtitle: "Hazırlandığınız sınavı veya alanı güncelleyin",

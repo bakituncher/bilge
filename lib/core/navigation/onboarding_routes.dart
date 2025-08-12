@@ -14,6 +14,9 @@ List<RouteBase> onboardingRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
     ),
     GoRoute(
       path: AppRoutes.examSelection,
+      // Bu satır, ekranın her zaman en üst katmanda açılmasını garanti eder.
+      // Bu, hem hatayı çözer hem de diğer akışların etkilenmemesini sağlar.
+      parentNavigatorKey: rootNavigatorKey,
       builder: (context, state) => const ExamSelectionScreen(),
     ),
     GoRoute(

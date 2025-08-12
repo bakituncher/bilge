@@ -7,11 +7,35 @@ import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
+import 'package:bilge_ai/core/theme/app_theme.dart'; // Tema dosyasını ekledik
 
 class ExamSelectionScreen extends ConsumerWidget {
   const ExamSelectionScreen({super.key});
 
-  // GÖREV 1: KPSS için alt seçim menüsü gösteren fonksiyon.
+  // Bu fonksiyon artık hem seçim sonrası navigasyonu hem de veritabanı kaydını yönetecek.
+  Future<void> _handleSelection(BuildContext context, WidgetRef ref, Function saveData) async {
+    // Önce veritabanına kaydet.
+    await saveData();
+
+    // Ardından navigasyonu kontrol et.
+    if (!context.mounted) return;
+
+    // Eğer bu ekran başka bir ekranın üzerine açıldıysa (Ayarlar'dan gelindiyse),
+    // sadece bu ekranı kapatarak geri dön.
+    if (context.canPop()) {
+      context.pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Sınav tercihin başarıyla güncellendi!"),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } else {
+      // Eğer ilk kurulum ekranıysa, bir sonraki adıma yönlendir.
+      context.go(AppRoutes.availability);
+    }
+  }
+
   void _showKpssSubTypeSelection(BuildContext context, WidgetRef ref) {
     showModalBottomSheet<void>(
       context: context,
@@ -68,34 +92,24 @@ class ExamSelectionScreen extends ConsumerWidget {
     );
   }
 
-  // GÖREV 2: LGS için bölüm seçtirme sorununu çözen güncellenmiş mantık.
   void _onExamTypeSelected(BuildContext context, WidgetRef ref, ExamType examType) async {
     final exam = await ExamData.getExamByType(examType);
     final userId = ref.read(authControllerProvider).value!.uid;
+    final firestoreService = ref.read(firestoreServiceProvider);
 
-    // LGS DÜZELTMESİ: LGS seçildiğinde, bölüm sormadan doğrudan kaydet ve ilerle.
-    if (examType == ExamType.lgs) {
-      await ref.read(firestoreServiceProvider).saveExamSelection(
-        userId: userId,
-        examType: examType,
-        sectionName: "LGS", // LGS için genel bir bölüm adı kullanılıyor.
+    // LGS ve tek bölümlü sınavlar için (KPSS gibi)
+    if (exam.sections.length == 1 || examType == ExamType.lgs) {
+      await _handleSelection(context, ref, () =>
+          firestoreService.saveExamSelection(
+            userId: userId,
+            examType: examType,
+            sectionName: exam.sections.first.name,
+          ),
       );
-      if (context.mounted) context.go(AppRoutes.availability);
       return;
     }
 
-    // YKS ve KPSS (tek bölümlü olduğu için) bu mantıkla doğru çalışır.
-    if (exam.sections.length == 1) {
-      await ref.read(firestoreServiceProvider).saveExamSelection(
-        userId: userId,
-        examType: examType,
-        sectionName: exam.sections.first.name,
-      );
-      if (context.mounted) context.go(AppRoutes.availability);
-      return;
-    }
-
-    // Bu kısım artık sadece YKS için çalışacak.
+    // YKS gibi çok bölümlü sınavlar için
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -120,12 +134,16 @@ class ExamSelectionScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 8.0),
                     child: ElevatedButton(
                       onPressed: () async {
-                        await ref.read(firestoreServiceProvider).saveExamSelection(
-                          userId: userId,
-                          examType: examType,
-                          sectionName: section.name,
+                        // Önce modal'ı kapat
+                        Navigator.pop(ctx);
+                        // Sonra seçimi işle
+                        await _handleSelection(context, ref, () =>
+                            firestoreService.saveExamSelection(
+                              userId: userId,
+                              examType: examType,
+                              sectionName: section.name,
+                            ),
                         );
-                        if (context.mounted) context.go(AppRoutes.availability);
                       },
                       child: Text(section.name),
                     ),
@@ -142,7 +160,15 @@ class ExamSelectionScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
+    // Ayarlar'dan geliniyorsa geri butonu göster
+    final canPop = context.canPop();
+
     return Scaffold(
+      appBar: AppBar(
+        // Eğer geri dönülemiyorsa (ilk kurulumsa) başlığı gizle
+        title: canPop ? const Text("Sınavı Değiştir") : null,
+        automaticallyImplyLeading: canPop,
+      ),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -151,15 +177,16 @@ class ExamSelectionScreen extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Harika!',
+                canPop ? 'Yeni Sınavını Seç' : 'Harika!',
                 style: textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               Text(
-                'Şimdi hazırlanacağın sınavı seçerek yolculuğuna başla.',
+                canPop
+                    ? 'Stratejilerin ve analizlerin bu seçime göre güncellenecek.'
+                    : 'Şimdi hazırlanacağın sınavı seçerek yolculuğuna başla.',
                 style: textTheme.titleMedium,
               ),
               const SizedBox(height: 40),
-              // GÜNCELLENMİŞ YAPI: Sınavlar artık manuel olarak listeleniyor.
               Animate(
                 effects: const [FadeEffect(), SlideEffect(begin: Offset(0, 0.2))],
                 child: _buildExamCard(context, "YKS", () => _onExamTypeSelected(context, ref, ExamType.yks)),
@@ -179,7 +206,6 @@ class ExamSelectionScreen extends ConsumerWidget {
     );
   }
 
-  // GÜNCELLENMİŞ YAPI: Bu widget artık ExamType yerine doğrudan bir metin alıyor.
   Widget _buildExamCard(BuildContext context, String displayName, VoidCallback onTap) {
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
