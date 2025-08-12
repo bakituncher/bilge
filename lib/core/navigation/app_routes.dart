@@ -12,7 +12,7 @@ class AppRoutes {
   static const String aiHub = '/ai-hub';
   static const String arena = '/arena';
   static const String profile = '/profile';
-  static const String settings = 'settings'; // GÜNCELLEME: /profile/settings olacak
+  static const String settings = '/settings'; // DÜZELTME: Rota tam yol olarak güncellendi.
   static const String addTest = 'add-test';
   static const String testDetail = 'test-detail';
   static const String testResultSummary = 'test-result-summary';

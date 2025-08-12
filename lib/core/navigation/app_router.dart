@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:bilge_ai/features/home/screens/library_screen.dart';
+import 'package:bilge_ai/features/settings/screens/settings_screen.dart'; // YENİ EKRANI EKLE
 import 'package:bilge_ai/shared/widgets/loading_screen.dart';
 import 'app_routes.dart';
 import 'auth_routes.dart';
@@ -73,6 +74,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
           path: AppRoutes.library,
           parentNavigatorKey: rootNavigatorKey,
           builder: (c, s) => const LibraryScreen()
+      ),
+      // DÜZELTME: Ayarlar rotası artık ana rotalardan biri olarak burada tanımlanıyor.
+      GoRoute(
+        path: AppRoutes.settings,
+        parentNavigatorKey: rootNavigatorKey,
+        builder: (c, s) => const SettingsScreen(),
       ),
       ...authRoutes,
       ...onboardingRoutes(rootNavigatorKey),
