@@ -11,7 +11,6 @@ class FirestoreService {
   final FirebaseFirestore _firestore;
   FirestoreService(this._firestore);
 
-  // DÜZELTME: Veritabanı anahtarlarını güvenli hale getiren merkezi fonksiyon
   String _sanitizeKey(String key) {
     return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
   }
@@ -27,6 +26,11 @@ class FirestoreService {
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name, tutorialCompleted: false);
     await _usersCollection.doc(user.uid).set(userProfile.toJson());
+  }
+
+  // YENİ EKLENDİ: Sadece kullanıcı adını güncelleyen fonksiyon
+  Future<void> updateUserName({required String userId, required String newName}) async {
+    await _usersCollection.doc(userId).update({'name': newName});
   }
 
   Future<void> markTutorialAsCompleted(String userId) async {
@@ -115,7 +119,6 @@ class FirestoreService {
     required TopicPerformanceModel performance,
   }) async {
     final userDocRef = _usersCollection.doc(userId);
-    // DÜZELTME: Anahtarlar veritabanına yazılmadan önce temizleniyor.
     final sanitizedSubject = _sanitizeKey(subject);
     final sanitizedTopic = _sanitizeKey(topic);
     final fieldPath = 'topicPerformances.$sanitizedSubject.$sanitizedTopic';
@@ -173,7 +176,6 @@ class FirestoreService {
       {required String userId,
         required String subject,
         required String topic}) async {
-    // DÜZELTME: Anahtarlar veritabanına yazılmadan önce temizleniyor.
     final sanitizedSubject = _sanitizeKey(subject);
     final sanitizedTopic = _sanitizeKey(topic);
     final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
