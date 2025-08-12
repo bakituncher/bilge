@@ -2,20 +2,20 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
-import 'package:bilge_ai/features/profile/models/badge_model.dart' as app_badge; // DÜZELTİLDİ: Kod adı eklendi
+import 'package:bilge_ai/features/profile/models/badge_model.dart' as app_badge;
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 import '../widgets/warrior_id_card.dart';
 import '../widgets/war_stats.dart';
 import '../widgets/profile_action_cards.dart';
 import '../widgets/honor_wall.dart';
 import '../widgets/future_victories.dart';
-
-// Badge modeli kendi dosyasına taşındı ve artık kod adıyla çağırılıyor.
 
 final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
@@ -67,7 +67,6 @@ class ProfileScreen extends ConsumerWidget {
     return "Azimli Savaşçı";
   }
 
-  // DÜZELTİLDİ: 'Badge' -> 'app_badge.Badge' olarak değiştirildi.
   List<app_badge.Badge> _generateBadges(UserModel user, int testCount, double avgNet, List<FocusSessionModel> focusSessions) {
     return [
       app_badge.Badge(name: 'İlk Adım', description: 'İlk denemeni ekle.', icon: Icons.flag, color: Colors.green, isUnlocked: testCount >= 1),
@@ -103,6 +102,11 @@ class ProfileScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings_rounded),
+            onPressed: () => context.push(AppRoutes.settings),
+            tooltip: 'Ayarlar',
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () => _showLogoutDialog(context, ref),

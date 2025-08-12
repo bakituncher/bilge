@@ -12,6 +12,7 @@ class AppRoutes {
   static const String aiHub = '/ai-hub';
   static const String arena = '/arena';
   static const String profile = '/profile';
+  static const String settings = 'settings'; // GÜNCELLEME: /profile/settings olacak
   static const String addTest = 'add-test';
   static const String testDetail = 'test-detail';
   static const String testResultSummary = 'test-result-summary';
@@ -22,8 +23,6 @@ class AppRoutes {
   static const String commandCenter = 'command-center';
   static const String weaknessWorkshop = 'weakness-workshop';
   static const String motivationChat = 'motivation-chat';
-  static const String coachPushed = 'coach-pushed'; // BU SATIRI EKLEYİN
-  static const String strategyReview = 'strategy-review'; // BU SATIRI EKLEYİN
-
-
+  static const String coachPushed = 'coach-pushed';
+  static const String strategyReview = 'strategy-review';
 }

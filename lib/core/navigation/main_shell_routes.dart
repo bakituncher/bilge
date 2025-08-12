@@ -15,6 +15,7 @@ import 'package:bilge_ai/features/home/screens/test_detail_screen.dart';
 import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart';
 import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
 import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
+import 'package:bilge_ai/features/settings/screens/settings_screen.dart'; // YENİ EKRANI EKLE
 import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/command_center_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
@@ -82,7 +83,6 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
               ),
               GoRoute(path: AppRoutes.commandCenter, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => CommandCenterScreen(user: state.extra as UserModel)),
               GoRoute(path: AppRoutes.weaknessWorkshop, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeaknessWorkshopScreen()),
-              // DÜZELTME: Rota tanımı güncellendi
               GoRoute(path: AppRoutes.motivationChat, parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) {
                   final prompt = state.extra as String?;
@@ -97,7 +97,19 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
             ]),
       ]),
       StatefulShellBranch(routes: [GoRoute(path: AppRoutes.arena, builder: (context, state) => const ArenaScreen())]),
-      StatefulShellBranch(routes: [GoRoute(path: AppRoutes.profile, builder: (context, state) => const ProfileScreen())]),
+      StatefulShellBranch(routes: [
+        // GÜNCELLEME: Profile ekranına alt rota eklendi
+        GoRoute(
+            path: AppRoutes.profile,
+            builder: (context, state) => const ProfileScreen(),
+            routes: [
+              GoRoute(
+                path: AppRoutes.settings,
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const SettingsScreen(),
+              )
+            ]),
+      ]),
     ],
   );
 }
