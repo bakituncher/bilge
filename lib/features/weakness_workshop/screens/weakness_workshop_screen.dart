@@ -703,10 +703,20 @@ class _SummaryViewState extends ConsumerState<_SummaryView> {
           Text("%${widget.score.toStringAsFixed(0)}", style: Theme.of(context).textTheme.displayLarge?.copyWith(color: AppTheme.successColor, fontWeight: FontWeight.bold), textAlign: TextAlign.center,),
           Text("Başarı Oranı", style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor), textAlign: TextAlign.center,),
           const SizedBox(height: 24),
-          _ResultActionCard(title: "Sonuçları Değerlendir", subtitle: "Başarını veya hatalarını AI koçunla konuş.", icon: Icons.forum_rounded, onTap: (){
-            final prompt = "Cevher Atölyesi'nde '${widget.material.subject}' dersinin '${widget.material.topic}' konusunu bitirdim ve %${widget.score.toStringAsFixed(0)} başarı elde ettim. Bu sonucu değerlendirelim.";
-            context.push('${AppRoutes.aiHub}/${AppRoutes.motivationChat}', extra: prompt);
-          }),
+          _ResultActionCard(
+              title: "Sonuçları Değerlendir",
+              subtitle: "Başarını veya hatalarını AI koçunla konuş.",
+              icon: Icons.forum_rounded,
+              onTap: (){
+                final reviewContext = {
+                  'type': 'workshop_review',
+                  'subject': widget.material.subject,
+                  'topic': widget.material.topic,
+                  'score': widget.score.toStringAsFixed(0),
+                };
+                context.push('${AppRoutes.aiHub}/${AppRoutes.motivationChat}', extra: reviewContext);
+              }
+          ),
           const SizedBox(height: 16),
           _ResultActionCard(title: "Derinleşmek İstiyorum", subtitle: "Bu konuyla ilgili daha zor sorularla kendini sına.", icon: Icons.auto_awesome, onTap: widget.onRetryHarder, isPrimary: true),
           const SizedBox(height: 16),

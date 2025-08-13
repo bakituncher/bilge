@@ -19,7 +19,9 @@ import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/command_center_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategy_review_screen.dart';
-import 'package:bilge_ai/features/weakness_workshop/screens/saved_workshops_screen.dart'; // YENİ EKLENDİ
+import 'package:bilge_ai/features/weakness_workshop/models/saved_workshop_model.dart';
+import 'package:bilge_ai/features/weakness_workshop/screens/saved_workshop_detail_screen.dart';
+import 'package:bilge_ai/features/weakness_workshop/screens/saved_workshops_screen.dart';
 import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
@@ -86,18 +88,26 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
                   path: AppRoutes.weaknessWorkshop,
                   parentNavigatorKey: rootNavigatorKey,
                   builder: (context, state) => const WeaknessWorkshopScreen(),
-                  routes: [ // YENİ EKLENDİ
+                  routes: [
                     GoRoute(
                       path: AppRoutes.savedWorkshops,
                       parentNavigatorKey: rootNavigatorKey,
                       builder: (context, state) => const SavedWorkshopsScreen(),
                     ),
+                    GoRoute(
+                      path: AppRoutes.savedWorkshopDetail,
+                      parentNavigatorKey: rootNavigatorKey,
+                      builder: (context, state) {
+                        final workshop = state.extra as SavedWorkshopModel;
+                        return SavedWorkshopDetailScreen(workshop: workshop);
+                      },
+                    ),
                   ]
               ),
               GoRoute(path: AppRoutes.motivationChat, parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) {
-                  final prompt = state.extra as String?;
-                  return MotivationChatScreen(initialPromptType: prompt);
+                  final prompt = state.extra as Object?;
+                  return MotivationChatScreen(initialPrompt: prompt);
                 },
               ),
               GoRoute(

@@ -230,6 +230,7 @@ class AiService {
     required List<TestModel> tests,
     required String promptType,
     required String? emotion,
+    Map<String, dynamic>? workshopContext,
   }) async {
     final examType = user.selectedExam != null ? ExamType.values.byName(user.selectedExam!) : null;
     final examData = examType != null ? await ExamData.getExamByType(examType) : null;
@@ -242,6 +243,7 @@ class AiService {
       examName: examType?.displayName,
       promptType: promptType,
       emotion: emotion,
+      workshopContext: workshopContext,
     );
     return _callGemini(prompt, expectJson: false);
   }

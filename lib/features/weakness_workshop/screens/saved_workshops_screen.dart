@@ -1,13 +1,14 @@
 // lib/features/weakness_workshop/screens/saved_workshops_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart'; // Rotaları import ediyoruz
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:bilge_ai/features/weakness_workshop/models/saved_workshop_model.dart';
 import 'package:intl/intl.dart';
 
-// YENİ PROVIDER
 final savedWorkshopsProvider = StreamProvider.autoDispose<List<SavedWorkshopModel>>((ref) {
   final userId = ref.watch(authControllerProvider).value?.uid;
   if (userId == null) {
@@ -63,7 +64,12 @@ class SavedWorkshopsScreen extends ConsumerWidget {
                   subtitle: Text("${workshop.subject} - ${DateFormat.yMd('tr').format(workshop.savedDate.toDate())}"),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded),
                   onTap: () {
-                    // TODO: Kaydedilmiş atölyeyi açma ekranı yapılacak.
+                    // *** KESİN ÇÖZÜM BURADA ***
+                    // Rota'ya tam adresini vererek yönlendirme yapıyoruz.
+                    context.push(
+                      '${AppRoutes.aiHub}/${AppRoutes.weaknessWorkshop}/${AppRoutes.savedWorkshopDetail}',
+                      extra: workshop,
+                    );
                   },
                 ),
               );

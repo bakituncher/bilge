@@ -37,9 +37,10 @@ class SavedWorkshopModel {
   }
 
   // YENİ EKLENEN VE HATAYI GİDEREN CONSTRUCTOR
-  factory SavedWorkshopModel.fromMap(Map<String, dynamic> map) {
+  factory SavedWorkshopModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final map = doc.data()!;
     return SavedWorkshopModel(
-      id: map['id'] ?? '',
+      id: doc.id,
       subject: map['subject'] ?? 'Bilinmeyen Ders',
       topic: map['topic'] ?? 'Bilinmeyen Konu',
       studyGuide: map['studyGuide'] ?? '# Anlatım Bulunamadı',

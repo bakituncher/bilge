@@ -10,6 +10,7 @@ String getMotivationPrompt({
   required String? examName,
   required String promptType,
   required String? emotion,
+  Map<String, dynamic>? workshopContext,
 }) {
   final userName = user.name ?? 'Komutan';
   final testCount = user.testCount;
@@ -30,9 +31,12 @@ String getMotivationPrompt({
   } else if (promptType == 'proactive_encouragement') {
     promptContext = "Kullanıcı bir süredir sessiz veya planındaki görevleri aksatıyor. Onu yeniden harekete geçirmek için proaktif bir mesaj gönder.";
   }
-  // YENİ EKLENEN KONTEKST
+  // YENİ EKLENEN VE GÜNCELLENEN KONTEKST
   else if (promptType == 'workshop_review') {
-    promptContext = "KULLANICI, CEVHER ATÖLYESİ'NDEN GELİYOR. Az önce bir konuyu bitirdi ve sonuçlarını seninle değerlendirmek istiyor. Ona bu bağlamda, yapıcı ve motive edici bir şekilde yaklaş. Konuyla ilgili spesifik yorumlar yapabilirsin. Kullanıcının mesajı: $emotion";
+    final subject = workshopContext?['subject'] ?? 'belirtilmemiş';
+    final topic = workshopContext?['topic'] ?? 'belirtilmemiş';
+    final score = workshopContext?['score'] ?? 'N/A';
+    promptContext = "KULLANICI, CEVHER ATÖLYESİ'NDEN GELİYOR. '$subject' dersinin '$topic' konusunu bitirdi ve %$score başarı elde etti. Bu sonucu seninle değerlendirmek istiyor. Ona bu bağlamda, yapıcı ve motive edici bir şekilde yaklaş. Başarısını kutla veya eksiklerini nasıl giderebileceğine dair somut önerilerde bulun.";
   }
   else if (promptType == 'user_chat') {
     promptContext = "Kullanıcı sohbete başladı ve ruh hali: $emotion. Bu duruma göre ona empati kurup motive edici bir şekilde cevap ver.";

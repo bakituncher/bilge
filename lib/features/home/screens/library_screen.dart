@@ -144,7 +144,6 @@ class _TriumphPlaqueCardState extends State<_TriumphPlaqueCard> {
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: GestureDetector(
-        // KALICI ÇÖZÜM: Navigasyon `go`'dan `push`'a çevrildi.
         onTap: () => context.push('/home/test-result-summary', extra: widget.test),
         child: AnimatedContainer(
           duration: 300.ms,

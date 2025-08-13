@@ -37,7 +37,7 @@ class FirestoreService {
         .collection('savedWorkshops')
         .orderBy('savedDate', descending: true)
         .snapshots()
-        .map((snapshot) => snapshot.docs.map((doc) => SavedWorkshopModel.fromMap(doc.data())).toList());
+        .map((snapshot) => snapshot.docs.map((doc) => SavedWorkshopModel.fromSnapshot(doc)).toList());
   }
   //---------------------------------------------------------
 

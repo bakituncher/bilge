@@ -19,7 +19,7 @@ class WarStats extends StatelessWidget {
             value: testCount.toString(),
             label: 'Toplam Deneme',
             icon: Icons.library_books_rounded,
-            onTap: () => context.push(AppRoutes.library), // DÜZELTİLDİ: go -> push
+            onTap: () => context.push(AppRoutes.library),
           ),
         ),
         const SizedBox(width: 12),
@@ -28,7 +28,7 @@ class WarStats extends StatelessWidget {
             value: avgNet.toStringAsFixed(2),
             label: 'Ortalama Net',
             icon: Icons.track_changes_rounded,
-            onTap: () => context.push('${AppRoutes.home}/${AppRoutes.stats}'), // DÜZELTİLDİ: go -> push
+            onTap: () => context.push('/home/stats'),
           ),
         ),
         const SizedBox(width: 12),

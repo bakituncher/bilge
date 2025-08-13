@@ -9,7 +9,7 @@ import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 
 // RUH HALİ SEÇENEKLERİ
-enum Mood { focused, neutral, tired, stressed, badResult, goodResult }
+enum Mood { focused, neutral, tired, stressed, badResult, goodResult, workshop }
 
 // EKRANIN DURUMUNU YÖNETEN STATE
 final chatScreenStateProvider = StateProvider<Mood?>((ref) => null);
@@ -17,8 +17,8 @@ final chatScreenStateProvider = StateProvider<Mood?>((ref) => null);
 final chatHistoryProvider = StateProvider<List<ChatMessage>>((ref) => []);
 
 class MotivationChatScreen extends ConsumerStatefulWidget {
-  final String? initialPromptType;
-  const MotivationChatScreen({super.key, this.initialPromptType});
+  final Object? initialPrompt;
+  const MotivationChatScreen({super.key, this.initialPrompt});
 
   @override
   ConsumerState<MotivationChatScreen> createState() => _MotivationChatScreenState();
@@ -36,8 +36,13 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> wit
     _backgroundAnimationController = AnimationController(vsync: this, duration: 4.seconds)..repeat(reverse: true);
     Future.microtask(() async {
       ref.read(chatHistoryProvider.notifier).state = [];
-      if (widget.initialPromptType != null) {
-        await _onMoodSelected(widget.initialPromptType!);
+      if (widget.initialPrompt != null) {
+        if (widget.initialPrompt is String) {
+          await _onMoodSelected(widget.initialPrompt as String);
+        } else if (widget.initialPrompt is Map<String, dynamic>) {
+          final contextData = widget.initialPrompt as Map<String, dynamic>;
+          await _onMoodSelected(contextData['type'], extraContext: contextData);
+        }
       } else {
         ref.read(chatScreenStateProvider.notifier).state = null;
       }
@@ -78,7 +83,7 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> wit
     _scrollToBottom(isNewMessage: true);
   }
 
-  Future<void> _onMoodSelected(String moodType) async {
+  Future<void> _onMoodSelected(String moodType, {Map<String, dynamic>? extraContext}) async {
     final user = ref.read(userProfileProvider).value!;
     final tests = ref.read(testsProvider).value!;
 
@@ -86,6 +91,7 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> wit
       'welcome': Mood.neutral, 'new_test_good': Mood.goodResult,
       'new_test_bad': Mood.badResult, 'focused': Mood.focused,
       'neutral': Mood.neutral, 'tired': Mood.tired, 'stressed': Mood.stressed,
+      'workshop_review': Mood.workshop,
     };
     final mood = moodMapping[moodType] ?? Mood.neutral;
     ref.read(chatScreenStateProvider.notifier).state = mood;
@@ -94,7 +100,7 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> wit
 
     final aiService = ref.read(aiServiceProvider);
     final aiResponse = await aiService.getPersonalizedMotivation(
-      user: user, tests: tests, promptType: moodType, emotion: null,
+      user: user, tests: tests, promptType: moodType, emotion: null, workshopContext: extraContext,
     );
 
     ref.read(chatHistoryProvider.notifier).state = [ChatMessage(aiResponse, isUser: false)];
@@ -225,6 +231,7 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> wit
       case Mood.stressed:
       case Mood.badResult: return AppTheme.accentColor;
       case Mood.tired: return Colors.indigo;
+      case Mood.workshop: return Colors.purple;
       default: return AppTheme.lightSurfaceColor;
     }
   }

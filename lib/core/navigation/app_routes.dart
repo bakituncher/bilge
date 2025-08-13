@@ -22,7 +22,8 @@ class AppRoutes {
   static const String strategicPlanning = 'strategic-planning';
   static const String commandCenter = 'command-center';
   static const String weaknessWorkshop = 'weakness-workshop';
-  static const String savedWorkshops = 'saved-workshops'; // YENİ EKLENDİ
+  static const String savedWorkshops = 'saved-workshops';
+  static const String savedWorkshopDetail = 'saved-workshop-detail'; // Bu satırın burada olduğundan emin ol
   static const String motivationChat = 'motivation-chat';
   static const String coachPushed = 'coach-pushed';
   static const String strategyReview = 'strategy-review';
