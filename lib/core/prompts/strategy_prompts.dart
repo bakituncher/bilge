@@ -91,7 +91,7 @@ String getYksPrompt(
 }
 
 String getLgsPrompt(
-    UserModel user,
+    UserModel? user,
     String avgNet,
     Map<String, double> subjectAverages,
     String pacing,
@@ -121,16 +121,16 @@ String getLgsPrompt(
       $availabilityJson
 
       // İSTİHBARAT RAPORU (LGS):
-      * **Öğrenci No:** ${user.id}
+      * **Öğrenci No:** ${user?.id ?? 'Belirtilmemiş'}
       * **Sınav:** LGS
       * **Sınava Kalan Süre:** $daysUntilExam gün
-      * **Hedef Kale:** ${user.goal}
-      * **Zayıf Noktalar:** ${user.challenges}
+      * **Hedef Kale:** ${user?.goal ?? 'Belirtilmemiş'}
+      * **Zayıf Noktalar:** ${user?.challenges?.join(', ') ?? 'Belirtilmemiş'}
       * **Çalışma temposu:** $pacing
-      * **Performans Raporu:** Toplam Deneme: ${user.testCount}, Ortalama Net: $avgNet
+      * **Performans Raporu:** Toplam Deneme: ${user?.testCount ?? 0}, Ortalama Net: $avgNet
       * **Ders Analizi:** $subjectAverages
       * **Konu Analizi:** $topicPerformancesJson
-      * **GEÇEN HAFTANIN ANALİZİ (EĞER VARSA):** ${user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : "YOK. HAREKÂT BAŞLIYOR."}
+      * **GEÇEN HAFTANIN ANALİZİ (EĞER VARSA):** ${user?.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : "YOK. HAREKÂT BAŞLIYOR."}
 
       **JSON ÇIKTI FORMATI (AÇIKLAMA YOK, SADECE BU):**
       {
@@ -156,7 +156,7 @@ String getLgsPrompt(
 }
 
 String getKpssPrompt(
-    UserModel user,
+    UserModel? user,
     String avgNet,
     Map<String, double> subjectAverages,
     String pacing,
@@ -187,16 +187,16 @@ String getKpssPrompt(
       $availabilityJson
 
       // İSTİHBARAT RAPORU (KPSS):
-      * **Aday No:** ${user.id}
+      * **Aday No:** ${user?.id ?? 'Belirtilmemiş'}
       * **Sınav:** $examName (GY/GK)
       * **Atanmaya Kalan Süre:** $daysUntilExam gün
-      * **Hedef Kadro:** ${user.goal}
-      * **Engeller:** ${user.challenges}
+      * **Hedef Kadro:** ${user?.goal ?? 'Belirtilmemiş'}
+      * **Engeller:** ${user?.challenges ?? 'Belirtilmemiş'}
       * **Tempo:** $pacing
-      * **Performans Raporu:** Toplam Deneme: ${user.testCount}, Ortalama Net: $avgNet
+      * **Performans Raporu:** Toplam Deneme: ${user?.testCount ?? 0}, Ortalama Net: $avgNet
       * **Alan Hakimiyeti:** $subjectAverages
       * **Konu Zafiyetleri:** $topicPerformancesJson
-      * **GEÇEN HAFTANIN ANALİZİ (EĞER VARSA):** ${user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : "YOK. PLANLAMA BAŞLIYOR."}
+      * **GEÇEN HAFTANIN ANALİZİ (EĞER VARSA):** ${user?.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : "YOK. PLANLAMA BAŞLIYOR."}
 
       **JSON ÇIKTI FORMATI (AÇIKLAMA YOK, SADECE BU):**
       {
@@ -308,7 +308,7 @@ String getQuantumYksPrompt(
 
 // 🚀 QUANTUM LGS PROMPT - 2500'LERİN TEKNOLOJİSİ
 String getQuantumLgsPrompt(
-    UserModel user,
+    UserModel? user,
     String avgNet,
     Map<String, double> subjectAverages,
     String pacing,
@@ -339,14 +339,14 @@ String getQuantumLgsPrompt(
       $availabilityJson
 
       // 🚀 QUANTUM İSTİHBARAT RAPORU (LGS):
-      * **QUANTUM AI ID:** ${user.id}
+      * **QUANTUM AI ID:** ${user?.id ?? 'Belirtilmemiş'}
       * **Cephe:** LGS
       * **Harekâta Kalan Süre:** $daysUntilExam gün
-      * **Nihai Fetih:** ${user.goal ?? 'Birincilik'}
-      * **Zafiyetler:** ${user.challenges?.join(', ') ?? 'Belirtilmemiş'}
+      * **Nihai Fetih:** ${user?.goal ?? 'Birincilik'}
+      * **Zafiyetler:** ${user?.challenges?.join(', ') ?? 'Belirtilmemiş'}
       * **QUANTUM Tempo:** $pacing
       * **QUANTUM Performans Verileri:**
-          * Toplam Tatbikat: ${user.testCount}, Ortalama İsabet (Net): $avgNet
+          * Toplam Tatbikat: ${user?.testCount ?? 0}, Ortalama İsabet (Net): $avgNet
           * Tüm Birliklerin (Derslerin) Net Ortalamaları: $subjectAverages
           * Tüm Mühimmatın (Konuların) Detaylı Analizi: $topicPerformancesJson
       * **QUANTUM GEÇEN HAFTANIN ANALİZİ (EĞER VARSA):**
@@ -416,7 +416,7 @@ String _getPerformanceTrend(String avgNet) {
   }
 }
 
-String _getQuantumRecommendations(String pacing, String examType) {
+String _getQuantumRecommendations(String pacing, String? examType) {
   switch (pacing.toLowerCase()) {
     case 'relaxed':
       return "Quantum AI önerisi: Konuları derinlemesine öğren, her konudan en az 100 soru çöz, hata analizi yap.";
