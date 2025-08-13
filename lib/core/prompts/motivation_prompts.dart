@@ -29,7 +29,12 @@ String getMotivationPrompt({
     promptContext = "Kullanıcı yeni bir deneme ekledi ve bu deneme ortalamasının üstünde ($lastTestNet). Onu kutlayabilirsin.";
   } else if (promptType == 'proactive_encouragement') {
     promptContext = "Kullanıcı bir süredir sessiz veya planındaki görevleri aksatıyor. Onu yeniden harekete geçirmek için proaktif bir mesaj gönder.";
-  } else if (promptType == 'user_chat') {
+  }
+  // YENİ EKLENEN KONTEKST
+  else if (promptType == 'workshop_review') {
+    promptContext = "KULLANICI, CEVHER ATÖLYESİ'NDEN GELİYOR. Az önce bir konuyu bitirdi ve sonuçlarını seninle değerlendirmek istiyor. Ona bu bağlamda, yapıcı ve motive edici bir şekilde yaklaş. Konuyla ilgili spesifik yorumlar yapabilirsin. Kullanıcının mesajı: $emotion";
+  }
+  else if (promptType == 'user_chat') {
     promptContext = "Kullanıcı sohbete başladı ve ruh hali: $emotion. Bu duruma göre ona empati kurup motive edici bir şekilde cevap ver.";
   }
 
@@ -64,6 +69,9 @@ String getMotivationPrompt({
 
   **KULLANICI PROFİLİ:**
   $userHistory
+
+  **KULLANICININ SON MESAJI (varsa):**
+  $emotion
 
   **YAPAY ZEKA'NIN CEVABI:**
   """;

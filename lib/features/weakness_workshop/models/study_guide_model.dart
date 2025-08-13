@@ -1,4 +1,4 @@
-// lib/features/weakness_workshop/models/study_guide_model.dart
+// lib/data/models/study_guide_model.dart
 
 class StudyGuideAndQuiz {
   final String studyGuide; // Markdown formatında
@@ -32,16 +32,16 @@ class QuizQuestion {
   final String question;
   final List<String> options;
   final int correctOptionIndex;
+  final String explanation; // YENİ EKLENDİ
 
   QuizQuestion({
     required this.question,
     required this.options,
     required this.correctOptionIndex,
+    required this.explanation, // YENİ EKLENDİ
   });
 
   factory QuizQuestion.fromJson(Map<String, dynamic> json) {
-    // METİN TEMİZLEME FONKSİYONU
-    // Bu fonksiyon, AI'dan gelebilecek gereksiz karakterleri temizler.
     String cleanText(String text) {
       return text.replaceAll(RegExp(r'[\\*_]'), '').trim();
     }
@@ -50,6 +50,7 @@ class QuizQuestion {
       question: cleanText(json['question'] ?? 'Soru yüklenemedi.'),
       options: (List<String>.from(json['options'] ?? [])).map(cleanText).toList(),
       correctOptionIndex: json['correctOptionIndex'] ?? 0,
+      explanation: json['explanation'] ?? 'Bu soru için açıklama bulunamadı.', // YENİ EKLENDİ
     );
   }
 }

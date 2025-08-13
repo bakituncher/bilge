@@ -12,7 +12,7 @@ class AppRoutes {
   static const String aiHub = '/ai-hub';
   static const String arena = '/arena';
   static const String profile = '/profile';
-  static const String settings = '/settings'; // DÜZELTME: Rota tam yol olarak güncellendi.
+  static const String settings = '/settings';
   static const String addTest = 'add-test';
   static const String testDetail = 'test-detail';
   static const String testResultSummary = 'test-result-summary';
@@ -22,6 +22,7 @@ class AppRoutes {
   static const String strategicPlanning = 'strategic-planning';
   static const String commandCenter = 'command-center';
   static const String weaknessWorkshop = 'weakness-workshop';
+  static const String savedWorkshops = 'saved-workshops'; // YENİ EKLENDİ
   static const String motivationChat = 'motivation-chat';
   static const String coachPushed = 'coach-pushed';
   static const String strategyReview = 'strategy-review';

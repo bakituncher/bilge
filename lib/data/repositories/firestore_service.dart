@@ -6,6 +6,7 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
+import 'package:bilge_ai/features/weakness_workshop/models/saved_workshop_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
@@ -22,6 +23,23 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
+
+  // YENİ EKLENEN FONKSİYONLAR: CEVHER ATÖLYESİ İÇİN
+  Future<void> saveWorkshopForUser(String userId, SavedWorkshopModel workshop) async {
+    final userDocRef = _usersCollection.doc(userId);
+    final workshopCollectionRef = userDocRef.collection('savedWorkshops');
+    await workshopCollectionRef.doc(workshop.id).set(workshop.toMap());
+  }
+
+  Stream<List<SavedWorkshopModel>> getSavedWorkshops(String userId) {
+    return _usersCollection
+        .doc(userId)
+        .collection('savedWorkshops')
+        .orderBy('savedDate', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map((doc) => SavedWorkshopModel.fromMap(doc.data())).toList());
+  }
+  //---------------------------------------------------------
 
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name, tutorialCompleted: false);
@@ -183,11 +201,9 @@ class FirestoreService {
     });
   }
 
-  // YENİ EKLENEN FONKSİYON
   Future<void> resetUserDataForNewExam(String userId) async {
     final WriteBatch batch = _firestore.batch();
 
-    // 1. Kullanıcı belgesindeki alanları sıfırla
     final userDocRef = _usersCollection.doc(userId);
     batch.update(userDocRef, {
       'onboardingCompleted': false,
@@ -211,19 +227,16 @@ class FirestoreService {
       'lastStreakUpdate': null,
     });
 
-    // 2. Kullanıcıya ait tüm deneme (tests) kayıtlarını sil
     final testsSnapshot = await _testsCollection.where('userId', isEqualTo: userId).get();
     for (final doc in testsSnapshot.docs) {
       batch.delete(doc.reference);
     }
 
-    // 3. Kullanıcıya ait tüm odaklanma (focusSessions) kayıtlarını sil
     final focusSnapshot = await _focusSessionsCollection.where('userId', isEqualTo: userId).get();
     for (final doc in focusSnapshot.docs) {
       batch.delete(doc.reference);
     }
 
-    // 4. Tüm işlemleri tek seferde gerçekleştir
     await batch.commit();
   }
 }

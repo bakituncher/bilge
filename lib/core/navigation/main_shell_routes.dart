@@ -19,6 +19,7 @@ import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/command_center_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategy_review_screen.dart';
+import 'package:bilge_ai/features/weakness_workshop/screens/saved_workshops_screen.dart'; // YENİ EKLENDİ
 import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
@@ -81,7 +82,18 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
                   ]
               ),
               GoRoute(path: AppRoutes.commandCenter, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => CommandCenterScreen(user: state.extra as UserModel)),
-              GoRoute(path: AppRoutes.weaknessWorkshop, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const WeaknessWorkshopScreen()),
+              GoRoute(
+                  path: AppRoutes.weaknessWorkshop,
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) => const WeaknessWorkshopScreen(),
+                  routes: [ // YENİ EKLENDİ
+                    GoRoute(
+                      path: AppRoutes.savedWorkshops,
+                      parentNavigatorKey: rootNavigatorKey,
+                      builder: (context, state) => const SavedWorkshopsScreen(),
+                    ),
+                  ]
+              ),
               GoRoute(path: AppRoutes.motivationChat, parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) {
                   final prompt = state.extra as String?;
@@ -97,7 +109,6 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
       ]),
       StatefulShellBranch(routes: [GoRoute(path: AppRoutes.arena, builder: (context, state) => const ArenaScreen())]),
       StatefulShellBranch(routes: [
-        // DÜZELTME: İç içe olan ayarlar rotası buradan kaldırıldı.
         GoRoute(
             path: AppRoutes.profile,
             builder: (context, state) => const ProfileScreen()),
