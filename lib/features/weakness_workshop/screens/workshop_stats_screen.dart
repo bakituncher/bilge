@@ -5,8 +5,9 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:collection/collection.dart';
+import 'package:go_router/go_router.dart';
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 
 class WorkshopStatsScreen extends ConsumerWidget {
   const WorkshopStatsScreen({super.key});
@@ -16,30 +17,43 @@ class WorkshopStatsScreen extends ConsumerWidget {
     final userAsync = ref.watch(userProfileProvider);
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Atölye Raporu"),
+        title: const Text("Simyacının Cevher Ocağı"),
+        backgroundColor: AppTheme.primaryColor.withOpacity(0.5),
       ),
-      body: userAsync.when(
-        data: (user) {
-          if (user == null) return const Center(child: Text("Kullanıcı verisi bulunamadı."));
-          final analysis = WorkshopAnalysis(user);
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppTheme.primaryColor,
+              AppTheme.cardColor.withOpacity(0.8),
+            ],
+          ),
+        ),
+        child: userAsync.when(
+          data: (user) {
+            if (user == null) return const Center(child: Text("Kullanıcı verisi bulunamadı."));
+            final analysis = WorkshopAnalysis(user);
 
-          if (analysis.totalQuestionsAnswered == 0) {
-            return _buildEmptyState(context);
-          }
+            if (analysis.totalQuestionsAnswered == 0) {
+              return _buildEmptyState(context);
+            }
 
-          return ListView(
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              _buildOverallStats(context, analysis),
-              const SizedBox(height: 24),
-              _buildPerformanceChart(context, analysis),
-              const SizedBox(height: 24),
-              _buildSubjectBreakdown(context, analysis),
-            ].animate(interval: 100.ms).fadeIn(duration: 500.ms).slideY(begin: 0.2),
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-        error: (e, s) => Center(child: Text("Hata: $e")),
+            return ListView(
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                _buildAlchemistPrism(context, analysis),
+                const SizedBox(height: 32),
+                _buildSubjectSpectrum(context, analysis),
+                const SizedBox(height: 32),
+                _buildForgingBench(context, analysis),
+              ].animate(interval: 150.ms).fadeIn(duration: 600.ms).slideY(begin: 0.3),
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+          error: (e, s) => Center(child: Text("Hata: $e")),
+        ),
       ),
     );
   }
@@ -51,268 +65,307 @@ class WorkshopStatsScreen extends ConsumerWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.construction_rounded, size: 80, color: AppTheme.secondaryTextColor),
+              const Icon(Icons.shield_moon_rounded, size: 80, color: AppTheme.secondaryTextColor),
               const SizedBox(height: 16),
               Text(
-                'Atölye Henüz Sessiz',
+                'Ocak Henüz Soğuk',
                 style: Theme.of(context).textTheme.headlineSmall,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                'Cevher Atölyesi\'nde bir konu üzerinde çalıştığında, burası başarılarınla ve gelişim raporlarınla dolacak.',
+                'Cevher Atölyesi\'nde bir konu üzerinde çalıştığında, bu ocak senin zaferlerinle alev alacak. İlk ham cevherini dövmeye başla!',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
               ),
             ],
           ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.8, 0.8)),
         ));
-    }
+  }
 
-  Widget _buildOverallStats(BuildContext context, WorkshopAnalysis analysis) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 16,
-      crossAxisSpacing: 16,
-      childAspectRatio: 1.5,
-      children: [
-        _StatCard(
-          icon: Icons.quiz_rounded,
-          value: analysis.totalQuestionsAnswered.toString(),
-          label: "Toplam Soru Çözüldü",
-          color: AppTheme.secondaryColor,
-        ),
-        _StatCard(
-          icon: Icons.diamond_rounded,
-          value: analysis.uniqueTopicsWorkedOn.toString(),
-          label: "Farklı Cevher İşlendi",
-          color: AppTheme.successColor,
-        ),
-        _StatCard(
-          icon: Icons.military_tech_rounded,
-          value: "%${analysis.overallAccuracy.toStringAsFixed(1)}",
-          label: "Genel Başarı Oranı",
-          color: Colors.blueAccent,
-        ),
-        _StatCard(
-          icon: Icons.school_rounded,
-          value: analysis.mostWorkedSubject,
-          label: "Favori Ders",
-          color: Colors.purpleAccent,
-        ),
-      ],
+  // YENİ WIDGET: Simya Prizması
+  Widget _buildAlchemistPrism(BuildContext context, WorkshopAnalysis analysis) {
+    final masteryPercent = analysis.overallAccuracy;
+    final masteryColor = Color.lerp(AppTheme.accentColor, AppTheme.successColor, masteryPercent / 100)!;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor.withOpacity(0.5),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Animate(
+            onPlay: (c) => c.repeat(reverse: true),
+            effects: [
+              ShimmerEffect(duration: 3000.ms, color: masteryColor.withOpacity(0.5)),
+            ],
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [masteryColor.withOpacity(0.5), Colors.transparent],
+                  stops: const [0.4, 1.0],
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  "%${masteryPercent.toStringAsFixed(1)}",
+                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    shadows: [Shadow(color: masteryColor, blurRadius: 15)],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text("Genel Ustalık Oranı", style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _StatItem(value: analysis.totalQuestionsAnswered.toString(), label: "Toplam Soru"),
+              _StatItem(value: analysis.uniqueTopicsWorkedOn.toString(), label: "İşlenen Cevher"),
+              _StatItem(value: analysis.mostWorkedSubject, label: "Favori Cephe"),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildPerformanceChart(BuildContext context, WorkshopAnalysis analysis) {
+  // YENİ WIDGET: Bilgi Tayfı (Kristal Barlar)
+  Widget _buildSubjectSpectrum(BuildContext context, WorkshopAnalysis analysis) {
     final chartData = analysis.subjectAccuracyList;
     if (chartData.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Derslere Göre Başarı Dağılımı", style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: chartData.length * 60.0,
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 20, 12),
-              child: BarChart(
-                BarChartData(
-                  alignment: BarChartAlignment.spaceAround,
-                  barGroups: chartData.mapIndexed((index, data) {
-                    return BarChartGroupData(
-                      x: index,
-                      barRods: [
-                        BarChartRodData(
-                          toY: data.accuracy,
-                          gradient: const LinearGradient(
-                            colors: [AppTheme.successColor, AppTheme.secondaryColor],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          width: 12,
-                          borderRadius: BorderRadius.circular(6),
-                        )
-                      ],
-                    );
-                  }).toList(),
-                  titlesData: FlTitlesData(
-                    leftTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          final index = value.toInt();
-                          if (index < chartData.length) {
-                            return SideTitleWidget(
-                              axisSide: meta.axisSide,
-                              space: 8,
-                              child: Text(
-                                chartData[index].subject,
-                                style: const TextStyle(fontSize: 12),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }
-                          return const Text('');
-                        },
-                        reservedSize: 120,
-                      ),
-                    ),
-                    bottomTitles: AxisTitles(
-                      sideTitles: SideTitles(
-                        showTitles: true,
-                        reservedSize: 30,
-                        getTitlesWidget: (value, meta) => Text("${value.toInt()}%"),
-                      ),
-                    ),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  ),
-                  gridData: FlGridData(
-                    show: true,
-                    drawHorizontalLine: false,
-                    verticalInterval: 25,
-                    getDrawingVerticalLine: (value) => FlLine(
-                      color: AppTheme.lightSurfaceColor.withOpacity(0.3),
-                      strokeWidth: 1,
-                    ),
-                  ),
-                  borderData: FlBorderData(show: false),
-                  barTouchData: BarTouchData(
-                    touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (_) => AppTheme.primaryColor.withOpacity(0.8),
-                      getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                        final data = chartData[group.x];
-                        return BarTooltipItem(
-                          '${data.subject}\n',
-                          const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                          children: <TextSpan>[
-                            TextSpan(
-                              text: '%${data.accuracy.toStringAsFixed(1)} Başarı',
-                              style: const TextStyle(color: AppTheme.successColor),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                swapAnimationDuration: 500.ms,
-                swapAnimationCurve: Curves.easeInOut,
-              ).animate().fadeIn(),
-            ),
-          ),
-        ),
+        Text("Bilgi Tayfı", style: Theme.of(context).textTheme.headlineSmall),
+        const SizedBox(height: 12),
+        ...chartData.map((data) => _SubjectCrystalBar(data: data)).toList(),
       ],
     );
   }
 
-  Widget _buildSubjectBreakdown(BuildContext context, WorkshopAnalysis analysis) {
-    final topTopics = analysis.getTopTopicsByMastery(count: 5);
-    if (topTopics.isEmpty) return const SizedBox.shrink();
+  // YENİ WIDGET: Dövme Tezgâhı
+  Widget _buildForgingBench(BuildContext context, WorkshopAnalysis analysis) {
+    final strongest = analysis.getTopTopicsByMastery(count: 2);
+    final weakest = analysis.getWeakestTopics(count: 3);
 
+    return Column(
+      children: [
+        if (strongest.isNotEmpty) ...[
+          _buildTopicSection(
+              context,
+              title: "Cilalanmış Cevherler",
+              icon: Icons.shield_rounded,
+              iconColor: AppTheme.successColor,
+              topics: strongest,
+              isPolished: true
+          ),
+          const SizedBox(height: 24),
+        ],
+        if (weakest.isNotEmpty) ...[
+          _buildTopicSection(
+              context,
+              title: "Dövülecek Ham Cevherler",
+              subtitle: "En Yüksek Gelişim Potansiyeli",
+              icon: Icons.local_fire_department_rounded,
+              iconColor: AppTheme.accentColor,
+              topics: weakest,
+              isPolished: false
+          )
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTopicSection(BuildContext context, {
+    required String title,
+    String? subtitle,
+    required IconData icon,
+    required Color iconColor,
+    required List<Map<String, dynamic>> topics,
+    required bool isPolished,
+  }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Konu Hakimiyet Raporu", style: Theme.of(context).textTheme.headlineSmall),
+        Row(
+          children: [
+            Icon(icon, color: iconColor, size: 24),
+            const SizedBox(width: 8),
+            Text(title, style: Theme.of(context).textTheme.headlineSmall),
+          ],
+        ),
+        if (subtitle != null)
+          Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
         const SizedBox(height: 12),
-        ...topTopics.map((topic) {
-          final mastery = topic['mastery'] as double;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(topic['topic'] as String, style: Theme.of(context).textTheme.titleLarge),
-                            Text(topic['subject'] as String, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
-                          ],
-                        ),
-                      ),
-                      Text(
-                        "%${(mastery * 100).toStringAsFixed(0)}",
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Color.lerp(AppTheme.accentColor, AppTheme.successColor, mastery)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: mastery,
-                      minHeight: 8,
-                      backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.3),
-                      color: Color.lerp(AppTheme.accentColor, AppTheme.successColor, mastery),
-                    ),
-                  )
-                ],
-              ),
-            ),
-          );
-        }),
+        ...topics.map((topic) => _TopicCard(topic: topic, isPolished: isPolished)).toList()
       ],
     );
   }
 }
 
-class _StatCard extends StatelessWidget {
-  final IconData icon;
+// YENİ YARDIMCI WIDGET'LAR
+class _StatItem extends StatelessWidget {
   final String value;
   final String label;
-  final Color color;
-
-  const _StatCard({required this.icon, required this.value, required this.label, required this.color});
+  const _StatItem({required this.value, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: color.withOpacity(0.2),
-              child: Icon(icon, color: color, size: 22),
-            ),
-            const Spacer(),
-            FittedBox(
-              fit: BoxFit.scaleDown,
+    return Column(
+      children: [
+        Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
+      ],
+    );
+  }
+}
+
+class _SubjectCrystalBar extends StatelessWidget {
+  final ({String subject, double accuracy}) data;
+  const _SubjectCrystalBar({required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = data.accuracy / 100;
+    final color = Color.lerp(AppTheme.accentColor, AppTheme.successColor, progress)!;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          // PİKSEL TAŞMASI SORUNUNU ÇÖZEN KISIM
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 12.0),
               child: Text(
-                value,
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                data.subject,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
                 maxLines: 1,
               ),
             ),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
+          ),
+          const SizedBox(width: 12),
+          Stack(
+            children: [
+              Container(
+                width: 100,
+                height: 25,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: AppTheme.primaryColor.withOpacity(0.5),
+                ),
+              ),
+              Animate(
+                effects: [
+                  ScaleEffect(
+                    duration: 1200.ms,
+                    curve: Curves.easeOutCubic,
+                    alignment: Alignment.centerLeft,
+                    begin: const Offset(0, 1),
+                    end: Offset(progress, 1),
+                  ),
+                ],
+                child: Container(
+                  width: 100,
+                  height: 25,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    gradient: LinearGradient(
+                      colors: [color.withOpacity(0.7), color],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(color: color, blurRadius: 10, spreadRadius: -5),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                height: 25,
+                child: Center(
+                  child: Text(
+                    "%${data.accuracy.toStringAsFixed(1)}",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      shadows: [Shadow(color: Colors.black, blurRadius: 5)],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          )
+        ],
+      ),
+    );
+  }
+}
+
+class _TopicCard extends StatelessWidget {
+  final Map<String, dynamic> topic;
+  final bool isPolished;
+  const _TopicCard({required this.topic, required this.isPolished});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isPolished ? AppTheme.successColor : AppTheme.secondaryColor;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: AppTheme.cardColor.withOpacity(0.8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: color.withOpacity(0.5)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: isPolished ? null : () => context.push('/ai-hub/weakness-workshop'),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(topic['topic'] as String, style: Theme.of(context).textTheme.titleMedium),
+                    Text(topic['subject'] as String, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
+                  ],
+                ),
+              ),
+              if (!isPolished) ...[
+                const SizedBox(width: 12),
+                const Icon(Icons.chevron_right_rounded, color: AppTheme.secondaryColor),
+              ]
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// Analiz Mantığı
+// GÜNCELLENMİŞ VE YENİ FONKSİYON EKLENMİŞ ANALİZ SINIFI
 class WorkshopAnalysis {
   final UserModel user;
   WorkshopAnalysis(this.user);
@@ -345,9 +398,9 @@ class WorkshopAnalysis {
         entry.key,
         entry.value.values.map((e) => e.questionCount).sum))
         .sortedBy<num>((e) => e.value)
-        .last
-        .key;
-    return _deSanitizeKey(subjectName);
+        .lastOrNull
+        ?.key;
+    return subjectName != null ? _deSanitizeKey(subjectName) : "Yok";
   }
 
   List<({String subject, double accuracy})> get subjectAccuracyList {
@@ -359,7 +412,7 @@ class WorkshopAnalysis {
     }).where((d) => d.accuracy > 0).sortedBy<num>((d) => d.accuracy).reversed.toList();
   }
 
-  List<Map<String, dynamic>> getTopTopicsByMastery({int count = 5}) {
+  List<Map<String, dynamic>> _getAllTopicsSorted() {
     final allTopics = user.topicPerformances.entries.expand((subjectEntry) {
       return subjectEntry.value.entries.map((topicEntry) {
         final performance = topicEntry.value;
@@ -371,9 +424,18 @@ class WorkshopAnalysis {
           'mastery': mastery.clamp(0.0, 1.0),
         };
       });
-    }).toList();
+    }).where((topic) => (topic['mastery'] as double) > 0).toList();
 
     allTopics.sort((a, b) => (b['mastery'] as double).compareTo(a['mastery'] as double));
-    return allTopics.take(count).toList();
+    return allTopics;
+  }
+
+  List<Map<String, dynamic>> getTopTopicsByMastery({int count = 2}) {
+    return _getAllTopicsSorted().take(count).toList();
+  }
+
+  List<Map<String, dynamic>> getWeakestTopics({int count = 3}) {
+    final allTopics = _getAllTopicsSorted();
+    return allTopics.reversed.take(count).toList();
   }
 }
