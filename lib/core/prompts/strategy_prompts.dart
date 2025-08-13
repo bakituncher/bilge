@@ -18,7 +18,7 @@ String _getRevisionBlock(String? revisionRequest) {
 
 String getYksPrompt(
     String userId,
-    String selectedExamSection,
+    String? selectedExamSection,
     int daysUntilExam,
     String goal,
     List<String>? challenges,
@@ -54,7 +54,7 @@ String getYksPrompt(
 
       // İSTİHBARAT RAPORU (YKS):
       * **Asker ID:** $userId
-      * **Cephe:** YKS ($selectedExamSection)
+      * **Cephe:** YKS (${selectedExamSection ?? 'TYT'})
       * **Harekâta Kalan Süre:** $daysUntilExam gün
       * **Nihai Fetih:** $goal
       * **Zafiyetler:** $challenges
@@ -224,7 +224,7 @@ String getKpssPrompt(
 // 🚀 QUANTUM YKS PROMPT - 2500'LERİN TEKNOLOJİSİ
 String getQuantumYksPrompt(
     String userId,
-    String selectedExamSection,
+    String? selectedExamSection,
     int daysUntilExam,
     String goal,
     List<String>? challenges,
@@ -259,7 +259,7 @@ String getQuantumYksPrompt(
 
       // 🚀 QUANTUM İSTİHBARAT RAPORU (YKS):
       * **QUANTUM AI ID:** $userId
-      * **Cephe:** YKS ($selectedExamSection)
+      * **Cephe:** YKS (${selectedExamSection ?? 'TYT'})
       * **Harekâta Kalan Süre:** $daysUntilExam gün
       * **Nihai Fetih:** $goal
       * **Zafiyetler:** $challenges

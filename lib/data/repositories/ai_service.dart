@@ -186,7 +186,7 @@ class AiService {
     if (examType == 'yks') {
       prompt = getYksPrompt(
         user.id,
-        user.selectedExamSection ?? 'TYT',
+        user.selectedExamSection,
         daysUntilExam,
         user.goal ?? 'Türkiye Birinciliği',
         user.challenges ?? [],
@@ -238,7 +238,7 @@ class AiService {
     if (examType == 'yks') {
       prompt = getYksPrompt(
         user.id,
-        user.selectedExamSection ?? 'TYT',
+        user.selectedExamSection,
         daysUntilExam,
         user.goal ?? 'Türkiye Birinciliği',
         user.challenges ?? [],
