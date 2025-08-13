@@ -153,12 +153,18 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
           },
         ) : null,
         actions: [
+          // YENİ EKLENEN BUTON
           if (_currentStep == WorkshopStep.briefing)
             IconButton(
-              icon: const Icon(Icons.inventory_2_outlined),
-              tooltip: "Cevher Kasanı Görüntüle",
-              onPressed: () => context.push('/ai-hub/weakness-workshop/${AppRoutes.savedWorkshops}'),
+              icon: const Icon(Icons.bar_chart_rounded),
+              tooltip: "Atölye Raporunu Görüntüle",
+              onPressed: () => context.push('/ai-hub/weakness-workshop/stats'), // YENİ ROTA
             ),
+          IconButton(
+            icon: const Icon(Icons.inventory_2_outlined),
+            tooltip: "Cevher Kasanı Görüntüle",
+            onPressed: () => context.push('/ai-hub/weakness-workshop/${AppRoutes.savedWorkshops}'),
+          ),
         ],
       ),
       body: AnimatedSwitcher(

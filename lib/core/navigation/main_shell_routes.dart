@@ -25,6 +25,7 @@ import 'package:bilge_ai/features/weakness_workshop/screens/saved_workshops_scre
 import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_screen.dart';
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
+import 'package:bilge_ai/features/weakness_workshop/screens/workshop_stats_screen.dart';
 
 StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
   return StatefulShellRoute.indexedStack(
@@ -89,6 +90,11 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
                   parentNavigatorKey: rootNavigatorKey,
                   builder: (context, state) => const WeaknessWorkshopScreen(),
                   routes: [
+                    GoRoute(
+                      path: 'stats',
+                      parentNavigatorKey: rootNavigatorKey,
+                      builder: (context, state) => const WorkshopStatsScreen(),
+                    ),
                     GoRoute(
                       path: AppRoutes.savedWorkshops,
                       parentNavigatorKey: rootNavigatorKey,
