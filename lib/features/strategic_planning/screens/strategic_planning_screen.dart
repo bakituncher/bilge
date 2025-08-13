@@ -332,9 +332,9 @@ class StrategicPlanningScreen extends ConsumerWidget {
                   color: Colors.amber.withOpacity(0.2),
                 ),
                 child: Icon(
-                  Icons.psychology_off,
-                  color: Colors.amber,
-                  size: 50,
+                  Icons.psychology,
+                  color: AppTheme.accentColor,
+                  size: 48,
                 ),
               ).animate().scale(duration: 1.seconds).then().shake(),
               

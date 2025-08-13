@@ -1,10 +1,11 @@
 // lib/features/home/logic/add_test_notifier.dart
-import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
+import 'package:bilge_ai/data/repositories/test_repository.dart';
 
 // 1. Bu özelliğin tüm durumunu tutan "hafıza" modeli
-class AddTestState extends Equatable {
+class AddTestState {
   final int currentStep;
   final String testName;
   final List<ExamSection> availableSections;
@@ -38,9 +39,6 @@ class AddTestState extends Equatable {
       isSaving: isSaving ?? this.isSaving,
     );
   }
-
-  @override
-  List<Object?> get props => [currentStep, testName, availableSections, selectedSection, scores, isSaving];
 }
 
 

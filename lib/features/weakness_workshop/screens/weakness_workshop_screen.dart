@@ -10,6 +10,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/weakness_workshop/models/study_guide_model.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:bilge_ai/data/models/user_model.dart';
+import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
@@ -135,10 +137,11 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
 
     final currentPerformance = user.topicPerformances[material.subject]?[material.topic] ?? TopicPerformanceModel();
     final newPerformance = TopicPerformanceModel(
+      subject: material.subject,
+      topic: material.topic,
       correctCount: currentPerformance.correctCount + correct,
       wrongCount: currentPerformance.wrongCount + wrong,
       blankCount: currentPerformance.blankCount + blank,
-      lastStudied: DateTime.now(),
     );
 
     // 🚀 QUANTUM PERFORMANS GÜNCELLEMESİ
@@ -1082,9 +1085,9 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
                   color: Colors.amber.withOpacity(0.2),
                 ),
                 child: Icon(
-                  Icons.psychology_off,
-                  color: Colors.amber,
-                  size: 50,
+                  Icons.psychology,
+                  color: AppTheme.accentColor,
+                  size: 48,
                 ),
               ).animate().scale(duration: 1.seconds).then().shake(),
               

@@ -223,24 +223,24 @@ class AiService {
     String? revisionRequest,
     required String analysisPhase,
   }) async {
-    final examType = user.selectedExamType;
+    final examType = user.selectedExamType ?? 'yks';
     final daysUntilExam = _getDaysUntilExam(examType);
     final avgNet = _calculateAverageNet(tests);
     final subjectAverages = _calculateSubjectAverages(tests);
     final topicPerformancesJson = jsonEncode(user.topicPerformances);
-    final availabilityJson = jsonEncode(user.availability);
+    final availabilityJson = jsonEncode(user.availability ?? {});
     final weeklyPlanJson = user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : null;
-    final completedTasksJson = user.completedTasks != null ? jsonEncode(user.completedTasks) : null;
+    final completedTasksJson = user.completedTasks.isNotEmpty ? jsonEncode(user.completedTasks) : null;
 
     // 🧠 QUANTUM AI PROMPT - 2500'LERİN TEKNOLOJİSİ
     String prompt;
-    if (examType == ExamType.yks) {
+    if (examType == 'yks') {
       prompt = getQuantumYksPrompt(
         user.id,
         user.selectedExamSection ?? 'TYT',
         daysUntilExam,
         user.goal ?? 'Türkiye Birinciliği',
-        user.challenges,
+        user.challenges ?? [],
         pacing,
         tests.length,
         avgNet.toStringAsFixed(2),
@@ -349,21 +349,21 @@ class AiService {
     required String promptType,
     String? emotion,
   }) async {
-    final examType = user.selectedExamType;
+    final examType = user.selectedExamType ?? 'yks';
     final daysUntilExam = _getDaysUntilExam(examType);
     final avgNet = _calculateAverageNet(tests);
     final subjectAverages = _calculateSubjectAverages(tests);
     final topicPerformancesJson = jsonEncode(user.topicPerformances);
-    final availabilityJson = jsonEncode(user.availability);
+    final availabilityJson = jsonEncode(user.availability ?? {});
     final weeklyPlanJson = user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : null;
-    final completedTasksJson = user.completedTasks != null ? jsonEncode(user.completedTasks) : null;
+    final completedTasksJson = user.completedTasks.isNotEmpty ? jsonEncode(user.completedTasks) : null;
 
     final prompt = getMotivationPrompt(
       user.id,
-      examType.displayName,
+      examType == 'yks' ? 'YKS' : 'LGS',
       daysUntilExam,
       user.goal ?? 'Birincilik',
-      user.challenges,
+      user.challenges ?? [],
       promptType,
       tests.length,
       avgNet.toStringAsFixed(2),
@@ -386,31 +386,23 @@ class AiService {
     String? emotion,
     String? quantumMood,
   }) async {
-    final examType = user.selectedExamType;
+    final examType = user.selectedExamType ?? 'yks';
     final daysUntilExam = _getDaysUntilExam(examType);
     final avgNet = _calculateAverageNet(tests);
     final subjectAverages = _calculateSubjectAverages(tests);
     final topicPerformancesJson = jsonEncode(user.topicPerformances);
-    final availabilityJson = jsonEncode(user.availability);
+    final availabilityJson = jsonEncode(user.availability ?? {});
     final weeklyPlanJson = user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : null;
-    final completedTasksJson = user.completedTasks != null ? jsonEncode(user.completedTasks) : null;
+    final completedTasksJson = user.completedTasks.isNotEmpty ? jsonEncode(user.completedTasks) : null;
 
     final prompt = getQuantumMotivationPrompt(
-      user.id,
-      examType.displayName,
-      daysUntilExam,
-      user.goal ?? 'Birincilik',
-      user.challenges,
-      promptType,
-      tests.length,
-      avgNet.toStringAsFixed(2),
-      subjectAverages,
-      topicPerformancesJson,
-      availabilityJson,
-      weeklyPlanJson,
-      completedTasksJson,
-      emotion,
-      quantumMood,
+      user: user,
+      tests: tests,
+      analysis: null,
+      examName: examType == 'yks' ? 'YKS' : 'LGS',
+      promptType: promptType,
+      emotion: emotion,
+      quantumMood: quantumMood,
     );
 
     return await _callGemini(prompt, expectJson: false);

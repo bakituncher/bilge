@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
@@ -200,25 +199,17 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   Future<void> _launchURL(BuildContext context, String url) async {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Bağlantı açılamadı: $url')),
-      );
-    }
+    // TODO: URL açma işlevi eklenecek
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Bağlantı açılamadı: $url')),
+    );
   }
 
   Future<void> _launchEmail(BuildContext context, String email) async {
-    final Uri emailUri = Uri(
-      scheme: 'mailto',
-      path: email,
-      query: 'subject=BilgeAI Geri Bildirim',
+    // TODO: E-posta açma işlevi eklenecek
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('E-posta uygulaması bulunamadı.')),
     );
-    if (!await launchUrl(emailUri)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('E-posta uygulaması bulunamadı.')),
-      );
-    }
   }
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {

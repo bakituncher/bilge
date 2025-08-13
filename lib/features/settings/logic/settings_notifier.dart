@@ -1,7 +1,6 @@
 // lib/features/settings/logic/settings_notifier.dart
-import 'package:equatable/equatable.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 
@@ -9,7 +8,7 @@ import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 enum ResetStatus { initial, success, failure }
 
 // Ayarlar ekranının durumunu tutan model
-class SettingsState extends Equatable {
+class SettingsState {
   final bool isLoading;
   final ResetStatus resetStatus;
 
@@ -24,9 +23,6 @@ class SettingsState extends Equatable {
       resetStatus: resetStatus ?? this.resetStatus,
     );
   }
-
-  @override
-  List<Object> get props => [isLoading, resetStatus];
 }
 
 // Ayarlar ekranının mantığını yöneten Notifier
