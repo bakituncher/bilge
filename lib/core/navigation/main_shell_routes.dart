@@ -26,6 +26,8 @@ import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_sc
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
 import 'package:bilge_ai/features/weakness_workshop/screens/workshop_stats_screen.dart';
+// ✅ WeeklyPlanScreen import eklendi
+import 'package:bilge_ai/features/home/screens/weekly_plan_screen.dart';
 
 StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
   return StatefulShellRoute.indexedStack(
@@ -38,11 +40,39 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
             path: AppRoutes.home,
             builder: (context, state) => const DashboardScreen(),
             routes: [
-              GoRoute(path: AppRoutes.addTest, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const AddTestScreen()),
-              GoRoute(path: AppRoutes.testDetail, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => TestDetailScreen(test: state.extra as TestModel)),
-              GoRoute(path: AppRoutes.testResultSummary, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => TestResultSummaryScreen(test: state.extra as TestModel)),
-              GoRoute(path: AppRoutes.pomodoro, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const PomodoroScreen()),
-              GoRoute(path: AppRoutes.stats, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => const StatsScreen()),
+              // ✅ Yeni eklenen rota
+              GoRoute(
+                path: 'weekly-plan', // AppRoutes'a eklenebilir: AppRoutes.weeklyPlan
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const WeeklyPlanScreen(),
+              ),
+              GoRoute(
+                path: AppRoutes.addTest,
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const AddTestScreen(),
+              ),
+              GoRoute(
+                path: AppRoutes.testDetail,
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) =>
+                    TestDetailScreen(test: state.extra as TestModel),
+              ),
+              GoRoute(
+                path: AppRoutes.testResultSummary,
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) =>
+                    TestResultSummaryScreen(test: state.extra as TestModel),
+              ),
+              GoRoute(
+                path: AppRoutes.pomodoro,
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const PomodoroScreen(),
+              ),
+              GoRoute(
+                path: AppRoutes.stats,
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const StatsScreen(),
+              ),
             ]),
       ]),
       StatefulShellBranch(routes: [
@@ -58,7 +88,8 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
                   return UpdateTopicPerformanceScreen(
                     subject: args['subject'] as String,
                     topic: args['topic'] as String,
-                    initialPerformance: args['performance'] as TopicPerformanceModel,
+                    initialPerformance:
+                    args['performance'] as TopicPerformanceModel,
                   );
                 },
               ),
@@ -72,7 +103,8 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
               GoRoute(
                   path: AppRoutes.strategicPlanning,
                   parentNavigatorKey: rootNavigatorKey,
-                  builder: (context, state) => const StrategicPlanningScreen(),
+                  builder: (context, state) =>
+                  const StrategicPlanningScreen(),
                   routes: [
                     GoRoute(
                       path: AppRoutes.strategyReview,
@@ -82,53 +114,68 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
                         return StrategyReviewScreen(generationResult: result);
                       },
                     ),
-                  ]
-              ),
-              GoRoute(path: AppRoutes.commandCenter, parentNavigatorKey: rootNavigatorKey, builder: (context, state) => CommandCenterScreen(user: state.extra as UserModel)),
+                  ]),
+              GoRoute(
+                  path: AppRoutes.commandCenter,
+                  parentNavigatorKey: rootNavigatorKey,
+                  builder: (context, state) =>
+                      CommandCenterScreen(user: state.extra as UserModel)),
               GoRoute(
                   path: AppRoutes.weaknessWorkshop,
                   parentNavigatorKey: rootNavigatorKey,
-                  builder: (context, state) => const WeaknessWorkshopScreen(),
+                  builder: (context, state) =>
+                  const WeaknessWorkshopScreen(),
                   routes: [
                     GoRoute(
                       path: 'stats',
                       parentNavigatorKey: rootNavigatorKey,
-                      builder: (context, state) => const WorkshopStatsScreen(),
+                      builder: (context, state) =>
+                      const WorkshopStatsScreen(),
                     ),
                     GoRoute(
                       path: AppRoutes.savedWorkshops,
                       parentNavigatorKey: rootNavigatorKey,
-                      builder: (context, state) => const SavedWorkshopsScreen(),
+                      builder: (context, state) =>
+                      const SavedWorkshopsScreen(),
                     ),
                     GoRoute(
                       path: AppRoutes.savedWorkshopDetail,
                       parentNavigatorKey: rootNavigatorKey,
                       builder: (context, state) {
-                        final workshop = state.extra as SavedWorkshopModel;
-                        return SavedWorkshopDetailScreen(workshop: workshop);
+                        final workshop =
+                        state.extra as SavedWorkshopModel;
+                        return SavedWorkshopDetailScreen(
+                            workshop: workshop);
                       },
                     ),
-                  ]
-              ),
-              GoRoute(path: AppRoutes.motivationChat, parentNavigatorKey: rootNavigatorKey,
+                  ]),
+              GoRoute(
+                path: AppRoutes.motivationChat,
+                parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) {
                   final prompt = state.extra as Object?;
                   return MotivationChatScreen(initialPrompt: prompt);
                 },
               ),
               GoRoute(
-                  path: AppRoutes.coachPushed,
-                  parentNavigatorKey: rootNavigatorKey,
-                  builder: (context, state) => const CoachScreen()
+                path: AppRoutes.coachPushed,
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const CoachScreen(),
               ),
             ]),
       ]),
-      StatefulShellBranch(routes: [GoRoute(path: AppRoutes.arena, builder: (context, state) => const ArenaScreen())]),
-      StatefulShellBranch(routes: [
-        GoRoute(
-            path: AppRoutes.profile,
-            builder: (context, state) => const ProfileScreen()),
-      ]),
+      StatefulShellBranch(
+          routes: [
+            GoRoute(
+                path: AppRoutes.arena,
+                builder: (context, state) => const ArenaScreen())
+          ]),
+      StatefulShellBranch(
+          routes: [
+            GoRoute(
+                path: AppRoutes.profile,
+                builder: (context, state) => const ProfileScreen())
+          ]),
     ],
   );
 }

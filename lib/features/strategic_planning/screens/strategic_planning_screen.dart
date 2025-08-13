@@ -180,78 +180,171 @@ class StrategicPlanningScreen extends ConsumerWidget {
   }
 
   // =======================================================================
-  // YENİLENEN "MEVCUT STRATEJİ VAR" EKRANI
+  // KUSURSUZ KULLANICI DENEYİMİ İÇİN YENİDEN TASARLANAN "MEVCUT STRATEJİ VAR" EKRANI
   // =======================================================================
   Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref, UserModel user) {
     final weeklyPlan = WeeklyPlan.fromJson(user.weeklyPlan!);
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Stratejik Plan")),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Spacer(),
-            Text(
-              "Mevcut Harekat Planı",
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-            const SizedBox(height: 16),
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    const Icon(Icons.shield_moon_rounded, size: 48, color: AppTheme.successColor),
-                    const SizedBox(height: 16),
-                    Text(
-                      weeklyPlan.planTitle,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "Oluşturulma Tarihi: ${DateFormat.yMMMMd('tr').format(weeklyPlan.creationDate)}",
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor),
-                    ),
-                    const Divider(height: 32),
-                    Text(
-                      "Bu Haftanın Odağı:",
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      weeklyPlan.strategyFocus,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppTheme.secondaryTextColor,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                  ],
-                ),
+      appBar: AppBar(
+        title: const Text("Stratejik Plan"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: const Alignment(0, -1.2),
+            radius: 1.5,
+            colors: [AppTheme.secondaryColor.withOpacity(0.1), AppTheme.primaryColor],
+            stops: const [0.0, 0.7],
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const SizedBox.shrink(), // Üstte boşluk için
+              _buildSealOfCommand(context, weeklyPlan),
+
+              // YENİ EYLEM KARTLARI DÜZENİ
+              Column(
+                children: [
+                  _ActionCard(
+                    title: "Haftalık Cephe Planı",
+                    subtitle: "Günlük görevlerini ve hedeflerini gör.",
+                    icon: Icons.calendar_view_week_rounded,
+                    onTap: () => context.push('/home/weekly-plan'),
+                  ).animate().fadeIn(delay: 200.ms, duration: 400.ms).slideX(begin: -0.2),
+                  const SizedBox(height: 16),
+                  _ActionCard(
+                    title: "Stratejik Komuta Merkezi",
+                    subtitle: "Zaferin uzun vadeli yol haritasını incele.",
+                    icon: Icons.map_rounded,
+                    onTap: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
+                  ).animate().fadeIn(delay: 300.ms, duration: 400.ms).slideX(begin: 0.2),
+                ],
               ),
-            ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
-            const Spacer(),
-            ElevatedButton.icon(
-              onPressed: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
-              icon: const Icon(Icons.map_rounded),
-              label: const Text("Komuta Merkezine Git"),
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton(
-                onPressed: () {
-                  ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
-                },
-                child: const Text("Yeni Strateji Oluştur")),
-            const SizedBox(height: 20),
-          ],
+
+              Column(
+                children: [
+                  const SizedBox(height: 24),
+                  OutlinedButton(
+                    onPressed: () {
+                      ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
+                    },
+                    child: const Text("Yeni Strateji Oluştur"),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  // YENİ EKLENEN ÖZEL WIDGET: EYLEM KARTI
+  Widget _ActionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              Icon(icon, size: 32, color: AppTheme.secondaryColor),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                    const SizedBox(height: 4),
+                    Text(subtitle, style: const TextStyle(color: AppTheme.secondaryTextColor)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // HAREKÂT MÜHRÜ WIDGET'I (Değişiklik yok)
+  Widget _buildSealOfCommand(BuildContext context, WeeklyPlan weeklyPlan) {
+    // ... (Bu fonksiyon bir önceki cevaptaki ile aynı kalmıştır)
+    return Animate(
+      onPlay: (controller) => controller.repeat(reverse: true),
+      effects: [
+        ShimmerEffect(
+          duration: 4000.ms,
+          color: AppTheme.secondaryColor.withAlpha(50),
+        ),
+        ScaleEffect(
+          curve: Curves.easeInOut,
+          duration: 4000.ms,
+          begin: const Offset(0.98, 0.98),
+          end: const Offset(1, 1),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: AppTheme.cardColor.withOpacity(0.7),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppTheme.secondaryColor.withOpacity(0.4)),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.secondaryColor.withOpacity(0.15),
+              blurRadius: 40,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            const Icon(Icons.shield_moon_rounded, size: 56, color: AppTheme.successColor),
+            const SizedBox(height: 16),
+            Text(
+              "Aktif Harekât Planı",
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Oluşturulma: ${DateFormat.yMMMMd('tr').format(weeklyPlan.creationDate)}",
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+            ),
+            const Divider(height: 32, indent: 20, endIndent: 20),
+            Text(
+              "Bu Haftanın Odağı:",
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              weeklyPlan.strategyFocus,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: AppTheme.secondaryTextColor,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ).animate().fadeIn(duration: 600.ms);
   }
 
   Widget _buildDataMissingView(BuildContext context) {
