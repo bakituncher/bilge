@@ -116,30 +116,17 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
     setState(() => _currentStep = WorkshopStep.briefing);
   }
 
-  void _handleDeepenRequest(StudyGuideAndQuiz currentMaterial) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.cardColor,
-        title: const Text("Derinleşme Modu"),
-        content: const Text("Konu anlatımını tekrar gözden geçirmek ister misin, yoksa doğrudan daha zor sorulara mı geçmek istersin?"),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _setDifficultyAndChangeStep('hard', true);
-            },
-            child: const Text("Yeni Zor Test Oluştur"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _setDifficultyAndChangeStep('hard', false);
-            },
-            child: const Text("Konuyu Tekrar Oku"),
-          ),
-        ],
-      ),
+  void _handleDeepenRequest() {
+    showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _DeepenWorkshopSheet(
+          onOptionSelected: (String difficulty, bool invalidate) {
+            Navigator.of(context).pop();
+            _setDifficultyAndChangeStep(difficulty, invalidate);
+          },
+        )
     );
   }
 
@@ -165,6 +152,14 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
             else { _resetToBriefing(); }
           },
         ) : null,
+        actions: [
+          if (_currentStep == WorkshopStep.briefing)
+            IconButton(
+              icon: const Icon(Icons.inventory_2_outlined),
+              tooltip: "Cevher Kasanı Görüntüle",
+              onPressed: () => context.push('/ai-hub/weakness-workshop/${AppRoutes.savedWorkshops}'),
+            ),
+        ],
       ),
       body: AnimatedSwitcher(
         duration: 300.ms,
@@ -204,7 +199,7 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
             );
           case WorkshopStep.results:
             return _ResultsView(key: ValueKey('results_${material.topic}'), material: material, selectedAnswers: _selectedAnswers, onNextTopic: _resetToBriefing,
-              onRetryHarder: () => _handleDeepenRequest(material),
+              onRetryHarder: _handleDeepenRequest,
             );
           default: return const SizedBox.shrink();
         }
@@ -255,58 +250,42 @@ class _BriefingView extends ConsumerWidget {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Column(
-      children: [
-        Expanded(
-          child: FutureBuilder<Exam>(
-              future: ExamData.getExamByType(ExamType.values.byName(user.selectedExam!)),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+    return FutureBuilder<Exam>(
+        future: ExamData.getExamByType(ExamType.values.byName(user.selectedExam!)),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-                final analysis = StatsAnalysis(tests, user.topicPerformances, snapshot.data!, user: user);
-                final suggestions = analysis.getWorkshopSuggestions(count: 3);
+          final analysis = StatsAnalysis(tests, user.topicPerformances, snapshot.data!, user: user);
+          final suggestions = analysis.getWorkshopSuggestions(count: 3);
 
-                return ListView(
-                  padding: const EdgeInsets.all(24.0),
-                  children: [
-                    Text("Stratejik Mola", style: Theme.of(context).textTheme.headlineMedium),
-                    const SizedBox(height: 8),
-                    Text(
-                      suggestions.any((s) => s['isSuggestion'] == true)
-                          ? "Henüz yeterli verin olmadığı için BilgeAI, yolculuğa başlaman için bazı kilit konuları belirledi. Bunlar 'Keşif Noktaları'dır."
-                          : "BilgeAI, performansını analiz etti ve gelişim için en parlak fırsatları belirledi. Aşağıdaki cevherlerden birini seçerek işlemeye başla.",
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.secondaryTextColor),
-                    ),
-                    const SizedBox(height: 24),
-                    if(suggestions.isEmpty)
-                      const Center(child: Padding(padding: EdgeInsets.all(32.0), child: Text("Harika! Önerilecek bir zayıf nokta veya fethedilmemiş konu kalmadı.", textAlign: TextAlign.center)))
-                    else
-                      ...suggestions.asMap().entries.map((entry) {
-                        int idx = entry.key;
-                        var topicData = entry.value;
-                        final topicForSelection = {'subject': topicData['subject'].toString(),'topic': topicData['topic'].toString(),};
-                        return _TopicCard(
-                          topic: topicData,
-                          isRecommended: idx == 0,
-                          onTap: () => onTopicSelected(topicForSelection),
-                        ).animate().fadeIn(delay: (200 * idx).ms).slideX(begin: 0.2);
-                      })
-                  ],
-                );
-              }),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: TextButton.icon(
-            onPressed: () {
-              context.push('/ai-hub/weakness-workshop/${AppRoutes.savedWorkshops}');
-            },
-            icon: const Icon(Icons.inventory_2_outlined),
-            label: const Text("Cevher Kasanı Görüntüle"),
-          ),
-        ),
-      ],
-    );
+          return ListView(
+            padding: const EdgeInsets.all(24.0),
+            children: [
+              Text("Stratejik Mola", style: Theme.of(context).textTheme.headlineMedium),
+              const SizedBox(height: 8),
+              Text(
+                suggestions.any((s) => s['isSuggestion'] == true)
+                    ? "Henüz yeterli verin olmadığı için BilgeAI, yolculuğa başlaman için bazı kilit konuları belirledi. Bunlar 'Keşif Noktaları'dır."
+                    : "BilgeAI, performansını analiz etti ve gelişim için en parlak fırsatları belirledi. Aşağıdaki cevherlerden birini seçerek işlemeye başla.",
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.secondaryTextColor),
+              ),
+              const SizedBox(height: 24),
+              if(suggestions.isEmpty)
+                const Center(child: Padding(padding: EdgeInsets.all(32.0), child: Text("Harika! Önerilecek bir zayıf nokta veya fethedilmemiş konu kalmadı.", textAlign: TextAlign.center)))
+              else
+                ...suggestions.asMap().entries.map((entry) {
+                  int idx = entry.key;
+                  var topicData = entry.value;
+                  final topicForSelection = {'subject': topicData['subject'].toString(),'topic': topicData['topic'].toString(),};
+                  return _TopicCard(
+                    topic: topicData,
+                    isRecommended: idx == 0,
+                    onTap: () => onTopicSelected(topicForSelection),
+                  ).animate().fadeIn(delay: (200 * idx).ms).slideX(begin: 0.2);
+                })
+            ],
+          );
+        });
   }
 }
 class _TopicCard extends StatelessWidget {
@@ -889,6 +868,54 @@ class _ErrorView extends StatelessWidget {
             icon: const Icon(Icons.refresh_rounded),
             label: const Text("Tekrar Dene"),
           )
+        ],
+      ),
+    );
+  }
+}
+
+// YENİ WIDGET: Derinleşme Modu Seçenekleri için Alt Panel
+class _DeepenWorkshopSheet extends StatelessWidget {
+  final Function(String difficulty, bool invalidate) onOptionSelected;
+  const _DeepenWorkshopSheet({required this.onOptionSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+      decoration: const BoxDecoration(
+        color: AppTheme.cardColor,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "Derinleşme Modu",
+            style: Theme.of(context).textTheme.headlineSmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            "Ustalığını bir sonraki seviyeye taşı.",
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          _ResultActionCard(
+            title: "Konuyu Tekrar Oku",
+            subtitle: "Anlatımı gözden geçirip zor teste hazırlan.",
+            icon: Icons.menu_book_rounded,
+            onTap: () => onOptionSelected('hard', false),
+          ),
+          const SizedBox(height: 12),
+          _ResultActionCard(
+            title: "Yeni Zor Test Oluştur",
+            subtitle: "Bilgini en çeldirici sorularla sına.",
+            icon: Icons.auto_awesome_motion_rounded,
+            onTap: () => onOptionSelected('hard', true),
+            isPrimary: true,
+          ),
         ],
       ),
     );

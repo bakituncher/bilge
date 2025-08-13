@@ -2,12 +2,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:bilge_ai/core/navigation/app_routes.dart'; // Rotaları import ediyoruz
+import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:bilge_ai/features/weakness_workshop/models/saved_workshop_model.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 final savedWorkshopsProvider = StreamProvider.autoDispose<List<SavedWorkshopModel>>((ref) {
   final userId = ref.watch(authControllerProvider).value?.uid;
@@ -56,28 +57,71 @@ class SavedWorkshopsScreen extends ConsumerWidget {
             itemCount: workshops.length,
             itemBuilder: (context, index) {
               final workshop = workshops[index];
-              return Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                child: ListTile(
-                  leading: const Icon(Icons.diamond_outlined, color: AppTheme.secondaryColor),
-                  title: Text(workshop.topic),
-                  subtitle: Text("${workshop.subject} - ${DateFormat.yMd('tr').format(workshop.savedDate.toDate())}"),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded),
-                  onTap: () {
-                    // *** KESİN ÇÖZÜM BURADA ***
-                    // Rota'ya tam adresini vererek yönlendirme yapıyoruz.
-                    context.push(
-                      '${AppRoutes.aiHub}/${AppRoutes.weaknessWorkshop}/${AppRoutes.savedWorkshopDetail}',
-                      extra: workshop,
-                    );
-                  },
-                ),
-              );
+              return _SavedWorkshopCard(workshop: workshop)
+                  .animate()
+                  .fadeIn(delay: (100 * index).ms)
+                  .slideY(begin: 0.2);
             },
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, s) => Center(child: Text("Hata: $e")),
+      ),
+    );
+  }
+}
+
+class _SavedWorkshopCard extends StatelessWidget {
+  final SavedWorkshopModel workshop;
+  const _SavedWorkshopCard({required this.workshop});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 4,
+      shadowColor: AppTheme.primaryColor.withOpacity(0.5),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          context.push(
+            '${AppRoutes.aiHub}/${AppRoutes.weaknessWorkshop}/${AppRoutes.savedWorkshopDetail}',
+            extra: workshop,
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              const CircleAvatar(
+                radius: 28,
+                backgroundColor: AppTheme.secondaryColor,
+                child: Icon(Icons.diamond_rounded, color: AppTheme.primaryColor, size: 28),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      workshop.topic,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "${workshop.subject} | ${DateFormat.yMMMMd('tr').format(workshop.savedDate.toDate())}",
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
+            ],
+          ),
+        ),
       ),
     );
   }
