@@ -98,27 +98,58 @@ class AiService {
   int _getDaysUntilExam(ExamType examType) {
     final now = DateTime.now();
     DateTime examDate;
+    
     switch (examType) {
-      case ExamType.lgs:
-        examDate = DateTime(now.year, 6, 2);
-        break;
       case ExamType.yks:
-        examDate = DateTime(now.year, 6, 15);
+        examDate = DateTime(now.year, 6, 15); // YKS genellikle Haziran'da
         break;
-      case ExamType.kpssLisans:
-        examDate = DateTime(now.year, 7, 14);
+      case ExamType.lgs:
+        examDate = DateTime(now.year, 6, 1); // LGS genellikle Haziran'da
         break;
-      case ExamType.kpssOnlisans:
-        examDate = DateTime(now.year, 9, 7);
+      case ExamType.kpss:
+        examDate = DateTime(now.year, 7, 1); // KPSS genellikle Temmuz'da
         break;
-      case ExamType.kpssOrtaogretim:
-        examDate = DateTime(now.year, 9, 21);
-        break;
+      default:
+        examDate = DateTime(now.year, 6, 1);
     }
-    if (now.isAfter(examDate)) {
-      examDate = DateTime(now.year + 1, examDate.month, examDate.day);
+    
+    if (examDate.isBefore(now)) {
+      examDate = examDate.add(const Duration(days: 365));
     }
+    
     return examDate.difference(now).inDays;
+  }
+
+  // 🚀 QUANTUM YARDIMCI FONKSİYONLAR
+  double _calculateAverageNet(List<TestModel> tests) {
+    if (tests.isEmpty) return 0.0;
+    
+    double totalNet = 0.0;
+    for (final test in tests) {
+      totalNet += test.netScore;
+    }
+    return totalNet / tests.length;
+  }
+
+  Map<String, double> _calculateSubjectAverages(List<TestModel> tests) {
+    if (tests.isEmpty) return {};
+    
+    final Map<String, List<double>> subjectScores = {};
+    
+    for (final test in tests) {
+      for (final subject in test.subjectScores.entries) {
+        subjectScores.putIfAbsent(subject.key, () => []).add(subject.value);
+      }
+    }
+    
+    final Map<String, double> averages = {};
+    for (final subject in subjectScores.entries) {
+      final scores = subject.value;
+      final average = scores.reduce((a, b) => a + b) / scores.length;
+      averages[subject.key] = average;
+    }
+    
+    return averages;
   }
 
   String _encodeTopicPerformances(Map<String, Map<String, TopicPerformanceModel>> performances) {
@@ -139,89 +170,176 @@ class AiService {
     required String pacing,
     String? revisionRequest,
   }) async {
-    if (user.selectedExam == null) {
-      return '{"error":"Analiz için önce bir sınav seçmelisiniz."}';
-    }
-    if (user.weeklyAvailability.values.every((list) => list.isEmpty)) {
-      return '{"error":"Strateji oluşturmadan önce en az bir tane müsait zaman dilimi seçmelisiniz."}';
-    }
-    final examType = ExamType.values.byName(user.selectedExam!);
+    final examType = user.selectedExamType;
     final daysUntilExam = _getDaysUntilExam(examType);
-    final examData = await ExamData.getExamByType(examType);
-    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, examData, user: user) : null;
-    final avgNet = analysis?.averageNet.toStringAsFixed(2) ?? 'N/A';
-    final subjectAverages = analysis?.subjectAverages ?? {};
-    final topicPerformancesJson = _encodeTopicPerformances(user.topicPerformances);
-    final availabilityJson = jsonEncode(user.weeklyAvailability);
+    final avgNet = _calculateAverageNet(tests);
+    final subjectAverages = _calculateSubjectAverages(tests);
+    final topicPerformancesJson = jsonEncode(user.topicPerformances);
+    final availabilityJson = jsonEncode(user.availability);
     final weeklyPlanJson = user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : null;
-    final completedTasksJson = jsonEncode(user.completedDailyTasks);
+    final completedTasksJson = user.completedTasks != null ? jsonEncode(user.completedTasks) : null;
+
     String prompt;
-    switch (examType) {
-      case ExamType.yks:
-        prompt = getYksPrompt(
-            user.id, user.selectedExamSection ?? '',
-            daysUntilExam, user.goal ?? '',
-            user.challenges, pacing,
-            user.testCount, avgNet,
-            subjectAverages, topicPerformancesJson,
-            availabilityJson, weeklyPlanJson,
-            completedTasksJson,
-            revisionRequest: revisionRequest
-        );
-        break;
-      case ExamType.lgs:
-        prompt = getLgsPrompt(
-            user,
-            avgNet, subjectAverages,
-            pacing, daysUntilExam,
-            topicPerformancesJson, availabilityJson,
-            revisionRequest: revisionRequest
-        );
-        break;
-      default:
-        prompt = getKpssPrompt(
-            user,
-            avgNet, subjectAverages,
-            pacing, daysUntilExam,
-            topicPerformancesJson, availabilityJson,
-            examType.displayName,
-            revisionRequest: revisionRequest
-        );
-        break;
+    if (examType == ExamType.yks) {
+      prompt = getYksPrompt(
+        user.id,
+        user.selectedExamSection ?? 'TYT',
+        daysUntilExam,
+        user.goal ?? 'Türkiye Birinciliği',
+        user.challenges,
+        pacing,
+        tests.length,
+        avgNet.toStringAsFixed(2),
+        subjectAverages,
+        topicPerformancesJson,
+        availabilityJson,
+        weeklyPlanJson,
+        completedTasksJson,
+        revisionRequest: revisionRequest,
+      );
+    } else {
+      prompt = getLgsPrompt(
+        user,
+        avgNet.toStringAsFixed(2),
+        subjectAverages,
+        pacing,
+        daysUntilExam,
+        topicPerformancesJson,
+        availabilityJson,
+        weeklyPlanJson,
+        completedTasksJson,
+        revisionRequest: revisionRequest,
+      );
     }
-    return _callGemini(prompt, expectJson: true);
+
+    return await _callGemini(prompt, expectJson: true);
+  }
+
+  // 🚀 QUANTUM STRATEJİ ÜRETİCİSİ - 2500'LERİN TEKNOLOJİSİ
+  Future<String> generateQuantumStrategy({
+    required UserModel user,
+    required List<TestModel> tests,
+    required String pacing,
+    String? revisionRequest,
+    required String analysisPhase,
+  }) async {
+    final examType = user.selectedExamType;
+    final daysUntilExam = _getDaysUntilExam(examType);
+    final avgNet = _calculateAverageNet(tests);
+    final subjectAverages = _calculateSubjectAverages(tests);
+    final topicPerformancesJson = jsonEncode(user.topicPerformances);
+    final availabilityJson = jsonEncode(user.availability);
+    final weeklyPlanJson = user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : null;
+    final completedTasksJson = user.completedTasks != null ? jsonEncode(user.completedTasks) : null;
+
+    // 🧠 QUANTUM AI PROMPT - 2500'LERİN TEKNOLOJİSİ
+    String prompt;
+    if (examType == ExamType.yks) {
+      prompt = getQuantumYksPrompt(
+        user.id,
+        user.selectedExamSection ?? 'TYT',
+        daysUntilExam,
+        user.goal ?? 'Türkiye Birinciliği',
+        user.challenges,
+        pacing,
+        tests.length,
+        avgNet.toStringAsFixed(2),
+        subjectAverages,
+        topicPerformancesJson,
+        availabilityJson,
+        weeklyPlanJson,
+        completedTasksJson,
+        analysisPhase,
+        revisionRequest: revisionRequest,
+      );
+    } else {
+      prompt = getQuantumLgsPrompt(
+        user,
+        avgNet.toStringAsFixed(2),
+        subjectAverages,
+        pacing,
+        daysUntilExam,
+        topicPerformancesJson,
+        availabilityJson,
+        weeklyPlanJson,
+        completedTasksJson,
+        analysisPhase,
+        revisionRequest: revisionRequest,
+      );
+    }
+
+    return await _callGemini(prompt, expectJson: true);
   }
 
   Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'normal'}) async {
-    if (tests.isEmpty) {
-      return '{"error":"Analiz için en az bir deneme sonucu gereklidir."}';
-    }
-    if (user.selectedExam == null) {
-      return '{"error":"Sınav türü bulunamadı."}';
-    }
-
-    String weakestSubject;
-    String weakestTopic;
-
+    final examType = user.selectedExamType;
+    final examData = await ExamData.getExamByType(examType);
+    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, examData, user: user) : null;
+    
+    String prompt;
     if (topicOverride != null) {
-      weakestSubject = topicOverride['subject']!;
-      weakestTopic = topicOverride['topic']!;
+      prompt = getWorkshopPrompt(
+        user,
+        tests,
+        topicOverride['subject']!,
+        topicOverride['topic']!,
+        difficulty,
+        analysis,
+      );
     } else {
-      final examType = ExamType.values.byName(user.selectedExam!);
-      final examData = await ExamData.getExamByType(examType);
-      final analysis = StatsAnalysis(tests, user.topicPerformances, examData, user: user);
-      final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
-
-      if (weakestTopicInfo == null) {
-        return '{"error":"Analiz için zayıf bir konu bulunamadı. Lütfen önce konu performans verilerinizi girin."}';
+      final suggestions = analysis?.getWorkshopSuggestions(count: 1) ?? [];
+      if (suggestions.isEmpty) {
+        return '{"error": "Önerilecek konu bulunamadı."}';
       }
-      weakestSubject = weakestTopicInfo['subject']!;
-      weakestTopic = weakestTopicInfo['topic']!;
+      
+      final suggestion = suggestions.first;
+      prompt = getWorkshopPrompt(
+        user,
+        tests,
+        suggestion['subject'].toString(),
+        suggestion['topic'].toString(),
+        difficulty,
+        analysis,
+      );
     }
 
-    final prompt = getStudyGuideAndQuizPrompt(weakestSubject, weakestTopic, user.selectedExam, difficulty);
+    return await _callGemini(prompt, expectJson: true);
+  }
 
-    return _callGemini(prompt, expectJson: true);
+  // 🚀 QUANTUM STUDY GUIDE ÜRETİCİSİ - 2500'LERİN TEKNOLOJİSİ
+  Future<String> generateQuantumStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'quantum'}) async {
+    final examType = user.selectedExamType;
+    final examData = await ExamData.getExamByType(examType);
+    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, examData, user: user) : null;
+    
+    String prompt;
+    if (topicOverride != null) {
+      prompt = getQuantumWorkshopPrompt(
+        user,
+        tests,
+        topicOverride['subject']!,
+        topicOverride['topic']!,
+        difficulty,
+        analysis,
+      );
+    } else {
+      final suggestions = analysis?.getWorkshopSuggestions(count: 1) ?? [];
+      if (suggestions.isEmpty) {
+        return '{"error": "Quantum önerilecek konu bulunamadı."}';
+      }
+      
+      final suggestion = suggestions.first;
+      prompt = getQuantumWorkshopPrompt(
+        user,
+        tests,
+        suggestion['subject'].toString(),
+        suggestion['topic'].toString(),
+        difficulty,
+        analysis,
+      );
+    }
+
+    return await _callGemini(prompt, expectJson: true);
   }
 
   // YENİ EK: Psişik Harbiye İçin Motivasyon Üretimi
@@ -229,20 +347,72 @@ class AiService {
     required UserModel user,
     required List<TestModel> tests,
     required String promptType,
-    required String? emotion,
+    String? emotion,
   }) async {
-    final examType = user.selectedExam != null ? ExamType.values.byName(user.selectedExam!) : null;
-    final examData = examType != null ? await ExamData.getExamByType(examType) : null;
-    final analysis = tests.isNotEmpty && examData != null ? StatsAnalysis(tests, user.topicPerformances, examData, user: user) : null;
+    final examType = user.selectedExamType;
+    final daysUntilExam = _getDaysUntilExam(examType);
+    final avgNet = _calculateAverageNet(tests);
+    final subjectAverages = _calculateSubjectAverages(tests);
+    final topicPerformancesJson = jsonEncode(user.topicPerformances);
+    final availabilityJson = jsonEncode(user.availability);
+    final weeklyPlanJson = user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : null;
+    final completedTasksJson = user.completedTasks != null ? jsonEncode(user.completedTasks) : null;
 
     final prompt = getMotivationPrompt(
-      user: user,
-      tests: tests,
-      analysis: analysis,
-      examName: examType?.displayName,
-      promptType: promptType,
-      emotion: emotion,
+      user.id,
+      examType.displayName,
+      daysUntilExam,
+      user.goal ?? 'Birincilik',
+      user.challenges,
+      promptType,
+      tests.length,
+      avgNet.toStringAsFixed(2),
+      subjectAverages,
+      topicPerformancesJson,
+      availabilityJson,
+      weeklyPlanJson,
+      completedTasksJson,
+      emotion,
     );
-    return _callGemini(prompt, expectJson: false);
+
+    return await _callGemini(prompt, expectJson: false);
+  }
+
+  // 🚀 QUANTUM KİŞİSELLEŞTİRİLMİŞ MOTİVASYON - 3000'LERİN TEKNOLOJİSİ
+  Future<String> getQuantumPersonalizedMotivation({
+    required UserModel user,
+    required List<TestModel> tests,
+    required String promptType,
+    String? emotion,
+    String? quantumMood,
+  }) async {
+    final examType = user.selectedExamType;
+    final daysUntilExam = _getDaysUntilExam(examType);
+    final avgNet = _calculateAverageNet(tests);
+    final subjectAverages = _calculateSubjectAverages(tests);
+    final topicPerformancesJson = jsonEncode(user.topicPerformances);
+    final availabilityJson = jsonEncode(user.availability);
+    final weeklyPlanJson = user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : null;
+    final completedTasksJson = user.completedTasks != null ? jsonEncode(user.completedTasks) : null;
+
+    final prompt = getQuantumMotivationPrompt(
+      user.id,
+      examType.displayName,
+      daysUntilExam,
+      user.goal ?? 'Birincilik',
+      user.challenges,
+      promptType,
+      tests.length,
+      avgNet.toStringAsFixed(2),
+      subjectAverages,
+      topicPerformancesJson,
+      availabilityJson,
+      weeklyPlanJson,
+      completedTasksJson,
+      emotion,
+      quantumMood,
+    );
+
+    return await _callGemini(prompt, expectJson: false);
   }
 }
