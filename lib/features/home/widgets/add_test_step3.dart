@@ -7,7 +7,6 @@ import 'package:bilge_ai/features/home/logic/add_test_notifier.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
-import 'package:bilge_ai/data/providers/user_providers.dart';
 
 class Step3Summary extends ConsumerWidget {
   const Step3Summary({super.key});

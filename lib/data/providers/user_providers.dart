@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 
-// Kullanıcı profil provider'ı
-final userProfileProvider = StreamProvider<UserModel?>((ref) {
-  final firestoreService = ref.watch(firestoreServiceProvider);
-  return firestoreService.userStream;
-});
+// Kullanıcı profil provider'ı - zaten firestore_providers.dart'ta tanımlı
+// final userProfileProvider = StreamProvider<UserModel?>((ref) {
+//   final firestoreService = ref.watch(firestoreServiceProvider);
+//   return firestoreService.userStream;
+// });
 
 // Kullanıcı ID provider'ı
 final userIdProvider = Provider<String?>((ref) {

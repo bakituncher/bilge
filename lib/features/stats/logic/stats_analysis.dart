@@ -43,7 +43,7 @@ class SubjectAnalysis {
 class StatsAnalysis {
   final List<TestModel> tests;
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
-  final Exam examData;
+  final Exam? examData; // Exam nullable yapıldı
   final UserModel? user;
 
   late List<TestModel> sortedTests;
@@ -167,12 +167,14 @@ class StatsAnalysis {
 
   List<Map<String, dynamic>> _getRankedTopics() {
     final List<Map<String, dynamic>> allTopics = [];
-    final relevantSections = examData.sections;
+    final relevantSections = examData?.sections;
 
     topicPerformances.forEach((sanitizedSubjectKey, topics) {
       // Find the original subject name and details
       String originalSubjectName = "";
       SubjectDetails? subjectDetails;
+
+      if (relevantSections == null) return; // Skip if examData is null
 
       for (var section in relevantSections) {
         for (var entry in section.subjects.entries) {
@@ -184,54 +186,45 @@ class StatsAnalysis {
         }
         if (originalSubjectName.isNotEmpty) break;
       }
-      if (originalSubjectName.isEmpty) return; // Skip if no matching subject found
 
-      final penalty = relevantSections
-          .firstWhere((s) => s.subjects.containsKey(originalSubjectName))
-          .penaltyCoefficient;
+      if (originalSubjectName.isEmpty || subjectDetails == null) return;
 
       topics.forEach((sanitizedTopicKey, performance) {
-        final originalTopicName = subjectDetails?.topics
-            .firstWhere((t) => _sanitizeKey(t.name) == sanitizedTopicKey, orElse: () => SubjectTopic(name: ''))
-            .name ?? '';
+        // Find the original topic name
+        String originalTopicName = "";
+        for (var topic in subjectDetails.topics) {
+          if (_sanitizeKey(topic.name) == sanitizedTopicKey) {
+            originalTopicName = topic.name;
+            break;
+          }
+        }
+
         if (originalTopicName.isEmpty) return;
 
-        if (performance.questionCount > 3) {
-          final mastery = (performance.correctCount - (performance.wrongCount * penalty)) / performance.questionCount;
-          final weightedScore = mastery - (performance.questionCount / 1000);
+        final totalQuestions = performance.correctCount + performance.wrongCount + performance.blankCount;
+        if (totalQuestions > 0) {
+          final accuracy = performance.correctCount / totalQuestions;
           allTopics.add({
             'subject': originalSubjectName,
             'topic': originalTopicName,
-            'mastery': mastery.clamp(0.0, 1.0),
-            'weightedScore': weightedScore,
+            'accuracy': accuracy,
+            'totalQuestions': totalQuestions,
+            'performance': performance,
           });
         }
       });
     });
 
-    allTopics.sort((a, b) => a['weightedScore'].compareTo(b['weightedScore']));
+    allTopics.sort((a, b) => (b['accuracy'] as double).compareTo(a['accuracy'] as double));
     return allTopics;
   }
 
   List<Map<String, dynamic>> getWorkshopSuggestions({int count = 3}) {
-    final rankedTopics = _getRankedTopics();
-
-    final unmasteredTopics = rankedTopics.where((topic) {
-      final sanitizedSubject = _sanitizeKey(topic['subject']);
-      final sanitizedTopic = _sanitizeKey(topic['topic']);
-      final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
-      return !(user?.masteredTopics.contains(uniqueIdentifier) ?? false);
-    }).toList();
-
-    if (unmasteredTopics.isNotEmpty) {
-      return unmasteredTopics.take(count).toList();
-    }
-
     final suggestions = <Map<String, dynamic>>[];
     final random = Random();
 
-    final primarySubjects = examData.sections.expand((s) => s.subjects.entries).toList();
-    if (primarySubjects.isEmpty) return [];
+    final primarySubjects = examData?.sections.expand((s) => s.subjects.entries).toList();
+    if (primarySubjects == null || primarySubjects.isEmpty) return [];
 
     while (suggestions.length < count && primarySubjects.isNotEmpty) {
       final randomSubjectEntry = primarySubjects[random.nextInt(primarySubjects.length)];
@@ -240,17 +233,19 @@ class StatsAnalysis {
 
       if (subjectDetails.topics.isNotEmpty) {
         final randomTopic = subjectDetails.topics[random.nextInt(subjectDetails.topics.length)];
-        final alreadyExists = suggestions.any((s) => s['topic'] == randomTopic.name);
-        if (!alreadyExists) {
+        final sanitizedSubjectKey = _sanitizeKey(subjectName);
+        final sanitizedTopicKey = _sanitizeKey(randomTopic.name);
+
+        final performance = topicPerformances[sanitizedSubjectKey]?[sanitizedTopicKey];
+        if (performance == null || (performance.correctCount + performance.wrongCount + performance.blankCount) < 5) {
           suggestions.add({
             'subject': subjectName,
             'topic': randomTopic.name,
-            'mastery': -0.1,
-            'isSuggestion': true,
           });
         }
       }
     }
+
     return suggestions;
   }
 
@@ -300,7 +295,10 @@ class StatsAnalysis {
   int getQuestionCountForSubject(String subjectName) {
     if (tests.isEmpty) return 40;
     final sectionName = tests.first.sectionName;
-    final section = examData.sections.firstWhere((s) => s.name == sectionName, orElse: () => examData.sections.first);
-    return section.subjects[subjectName]?.questionCount ?? 40;
+    final section = examData?.sections.firstWhere(
+      (s) => s.name == sectionName, 
+      orElse: () => examData?.sections.first ?? examData?.sections.first
+    );
+    return section?.subjects[subjectName]?.questionCount ?? 40;
   }
 }

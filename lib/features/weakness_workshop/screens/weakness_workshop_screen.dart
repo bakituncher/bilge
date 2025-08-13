@@ -148,15 +148,16 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
     );
 
     // 🚀 QUANTUM PERFORMANS GÜNCELLEMESİ
-    ref.read(userProfileProvider.notifier).update((state) {
-      if (state == null) return state;
+    // TODO: Performans güncelleme işlevi eklenecek
+    // ref.read(userProfileProvider.notifier).update((state) {
+    //   if (state == null) return state;
       
-      final updatedPerformances = Map<String, Map<String, TopicPerformanceModel>>.from(state.topicPerformances);
-      updatedPerformances.putIfAbsent(material.subject, () => {});
-      updatedPerformances[material.subject]![material.topic] = newPerformance;
+    //   final updatedPerformances = Map<String, Map<String, TopicPerformanceModel>>.from(state.topicPerformances);
+    //   updatedPerformances.putIfAbsent(material.subject, () => {});
+    //   updatedPerformances[material.subject]![material.topic] = newPerformance;
       
-      return state.copyWith(topicPerformances: updatedPerformances);
-    });
+    //   return state.copyWith(topicPerformances: updatedPerformances);
+    // });
 
     setState(() => _currentStep = WorkshopStep.quantumResults);
   }

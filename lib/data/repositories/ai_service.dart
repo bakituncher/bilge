@@ -173,23 +173,23 @@ class AiService {
     required String pacing,
     String? revisionRequest,
   }) async {
-    final examType = user.selectedExamType;
+    final examType = user.selectedExamType ?? 'yks';
     final daysUntilExam = _getDaysUntilExam(examType);
     final avgNet = _calculateAverageNet(tests);
     final subjectAverages = _calculateSubjectAverages(tests);
     final topicPerformancesJson = jsonEncode(user.topicPerformances);
-    final availabilityJson = jsonEncode(user.availability);
+    final availabilityJson = jsonEncode(user.availability ?? {});
     final weeklyPlanJson = user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : null;
-    final completedTasksJson = user.completedTasks != null ? jsonEncode(user.completedTasks) : null;
+    final completedTasksJson = user.completedTasks.isNotEmpty ? jsonEncode(user.completedTasks) : null;
 
     String prompt;
-    if (examType == ExamType.yks) {
+    if (examType == 'yks') {
       prompt = getYksPrompt(
         user.id,
         user.selectedExamSection ?? 'TYT',
         daysUntilExam,
         user.goal ?? 'Türkiye Birinciliği',
-        user.challenges,
+        user.challenges ?? [],
         pacing,
         tests.length,
         avgNet.toStringAsFixed(2),
@@ -252,7 +252,6 @@ class AiService {
         availabilityJson,
         weeklyPlanJson,
         completedTasksJson,
-        analysisPhase,
         revisionRequest: revisionRequest,
       );
     } else {
@@ -266,7 +265,6 @@ class AiService {
         availabilityJson,
         weeklyPlanJson,
         completedTasksJson,
-        analysisPhase,
         revisionRequest: revisionRequest,
       );
     }
