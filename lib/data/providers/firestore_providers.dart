@@ -1,9 +1,10 @@
 // lib/data/providers/firestore_providers.dart
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // EKLENDİ
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
-import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
+import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart'; // EKLENDİ
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import '../repositories/firestore_service.dart';
 
@@ -29,15 +30,16 @@ final testsProvider = StreamProvider<List<TestModel>>((ref) {
   return Stream.value([]);
 });
 
-final leaderboardProvider = FutureProvider.autoDispose<List<LeaderboardEntry>>((ref) async {
+// Artık 'FutureProvider.family' doğru şekilde tanınıyor.
+final leaderboardProvider = FutureProvider.family.autoDispose<List<LeaderboardEntry>, String>((ref, examType) async {
   final firestoreService = ref.watch(firestoreServiceProvider);
   final allUsers = await firestoreService.getAllUsers();
 
   final leaderboardEntries = <LeaderboardEntry>[];
 
   for (final user in allUsers) {
-    if (user.name != null && user.name!.isNotEmpty && user.engagementScore > 0) {
-      leaderboardEntries.add(LeaderboardEntry(
+    if (user.selectedExam == examType && user.name != null && user.name!.isNotEmpty && user.engagementScore > 0) {
+      leaderboardEntries.add(LeaderboardEntry( // Artık 'LeaderboardEntry' doğru şekilde tanınıyor.
         userId: user.id,
         userName: user.name!,
         score: user.engagementScore,

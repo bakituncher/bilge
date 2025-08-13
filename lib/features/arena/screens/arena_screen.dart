@@ -7,35 +7,41 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 
-// Şimdilik haftalık ve tüm zamanlar aynı provider'ı kullanacak.
-// Gelecekte haftalık için ayrı bir Cloud Function ile bu provider güncellenebilir.
-final weeklyLeaderboardProvider = leaderboardProvider;
-
 class ArenaScreen extends ConsumerWidget {
   const ArenaScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final currentUser = ref.watch(userProfileProvider).value;
+
+    if (currentUser == null || currentUser.selectedExam == null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Zafer Panteonu')),
+        body: const Center(child: Text("Arenaya girmek için bir sınav seçmelisiniz.")),
+      );
+    }
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Savaşçılar Arenası'),
+          title: const Text('Zafer Panteonu'),
+          backgroundColor: AppTheme.primaryColor.withOpacity(0.5),
           bottom: const TabBar(
             indicatorColor: AppTheme.secondaryColor,
             indicatorWeight: 3,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold),
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal),
             tabs: [
-              Tab(text: 'Bu Hafta'),
-              Tab(text: 'Tüm Zamanlar'),
+              Tab(text: 'Bu Haftanın Onuru'),
+              Tab(text: 'Tüm Zamanların Efsaneleri'),
             ],
           ),
         ),
-        body: TabBarView(
+        body: const TabBarView(
           children: [
-            _LeaderboardView(provider: weeklyLeaderboardProvider),
-            _LeaderboardView(provider: leaderboardProvider),
+            _LeaderboardView(isAllTime: false),
+            _LeaderboardView(isAllTime: true),
           ],
         ),
       ),
@@ -44,166 +50,163 @@ class ArenaScreen extends ConsumerWidget {
 }
 
 class _LeaderboardView extends ConsumerWidget {
-  final ProviderListenable<AsyncValue<List<LeaderboardEntry>>> provider;
-  const _LeaderboardView({required this.provider});
+  final bool isAllTime;
+  const _LeaderboardView({required this.isAllTime});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final leaderboardAsync = ref.watch(provider);
     final currentUserId = ref.watch(authControllerProvider).value?.uid;
+    final currentUserExam = ref.watch(userProfileProvider).value?.selectedExam;
 
-    return leaderboardAsync.when(
-      data: (entries) {
-        if (entries.isEmpty) {
-          return _buildEmptyState(context);
-        }
+    if (currentUserExam == null) return const SizedBox.shrink();
 
-        // Kullanıcının kendi sırasını ve bilgisini bul
-        final currentUserIndex = entries.indexWhere((e) => e.userId == currentUserId);
-        final LeaderboardEntry? currentUserEntry = currentUserIndex != -1 ? entries[currentUserIndex] : null;
+    final leaderboardAsync = ref.watch(leaderboardProvider(currentUserExam));
 
-        return Stack(
-          children: [
-            ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 12, 12, 80), // Altta boşluk bırak
-              itemCount: entries.length,
-              itemBuilder: (context, index) {
-                final entry = entries[index];
-                return _LeaderboardCard(
-                  entry: entry,
-                  rank: index + 1,
-                  isCurrentUser: entry.userId == currentUserId,
-                ).animate().fadeIn(delay: (50 * (index % 15)).ms).slideX(begin: 0.2, curve: Curves.easeOut);
-              },
-            ),
-            if (currentUserEntry != null)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: _CurrentUserCard(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor,
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            AppTheme.primaryColor,
+            AppTheme.cardColor.withOpacity(0.8),
+          ],
+        ),
+      ),
+      child: leaderboardAsync.when(
+        data: (entries) {
+          if (entries.isEmpty) {
+            return _buildEmptyState(context);
+          }
+
+          final currentUserIndex = entries.indexWhere((e) => e.userId == currentUserId);
+          final LeaderboardEntry? currentUserEntry = currentUserIndex != -1 ? entries[currentUserIndex] : null;
+
+          final otherEntries = entries.where((e) => e.userId != currentUserId).toList();
+
+          // DEĞİŞİKLİK: Stack yerine Column kullanılarak alttaki kartın konumu daha güvenli hale getirildi.
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
+                  itemCount: otherEntries.length,
+                  separatorBuilder: (context, index) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) {
+                    final entry = otherEntries[index];
+                    int rank = entries.indexWhere((e) => e.userId == entry.userId) + 1;
+                    return _RankCard(
+                      entry: entry,
+                      rank: rank,
+                    ).animate().fadeIn(delay: (50 * (index % 15)).ms);
+                  },
+                ),
+              ),
+              if (currentUserEntry != null)
+                _CurrentUserCard(
                   entry: currentUserEntry,
                   rank: currentUserIndex + 1,
                 ),
-              ),
-          ],
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-      error: (err, stack) => Center(child: Text('Liderlik tablosu yüklenemedi: $err')),
+            ],
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+        error: (err, stack) => Center(child: Text('Liderlik tablosu yüklenemedi: $err')),
+      ),
     );
   }
 
   Widget _buildEmptyState(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.shield_moon_rounded, size: 80, color: AppTheme.secondaryTextColor),
-          const SizedBox(height: 16),
-          Text('Arena Henüz Boş', style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 32.0),
-            child: Text(
-              'Deneme ekleyerek veya Pomodoro seansları tamamlayarak Bilgelik Puanı kazan ve adını liderlik tablosuna yazdır!',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.shield_moon_rounded, size: 80, color: AppTheme.secondaryTextColor),
+            const SizedBox(height: 16),
+            Text('Arena Henüz Boş', style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Text(
+                'Deneme ekleyerek veya Pomodoro seansları tamamlayarak Bilgelik Puanı kazan ve adını bu panteona yazdır!',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
+              ),
             ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.8, 0.8));
-  }
+          ],
+        ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.8, 0.8)));
+    }
 }
 
-class _LeaderboardCard extends StatelessWidget {
+class _RankCard extends StatelessWidget {
   final LeaderboardEntry entry;
   final int rank;
   final bool isCurrentUser;
 
-  const _LeaderboardCard({required this.entry, required this.rank, this.isCurrentUser = false});
+  const _RankCard({required this.entry, required this.rank, this.isCurrentUser = false});
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final rankColor = rank == 1 ? const Color(0xFFFFD700) : rank == 2 ? const Color(0xFFC0C0C0) : rank == 3 ? const Color(0xFFCD7F32) : AppTheme.secondaryTextColor;
+    final rankColor = switch (rank) {
+      1 => const Color(0xFFFFD700),
+      2 => const Color(0xFFC0C0C0),
+      3 => const Color(0xFFCD7F32),
+      _ => AppTheme.lightSurfaceColor,
+    };
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+      decoration: BoxDecoration(
+        color: AppTheme.cardColor.withOpacity(isCurrentUser ? 0.9 : 0.5),
         borderRadius: BorderRadius.circular(16),
-        side: isCurrentUser
-            ? const BorderSide(color: AppTheme.successColor, width: 2)
-            : BorderSide.none,
+        border: Border.all(color: isCurrentUser ? AppTheme.successColor : rankColor.withOpacity(0.5)),
+        boxShadow: [
+          if (isCurrentUser)
+            BoxShadow(color: AppTheme.successColor.withOpacity(0.4), blurRadius: 15, spreadRadius: 2),
+          if (rank <= 3)
+            BoxShadow(color: rankColor.withOpacity(0.4), blurRadius: 15, spreadRadius: 2),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 40,
-              child: Text(
-                '$rank.',
-                style: textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: rank <= 3 ? rankColor : AppTheme.secondaryTextColor,
-                ),
-                textAlign: TextAlign.center,
-              ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 40,
+            child: Text(
+              '$rank',
+              textAlign: TextAlign.center,
+              style: textTheme.headlineSmall?.copyWith(color: rankColor, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(width: 12),
-            CircleAvatar(
-              backgroundColor: AppTheme.lightSurfaceColor,
-              child: Text(
-                entry.userName.substring(0, 1).toUpperCase(),
-                style: textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
+          ),
+          const SizedBox(width: 16),
+          CircleAvatar(
+            backgroundColor: AppTheme.lightSurfaceColor,
+            child: Text(entry.userName.substring(0, 1).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              entry.userName,
+              style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.userName,
-                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  Text(
-                    '${entry.testCount} deneme',
-                    style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor),
-                  ),
-                ],
-              ),
+          ),
+          const SizedBox(width: 16),
+          Text(
+            '${entry.score} BP',
+            style: textTheme.titleLarge?.copyWith(
+              color: AppTheme.secondaryColor,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(width: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      entry.score.toString(),
-                      style: textTheme.titleLarge?.copyWith(
-                        color: AppTheme.secondaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    const Icon(Icons.star_purple500_outlined, color: AppTheme.secondaryColor, size: 20),
-                  ],
-                ),
-                Text('BP', style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
-              ],
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
+// KULLANICI KARTI (GÜVENLİ BÖLGEYE ALINDI)
 class _CurrentUserCard extends StatelessWidget {
   final LeaderboardEntry entry;
   final int rank;
@@ -212,23 +215,31 @@ class _CurrentUserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Animate(
-      effects: const [SlideEffect(begin: Offset(0, 1)), FadeEffect()],
+      effects: [
+        SlideEffect(begin: const Offset(0, 1), duration: 500.ms, curve: Curves.easeOutCubic),
+        FadeEffect(duration: 500.ms),
+      ],
       child: Container(
-        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: AppTheme.cardColor,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 15, spreadRadius: 5),
+            BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 5),
           ],
-          border: const Border(top: BorderSide(color: AppTheme.successColor, width: 2)),
         ),
-        child: SafeArea(
-          top: false,
-          child: _LeaderboardCard(
-            entry: entry,
-            rank: rank,
-            isCurrentUser: true,
+        // DEĞİŞİKLİK: Padding ve SafeArea, kartın içeriğini ve kendisini korur.
+        child: Padding(
+          padding: const EdgeInsets.only(top: 8.0),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: _RankCard(
+                entry: entry,
+                rank: rank,
+                isCurrentUser: true,
+              ),
+            ),
           ),
         ),
       ),
