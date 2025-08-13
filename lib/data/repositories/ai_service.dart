@@ -209,8 +209,6 @@ class AiService {
         daysUntilExam,
         topicPerformancesJson,
         availabilityJson,
-        weeklyPlanJson,
-        completedTasksJson,
         revisionRequest: revisionRequest,
       );
     }
@@ -263,8 +261,6 @@ class AiService {
         daysUntilExam,
         topicPerformancesJson,
         availabilityJson,
-        weeklyPlanJson,
-        completedTasksJson,
         revisionRequest: revisionRequest,
       );
     }
@@ -274,8 +270,13 @@ class AiService {
 
   Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'normal'}) async {
     final examType = user.selectedExamType ?? 'yks';
-    // TODO: ExamData.getExamByType düzeltilecek
-    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, null, user: user) : null;
+    // TODO: ExamData.getExamByType düzeltilecek - şimdilik geçici Exam objesi
+    final tempExam = Exam(
+      type: examType == 'yks' ? ExamType.yks : ExamType.lgs,
+      name: examType == 'yks' ? 'YKS' : 'LGS',
+      sections: [],
+    );
+    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, tempExam, user: user) : null;
     
     String prompt;
     if (topicOverride != null) {
@@ -310,8 +311,13 @@ class AiService {
   // 🚀 QUANTUM STUDY GUIDE ÜRETİCİSİ - 2500'LERİN TEKNOLOJİSİ
   Future<String> generateQuantumStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'quantum'}) async {
     final examType = user.selectedExamType ?? 'yks';
-    // TODO: ExamData.getExamByType düzeltilecek
-    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, null, user: user) : null;
+    // TODO: ExamData.getExamByType düzeltilecek - şimdilik geçici Exam objesi
+    final tempExam = Exam(
+      type: examType == 'yks' ? ExamType.yks : ExamType.lgs,
+      name: examType == 'yks' ? 'YKS' : 'LGS',
+      sections: [],
+    );
+    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, tempExam, user: user) : null;
     
     String prompt;
     if (topicOverride != null) {
