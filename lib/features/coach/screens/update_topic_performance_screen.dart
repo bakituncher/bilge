@@ -129,6 +129,8 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
                 TopicPerformanceModel newPerformance;
                 if (isAddingMode) {
                   newPerformance = TopicPerformanceModel(
+                    subject: subject,
+                    topic: topic,
                     correctCount: initialPerformance.correctCount + correct,
                     wrongCount: initialPerformance.wrongCount + wrong,
                     blankCount: initialPerformance.blankCount + blank,
@@ -136,6 +138,8 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
                   );
                 } else {
                   newPerformance = TopicPerformanceModel(
+                    subject: subject,
+                    topic: topic,
                     correctCount: correct,
                     wrongCount: wrong,
                     blankCount: blank,

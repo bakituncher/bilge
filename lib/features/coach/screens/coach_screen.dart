@@ -242,7 +242,10 @@ class _SubjectGalaxyView extends ConsumerWidget {
               children: topics.map((topic) {
                 // DÜZELTME: Konu verisine erişirken temizlenmiş anahtar kullanılıyor.
                 final performance =
-                    performances[_sanitizeKey(topic.name)] ?? TopicPerformanceModel();
+                    performances[_sanitizeKey(topic.name)] ?? TopicPerformanceModel(
+                      subject: subjectName,
+                      topic: topic.name,
+                    );
                 return MasteryTopicBubble(
                   topic: topic,
                   performance: performance,

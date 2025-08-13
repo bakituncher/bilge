@@ -1,6 +1,5 @@
 // lib/features/settings/logic/settings_notifier.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 

@@ -95,18 +95,18 @@ class AiService {
     return '{"error": "Tüm yeniden deneme denemeleri başarısız oldu."}';
   }
 
-  int _getDaysUntilExam(ExamType examType) {
+  int _getDaysUntilExam(String examType) {
     final now = DateTime.now();
     DateTime examDate;
     
     switch (examType) {
-      case ExamType.yks:
+      case 'yks':
         examDate = DateTime(now.year, 6, 15); // YKS genellikle Haziran'da
         break;
-      case ExamType.lgs:
+      case 'lgs':
         examDate = DateTime(now.year, 6, 1); // LGS genellikle Haziran'da
         break;
-      case ExamType.kpss:
+      case 'kpss':
         examDate = DateTime(now.year, 7, 1); // KPSS genellikle Temmuz'da
         break;
       default:
@@ -126,7 +126,7 @@ class AiService {
     
     double totalNet = 0.0;
     for (final test in tests) {
-      totalNet += test.netScore;
+      totalNet += test.totalNet;
     }
     return totalNet / tests.length;
   }
@@ -137,8 +137,11 @@ class AiService {
     final Map<String, List<double>> subjectScores = {};
     
     for (final test in tests) {
-      for (final subject in test.subjectScores.entries) {
-        subjectScores.putIfAbsent(subject.key, () => []).add(subject.value);
+      for (final subject in test.scores.entries) {
+        final correct = subject.value['dogru'] ?? 0;
+        final wrong = subject.value['yanlis'] ?? 0;
+        final net = correct - (wrong * test.penaltyCoefficient);
+        subjectScores.putIfAbsent(subject.key, () => []).add(net.toDouble());
       }
     }
     
@@ -235,7 +238,7 @@ class AiService {
     // 🧠 QUANTUM AI PROMPT - 2500'LERİN TEKNOLOJİSİ
     String prompt;
     if (examType == 'yks') {
-      prompt = getQuantumYksPrompt(
+      prompt = getYksPrompt(
         user.id,
         user.selectedExamSection ?? 'TYT',
         daysUntilExam,
@@ -253,7 +256,7 @@ class AiService {
         revisionRequest: revisionRequest,
       );
     } else {
-      prompt = getQuantumLgsPrompt(
+      prompt = getLgsPrompt(
         user,
         avgNet.toStringAsFixed(2),
         subjectAverages,
@@ -272,9 +275,9 @@ class AiService {
   }
 
   Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'normal'}) async {
-    final examType = user.selectedExamType;
-    final examData = await ExamData.getExamByType(examType);
-    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, examData, user: user) : null;
+    final examType = user.selectedExamType ?? 'yks';
+    // TODO: ExamData.getExamByType düzeltilecek
+    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, null, user: user) : null;
     
     String prompt;
     if (topicOverride != null) {
@@ -308,9 +311,9 @@ class AiService {
 
   // 🚀 QUANTUM STUDY GUIDE ÜRETİCİSİ - 2500'LERİN TEKNOLOJİSİ
   Future<String> generateQuantumStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'quantum'}) async {
-    final examType = user.selectedExamType;
-    final examData = await ExamData.getExamByType(examType);
-    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, examData, user: user) : null;
+    final examType = user.selectedExamType ?? 'yks';
+    // TODO: ExamData.getExamByType düzeltilecek
+    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, user.topicPerformances, null, user: user) : null;
     
     String prompt;
     if (topicOverride != null) {

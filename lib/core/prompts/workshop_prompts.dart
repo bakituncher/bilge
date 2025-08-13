@@ -70,7 +70,7 @@ String getWorkshopPrompt(
     3. **JSON FORMAT:** Sadece JSON çıktısı ver, başka açıklama ekleme
 
     // KULLANICI BİLGİLERİ:
-    * **Sınav Türü:** ${user.selectedExamType?.displayName ?? 'Belirtilmemiş'}
+    * **Sınav Türü:** ${user.selectedExamType ?? 'Belirtilmemiş'}
     * **Hedef:** ${user.goal ?? 'Belirtilmemiş'}
     * **Zorluk Seviyesi:** $difficulty
     * **Ortalama Net:** $avgNet
@@ -121,7 +121,7 @@ String getQuantumWorkshopPrompt(
     4. **ADAPTİF ÖĞRENME:** Kullanıcının geçmiş performansına göre materyali optimize et
 
     // 🧠 QUANTUM KULLANICI BİLGİLERİ:
-    * **Sınav Türü:** ${user.selectedExamType?.displayName ?? 'Belirtilmemiş'}
+    * **Sınav Türü:** ${user.selectedExamType ?? 'Belirtilmemiş'}
     * **Hedef:** ${user.goal ?? 'Belirtilmemiş'}
     * **QUANTUM Zorluk Seviyesi:** $difficulty
     * **Ortalama Net:** $avgNet
@@ -170,7 +170,7 @@ String _analyzeLearningPatterns(UserModel user, List<TestModel> tests) {
   // Basit öğrenme pattern analizi
   final recentTests = tests.take(3).toList();
   final improvement = recentTests.length > 1 
-      ? recentTests.last.netScore - recentTests.first.netScore 
+      ? recentTests.last.totalNet - recentTests.first.totalNet 
       : 0.0;
   
   if (improvement > 5) {

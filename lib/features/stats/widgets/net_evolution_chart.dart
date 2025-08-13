@@ -33,7 +33,7 @@ class NetEvolutionChart extends StatelessWidget {
               ),
               lineTouchData: LineTouchData(
                 touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (spot) => AppTheme.primaryColor.withOpacity(0.9),
+                  tooltipBgColor: AppTheme.primaryColor.withOpacity(0.9),
                   getTooltipItems: (spots) => spots.map((spot) {
                     final test = analysis.sortedTests[spot.spotIndex];
                     final accuracy = (test.totalCorrect + test.totalWrong) == 0 ? 0.0 : (test.totalCorrect / (test.totalCorrect + test.totalWrong));

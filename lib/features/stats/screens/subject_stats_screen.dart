@@ -73,7 +73,7 @@ class SubjectStatsScreen extends StatelessWidget {
               ),
               lineTouchData: LineTouchData(
                 touchTooltipData: LineTouchTooltipData(
-                  getTooltipColor: (spot) => AppTheme.primaryColor.withOpacity(0.9),
+                  tooltipBgColor: AppTheme.primaryColor.withOpacity(0.9),
                   getTooltipItems: (spots) => spots.map((spot) {
                     final test = analysis.subjectTests[spot.spotIndex];
                     final scores = test.scores[subjectName]!;

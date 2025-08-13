@@ -135,7 +135,10 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
     });
     int blank = material.quiz.length - correct - wrong;
 
-    final currentPerformance = user.topicPerformances[material.subject]?[material.topic] ?? TopicPerformanceModel();
+    final currentPerformance = user.topicPerformances[material.subject]?[material.topic] ?? TopicPerformanceModel(
+      subject: material.subject,
+      topic: material.topic,
+    );
     final newPerformance = TopicPerformanceModel(
       subject: material.subject,
       topic: material.topic,

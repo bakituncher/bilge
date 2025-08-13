@@ -1,6 +1,5 @@
 // lib/core/theme/app_theme.dart
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // BİLGEAI DEVRİMİ: Renk paleti, bilgeliği, odaklanmayı ve motivasyonu yansıtacak şekilde yeniden tasarlandı.
@@ -28,7 +27,7 @@ class AppTheme {
       borderRadius: BorderRadius.circular(16.0),
     ),
     elevation: 4.0,
-    textStyle: GoogleFonts.montserrat(fontWeight: FontWeight.w700, fontSize: 16),
+    textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
     shadowColor: secondaryColor.withOpacity(0.4),
   );
 
@@ -61,7 +60,7 @@ class AppTheme {
       surface: cardColor,
       onSurface: textColor,
     ),
-    textTheme: GoogleFonts.montserratTextTheme(ThemeData.dark().textTheme).apply(
+    textTheme: ThemeData.dark().textTheme.apply(
       bodyColor: textColor,
       displayColor: textColor,
     ),
@@ -79,7 +78,7 @@ class AppTheme {
       backgroundColor: Colors.transparent,
       elevation: 0,
       centerTitle: true,
-      titleTextStyle: GoogleFonts.montserrat(
+      titleTextStyle: const TextStyle(
         fontWeight: FontWeight.bold,
         fontSize: 20,
         color: textColor,
