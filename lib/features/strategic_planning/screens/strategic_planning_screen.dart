@@ -43,7 +43,6 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
         revisionRequest: revisionRequest,
       );
 
-      // Artık AI Service'den temizlenmiş JSON geldiği için doğrudan decode edebiliriz.
       final decodedData = jsonDecode(resultJson);
 
       if (decodedData.containsKey('error')) {
@@ -251,44 +250,98 @@ class StrategicPlanningScreen extends ConsumerWidget {
   }
 
   Widget _buildConfirmationView(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProfileProvider).value;
     final tests = ref.watch(testsProvider).valueOrNull ?? [];
-    final lastTestDate = tests.isNotEmpty ? DateFormat.yMMMMd('tr').format(tests.first.date) : "N/A";
+    if(user == null) return const Center(child: CircularProgressIndicator());
 
-    return ListView(
-      padding: const EdgeInsets.all(24.0),
+    final totalHours = user.weeklyAvailability.values.expand((slots) => slots).length * 2;
+    final analyzedTopicsCount = user.topicPerformances.values.expand((subject) => subject.values).where((topic) => topic.questionCount > 3).length;
+    final isTimeMapOk = totalHours >= 10;
+    final isGalaxyOk = analyzedTopicsCount >= 5;
+
+    final lastTestDate = tests.isNotEmpty ? tests.first.date : null;
+    String testStatusText;
+    bool isTestsOk;
+
+    if (lastTestDate == null) {
+      testStatusText = "Hiç deneme eklenmemiş";
+      isTestsOk = false;
+    } else {
+      final daysSinceLastTest = DateTime.now().difference(lastTestDate).inDays;
+      if (daysSinceLastTest == 0) {
+        testStatusText = "Bugün eklendi";
+      } else if (daysSinceLastTest == 1) {
+        testStatusText = "Dün eklendi";
+      } else {
+        testStatusText = "$daysSinceLastTest gün önce";
+      }
+      isTestsOk = daysSinceLastTest <= 7;
+    }
+
+    return Column(
       children: [
-        Text(
-          "Stratejiyi oluşturmadan önce, her şeyin güncel olduğundan emin olalım:",
-          style: Theme.of(context).textTheme.headlineSmall,
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Harekat Öncesi Son Kontrol",
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  "En isabetli strateji için tüm verilerinin güncel olduğundan emin olalım.",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.secondaryTextColor),
+                ),
+                const SizedBox(height: 32),
+
+                _ChecklistItemCard(
+                  icon: Icons.map_rounded,
+                  title: "Zaman Haritası",
+                  description: "Stratejin, haftalık olarak ayırdığın zamana göre şekillenecek.",
+                  statusText: "$totalHours Saat",
+                  statusDescription: "Haftalık Plan",
+                  statusColor: isTimeMapOk ? AppTheme.successColor : Colors.amber,
+                  buttonText: "Güncelle",
+                  onTap: () => context.push(AppRoutes.availability),
+                ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.2),
+
+                _ChecklistItemCard(
+                  icon: Icons.insights_rounded,
+                  title: "Bilgi Galaksisi",
+                  description: "Konu hakimiyetin, bu hafta hangi konulara odaklanacağımızı belirleyecek.",
+                  statusText: "$analyzedTopicsCount",
+                  statusDescription: "Konu Analiz Edildi",
+                  statusColor: isGalaxyOk ? AppTheme.successColor : Colors.amber,
+                  buttonText: "Ziyaret Et",
+                  onTap: () => context.push('/ai-hub/${AppRoutes.coachPushed}'),
+                ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.2),
+
+                _ChecklistItemCard(
+                  icon: Icons.history_edu_rounded,
+                  title: "Deneme Arşivi",
+                  description: "Güncel deneme sonuçların, planın isabet oranını doğrudan etkiler.",
+                  statusText: "Son Deneme",
+                  statusDescription: testStatusText,
+                  statusColor: isTestsOk ? AppTheme.successColor : Colors.amber,
+                  buttonText: "Yeni Ekle",
+                  onTap: () => context.push('/home/add-test'),
+                ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.2),
+
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 32),
-        _ConfirmationItem(
-          icon: Icons.edit_calendar_rounded,
-          question: "Zaman haritan güncel mi?",
-          description: "Planın, sadece belirlediğin müsait zamanlara göre oluşturulacak.",
-          buttonText: "Haritayı Gözden Geçir",
-          onTap: () => context.push(AppRoutes.availability),
-        ),
-        _ConfirmationItem(
-          icon: Icons.auto_awesome,
-          question: "Bilgi Galaksin güncel mi?",
-          description: "Konu hakimiyet verilerin, bu hafta hangi konulara odaklanacağımızı belirleyecek.",
-          buttonText: "Galaksiyi Ziyaret Et",
-          onTap: () => context.push('/ai-hub/${AppRoutes.coachPushed}'),
-        ),
-        _ConfirmationItem(
-          icon: Icons.history_edu_rounded,
-          question: "Deneme sonuçların güncel mi?",
-          description: "Son denemen $lastTestDate tarihinde eklendi. Yeni bir deneme eklemek, planı daha isabetli yapar.",
-          buttonText: "Yeni Deneme Ekle",
-          onTap: () => context.push('/home/add-test'),
-        ),
-        const SizedBox(height: 32),
-        ElevatedButton(
-          onPressed: () {
-            ref.read(planningStepProvider.notifier).state = PlanningStep.pacing;
-          },
-          child: const Text("Her Şey Güncel, İlerle"),
+        Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: ElevatedButton(
+            onPressed: () {
+              ref.read(planningStepProvider.notifier).state = PlanningStep.pacing;
+            },
+            child: const Text("Tüm Verilerim Güncel, İlerle"),
+          ),
         ),
       ],
     ).animate().fadeIn();
@@ -345,57 +398,108 @@ class StrategicPlanningScreen extends ConsumerWidget {
   }
 }
 
-class _ConfirmationItem extends StatelessWidget {
+
+// =======================================================================
+// YENİDEN TASARLANMIŞ, "NİRVANA" KART WIDGET'I
+// =======================================================================
+class _ChecklistItemCard extends StatelessWidget {
   final IconData icon;
-  final String question;
+  final String title;
   final String description;
+  final String statusText;
+  final String statusDescription;
+  final Color statusColor;
   final String buttonText;
   final VoidCallback onTap;
 
-  const _ConfirmationItem({
+  const _ChecklistItemCard({
     required this.icon,
-    required this.question,
+    required this.title,
     required this.description,
+    required this.statusText,
+    required this.statusDescription,
+    required this.statusColor,
     required this.buttonText,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     return Card(
       margin: const EdgeInsets.only(bottom: 20),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Üst Kısım: Başlık ve Açıklama
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 4.0),
-                  child: Icon(icon, color: AppTheme.secondaryTextColor, size: 24),
-                ),
-                const SizedBox(width: 12),
+                Icon(icon, color: AppTheme.secondaryTextColor, size: 28),
+                const SizedBox(width: 16),
                 Expanded(
-                  child: Text(question, style: Theme.of(context).textTheme.titleLarge),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: textTheme.titleLarge),
+                      const SizedBox(height: 4),
+                      Text(
+                        description,
+                        style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor, height: 1.4),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.only(left: 36.0),
-              child: Text(
-                description,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+            const SizedBox(height: 20),
+            // Alt Kısım: Durum ve Eylem
+            Container(
+              padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: AppTheme.lightSurfaceColor.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: onTap,
-                child: Text(buttonText),
+              child: Row(
+                children: [
+                  // Durum Göstergesi
+                  Expanded(
+                    flex: 3,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          statusText,
+                          style: textTheme.headlineSmall?.copyWith(
+                            color: statusColor,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          statusDescription,
+                          style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Eylem Butonu
+                  Expanded(
+                    flex: 2,
+                    child: TextButton(
+                      onPressed: onTap,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      child: Text(buttonText),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
