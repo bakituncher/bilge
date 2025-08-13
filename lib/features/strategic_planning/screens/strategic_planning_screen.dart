@@ -10,6 +10,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:intl/intl.dart';
+import 'package:bilge_ai/data/models/plan_model.dart';
+
 
 enum Pacing { relaxed, moderate, intense }
 enum PlanningStep { dataCheck, confirmation, pacing, loading }
@@ -177,41 +179,76 @@ class StrategicPlanningScreen extends ConsumerWidget {
     }
   }
 
+  // =======================================================================
+  // YENİLENEN "MEVCUT STRATEJİ VAR" EKRANI
+  // =======================================================================
   Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref, UserModel user) {
+    final weeklyPlan = WeeklyPlan.fromJson(user.weeklyPlan!);
+
     return Scaffold(
-      appBar: AppBar(title: const Text("Stratejik Planın Hazır")),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.shield_moon_rounded, size: 80, color: AppTheme.successColor),
-              const SizedBox(height: 24),
-              Text(
-                "Mevcut Bir Stratejin Var",
-                style: Theme.of(context).textTheme.headlineSmall,
-                textAlign: TextAlign.center,
+      appBar: AppBar(title: const Text("Stratejik Plan")),
+      body: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Spacer(),
+            Text(
+              "Mevcut Harekat Planı",
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineMedium,
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    const Icon(Icons.shield_moon_rounded, size: 48, color: AppTheme.successColor),
+                    const SizedBox(height: 16),
+                    Text(
+                      weeklyPlan.planTitle,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      "Oluşturulma Tarihi: ${DateFormat.yMMMMd('tr').format(weeklyPlan.creationDate)}",
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor),
+                    ),
+                    const Divider(height: 32),
+                    Text(
+                      "Bu Haftanın Odağı:",
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      weeklyPlan.strategyFocus,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: AppTheme.secondaryTextColor,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 12),
-              Text(
-                "Uzun vadeli zafer planın ve bu haftaki görevlerin zaten belirlenmiş. Komuta merkezinden planını takip edebilirsin.",
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
-                icon: const Icon(Icons.map_rounded),
-                label: const Text("Komuta Merkezine Git"),
-              ),
-              TextButton(
-                  onPressed: () {
-                    ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
-                  },
-                  child: const Text("Yeni Strateji Oluştur"))
-            ],
-          ),
+            ).animate().fadeIn(delay: 200.ms).slideY(begin: 0.2),
+            const Spacer(),
+            ElevatedButton.icon(
+              onPressed: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
+              icon: const Icon(Icons.map_rounded),
+              label: const Text("Komuta Merkezine Git"),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+                onPressed: () {
+                  ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
+                },
+                child: const Text("Yeni Strateji Oluştur")),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );
@@ -347,61 +384,81 @@ class StrategicPlanningScreen extends ConsumerWidget {
     ).animate().fadeIn();
   }
 
+  // =======================================================================
+  // YENİLENEN, "NİRVANA" TEMPO SEÇİM EKRANI
+  // =======================================================================
   Widget _buildPacingView(BuildContext context, WidgetRef ref) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.speed_rounded, size: 64, color: AppTheme.secondaryColor),
-            const SizedBox(height: 24),
-            Text(
-              "Bu Haftanın Temposu Ne Olsun?",
-              style: Theme.of(context).textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 48),
-            ToggleButtons(
-              isSelected: Pacing.values.map((p) => p == ref.watch(selectedPacingProvider)).toList(),
-              onPressed: (index) {
-                ref.read(selectedPacingProvider.notifier).state = Pacing.values[index];
-              },
-              borderRadius: BorderRadius.circular(16),
-              selectedColor: AppTheme.primaryColor,
-              color: Colors.white,
-              fillColor: AppTheme.secondaryColor,
-              selectedBorderColor: AppTheme.secondaryColor,
-              borderColor: AppTheme.lightSurfaceColor,
-              children: const [
-                Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Rahat')),
-                Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Dengeli')),
-                Padding(padding: EdgeInsets.symmetric(horizontal: 16), child: Text('Yoğun')),
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Haftalık Taarruz Temponu Seç",
+                  style: Theme.of(context).textTheme.headlineMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  "Planın yoğunluğu, seçtiğin tempoya göre ayarlanacak.",
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.secondaryTextColor),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                _PacingCard(
+                  pacing: Pacing.relaxed,
+                  icon: Icons.directions_walk_rounded,
+                  title: "Rahat Tempo",
+                  subtitle: "Temel tekrar ve konu pekiştirme.",
+                  isSelected: ref.watch(selectedPacingProvider) == Pacing.relaxed,
+                  onTap: () => ref.read(selectedPacingProvider.notifier).state = Pacing.relaxed,
+                ).animate().fadeIn(delay: 200.ms).slideX(begin: -0.2),
+                _PacingCard(
+                  pacing: Pacing.moderate,
+                  icon: Icons.directions_run_rounded,
+                  title: "Dengeli Tempo",
+                  subtitle: "Sağlam ve istikrarlı ilerleme.",
+                  isSelected: ref.watch(selectedPacingProvider) == Pacing.moderate,
+                  onTap: () => ref.read(selectedPacingProvider.notifier).state = Pacing.moderate,
+                ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.2),
+                _PacingCard(
+                  pacing: Pacing.intense,
+                  icon: Icons.rocket_launch_rounded,
+                  title: "Yoğun Tempo",
+                  subtitle: "Maksimum odaklanma ve tam taarruz.",
+                  isSelected: ref.watch(selectedPacingProvider) == Pacing.intense,
+                  onTap: () => ref.read(selectedPacingProvider.notifier).state = Pacing.intense,
+                ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.2),
               ],
             ),
-            const SizedBox(height: 48),
-            ElevatedButton.icon(
-              onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(context),
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text("Stratejiyi Oluştur"),
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16)),
-            ),
-            TextButton(
-                onPressed: () {
-                  ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
-                },
-                child: const Text("Geri Dön"))
-          ],
+          ),
         ),
-      ),
+        Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ElevatedButton.icon(
+                onPressed: () => ref.read(strategyGenerationProvider.notifier).generatePlan(context),
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text("Stratejiyi Oluştur"),
+              ),
+              TextButton(
+                  onPressed: () {
+                    ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
+                  },
+                  child: const Text("Geri Dön")),
+            ],
+          ),
+        )
+      ],
     );
   }
 }
 
-
-// =======================================================================
-// YENİDEN TASARLANMIŞ, "NİRVANA" KART WIDGET'I
-// =======================================================================
 class _ChecklistItemCard extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -433,7 +490,6 @@ class _ChecklistItemCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Üst Kısım: Başlık ve Açıklama
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -455,7 +511,6 @@ class _ChecklistItemCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 20),
-            // Alt Kısım: Durum ve Eylem
             Container(
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
@@ -464,7 +519,6 @@ class _ChecklistItemCard extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  // Durum Göstergesi
                   Expanded(
                     flex: 3,
                     child: Column(
@@ -487,7 +541,6 @@ class _ChecklistItemCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Eylem Butonu
                   Expanded(
                     flex: 2,
                     child: TextButton(
@@ -503,6 +556,79 @@ class _ChecklistItemCard extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// =======================================================================
+// YENİ, "NİRVANA" TEMPO SEÇİM KARTI WIDGET'I
+// =======================================================================
+class _PacingCard extends StatelessWidget {
+  final Pacing pacing;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _PacingCard({
+    required this.pacing,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: isSelected ? AppTheme.secondaryColor : AppTheme.lightSurfaceColor.withOpacity(0.5),
+          width: 2,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              Icon(icon, size: 32, color: isSelected ? AppTheme.secondaryColor : AppTheme.secondaryTextColor),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? AppTheme.secondaryColor : Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              AnimatedOpacity(
+                opacity: isSelected ? 1.0 : 0.0,
+                duration: 200.ms,
+                child: const Icon(Icons.check_circle_rounded, color: AppTheme.secondaryColor),
+              ),
+            ],
+          ),
         ),
       ),
     );
