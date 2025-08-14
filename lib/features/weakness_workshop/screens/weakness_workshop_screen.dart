@@ -17,6 +17,9 @@ import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:uuid/uuid.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
+// GÖREV SİSTEMİ İMPORTLARI
+import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
 // Atölyenin hangi aşamada olduğunu yöneten durum
 enum WorkshopStep { briefing, study, quiz, results }
@@ -107,6 +110,10 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
       topic: material.topic,
       performance: newPerformance,
     );
+
+    // GÖREV GÜNCELLEME EMRİ
+    ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.engagement);
+
     setState(() => _currentStep = WorkshopStep.results);
   }
 
@@ -153,12 +160,11 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
           },
         ) : null,
         actions: [
-          // YENİ EKLENEN BUTON
           if (_currentStep == WorkshopStep.briefing)
             IconButton(
               icon: const Icon(Icons.bar_chart_rounded),
               tooltip: "Atölye Raporunu Görüntüle",
-              onPressed: () => context.push('/ai-hub/weakness-workshop/stats'), // YENİ ROTA
+              onPressed: () => context.push('/ai-hub/weakness-workshop/stats'),
             ),
           IconButton(
             icon: const Icon(Icons.inventory_2_outlined),
@@ -880,7 +886,6 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-// YENİ WIDGET: Derinleşme Modu Seçenekleri için Alt Panel
 class _DeepenWorkshopSheet extends StatelessWidget {
   final Function(String difficulty, bool invalidate) onOptionSelected;
   const _DeepenWorkshopSheet({required this.onOptionSelected});

@@ -94,7 +94,8 @@ class AppTheme {
       ),
       textStyle: TextStyle(color: primaryColor, fontWeight: FontWeight.bold),
     ),
-    bottomAppBarTheme: BottomAppBarTheme(
+    // *** HATA DÜZELTMESİ: BottomAppBarTheme -> BottomAppBarThemeData ***
+    bottomAppBarTheme: BottomAppBarThemeData(
       color: cardColor,
       elevation: 0,
     ),

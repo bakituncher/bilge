@@ -9,6 +9,9 @@ import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/shared/widgets/score_slider.dart';
+// GÖREV SİSTEMİ İMPORTLARI
+import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
 // State Management Provider'ları
 final _updateModeProvider = StateProvider.autoDispose<bool>((ref) => true);
@@ -35,31 +38,10 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
     final sessionQuestions = ref.watch(_sessionQuestionCountProvider);
     final correct = ref.watch(_correctCountProvider);
     final wrong = ref.watch(_wrongCountProvider);
-
     final blank = sessionQuestions - correct - wrong;
-
-    // YENİ VE ADİL HAKİMİYET HESAPLAMASI
-    // Standart ceza katsayısı (4 yanlış 1 doğruyu götürür)
     const double penaltyCoefficient = 0.25;
 
-    final double mastery;
-    if (isAddingMode) {
-      final finalCorrect = initialPerformance.correctCount + correct;
-      final finalWrong = initialPerformance.wrongCount + wrong;
-      final finalTotalQuestions = initialPerformance.questionCount + sessionQuestions;
-
-      // Net doğru sayısını hesapla
-      final netCorrect = finalCorrect - (finalWrong * penaltyCoefficient);
-
-      mastery = finalTotalQuestions == 0 ? 0.0 : (netCorrect / finalTotalQuestions).clamp(0.0, 1.0);
-    } else { // Değiştir Modu
-      final finalTotalQuestions = sessionQuestions;
-
-      // Net doğru sayısını hesapla
-      final netCorrect = correct - (wrong * penaltyCoefficient);
-
-      mastery = finalTotalQuestions == 0 ? 0.0 : (netCorrect / finalTotalQuestions).clamp(0.0, 1.0);
-    }
+    final double mastery = _calculateMastery(isAddingMode, initialPerformance, correct, wrong, sessionQuestions, penaltyCoefficient);
 
     return Scaffold(
       appBar: AppBar(title: Text(topic)),
@@ -149,6 +131,11 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
                   topic: topic,
                   performance: newPerformance,
                 );
+
+                // GÖREV GÜNCELLEME EMRİ
+                ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.practice, amount: sessionQuestions);
+                ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.study, amount: 1);
+
                 context.pop();
               },
               child: const Text("Cevheri İşle ve Kaydet"),
@@ -159,7 +146,19 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
     );
   }
 
-  // Diğer widget'lar (değişiklik yok)
+  double _calculateMastery(bool isAddingMode, TopicPerformanceModel initial, int correct, int wrong, int total, double penalty) {
+    if (isAddingMode) {
+      final finalCorrect = initial.correctCount + correct;
+      final finalWrong = initial.wrongCount + wrong;
+      final finalTotal = initial.questionCount + total;
+      final netCorrect = finalCorrect - (finalWrong * penalty);
+      return finalTotal == 0 ? 0.0 : (netCorrect / finalTotal).clamp(0.0, 1.0);
+    } else {
+      final netCorrect = correct - (wrong * penalty);
+      return total == 0 ? 0.0 : (netCorrect / total).clamp(0.0, 1.0);
+    }
+  }
+
   Widget _buildModeSelector(BuildContext context, WidgetRef ref) {
     final isAddingMode = ref.watch(_updateModeProvider);
     return Row(
@@ -222,7 +221,7 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
                       style: textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     Text(
-                      "Net Hakimiyet", // İsmi de güncelledik
+                      "Net Hakimiyet",
                       style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
                     ),
                   ],
