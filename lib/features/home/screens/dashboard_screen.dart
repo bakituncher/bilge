@@ -66,41 +66,47 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         final avgNet = testCount > 0 ? (user.totalNetSum / testCount) : 0.0;
         final warriorTitle = _getWarriorTitle(testCount, avgNet);
 
-        return ListView(
-          padding: const EdgeInsets.symmetric(vertical: 16.0),
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
-              child: DashboardHeader(
-                name: user.name ?? 'Savaşçı',
-                title: warriorTitle,
+        // SORUN ÇÖZÜMÜ: İçeriği SafeArea ile sarmalayarak bildirim paneliyle çakışmayı önle.
+        return SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
+                child: DashboardHeader(
+                  name: user.name ?? 'Savaşçı',
+                  title: warriorTitle,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
-            Container(key: todaysPlanKey, child: const TodaysPlan()),
-            const SizedBox(height: 24),
-
-            // --- YENİ KART BURAYA EKLENDİ ---
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: _DailyQuestsCard(),
-            ),
-            // ---------------------------------
-
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: _QuickStats(tests: tests, user: user),
-            ),
-            const SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Container(key: addTestKey, child: _ActionCenter()),
-            ),
-          ]
-              .animate(interval: 80.ms)
-              .fadeIn(duration: 400.ms)
-              .slideY(begin: 0.1),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.symmetric(vertical: 16.0),
+                  children: [
+                    const SizedBox(height: 8),
+                    Container(key: todaysPlanKey, child: const TodaysPlan()),
+                    const SizedBox(height: 24),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: _DailyQuestsCard(),
+                    ),
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: _QuickStats(tests: tests, user: user),
+                    ),
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Container(key: addTestKey, child: _ActionCenter()),
+                    ),
+                    const SizedBox(height: 100),
+                  ]
+                      .animate(interval: 80.ms)
+                      .fadeIn(duration: 400.ms)
+                      .slideY(begin: 0.1),
+                ),
+              ),
+            ],
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
