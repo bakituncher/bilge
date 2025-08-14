@@ -14,8 +14,8 @@ import 'package:bilge_ai/core/navigation/app_routes.dart';
 import '../widgets/warrior_id_card.dart';
 import '../widgets/war_stats.dart';
 import '../widgets/profile_action_cards.dart';
-import '../widgets/honor_wall.dart';
-import '../widgets/future_victories.dart';
+
+// HonorWall ve FutureVictories importları kaldırıldı.
 
 final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
@@ -123,9 +123,8 @@ class ProfileScreen extends ConsumerWidget {
               final tests = testsAsync.valueOrNull ?? [];
               final testCount = tests.length;
               final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
-              final badges = _generateBadges(user, testCount, avgNet, focusSessions);
-              final unlockedBadges = badges.where((b) => b.isUnlocked).toList();
-              final lockedBadges = badges.where((b) => !b.isUnlocked).toList();
+              final allBadges = _generateBadges(user, testCount, avgNet, focusSessions);
+              final unlockedCount = allBadges.where((b) => b.isUnlocked).length;
 
               return ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -134,13 +133,18 @@ class ProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 24),
                   WarStats(testCount: testCount, avgNet: avgNet, streak: user.streak),
                   const SizedBox(height: 24),
+
+                  // YENİ ŞEREF DUVARI KARTI
+                  _HonorWallPreviewCard(
+                    unlockedCount: unlockedCount,
+                    totalCount: allBadges.length,
+                    onTap: () => context.push('/profile/honor-wall', extra: allBadges),
+                  ),
+
+                  const SizedBox(height: 12),
                   const TimeManagementActions(),
                   const SizedBox(height: 12),
                   StrategicActions(user: user),
-                  const SizedBox(height: 32),
-                  HonorWall(unlockedBadges: unlockedBadges),
-                  const SizedBox(height: 24),
-                  FutureVictories(lockedBadges: lockedBadges),
                   const SizedBox(height: 24),
                 ].animate(interval: 100.ms).fadeIn(duration: 500.ms).slideY(begin: 0.2),
               );
@@ -151,6 +155,65 @@ class ProfileScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
         error: (e, s) => Center(child: Text('Karargâh Yüklenemedi: $e')),
+      ),
+    );
+  }
+}
+
+// YENİ WIDGET: Şeref Duvarı Önizleme ve Giriş Kartı
+class _HonorWallPreviewCard extends StatelessWidget {
+  final int unlockedCount;
+  final int totalCount;
+  final VoidCallback onTap;
+
+  const _HonorWallPreviewCard({
+    required this.unlockedCount,
+    required this.totalCount,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = totalCount > 0 ? unlockedCount / totalCount : 0.0;
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Row(
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: CircularProgressIndicator(
+                      value: progress,
+                      strokeWidth: 6,
+                      backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
+                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondaryColor),
+                    ),
+                  ),
+                  const Icon(Icons.military_tech_rounded, color: AppTheme.secondaryColor, size: 32),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Şeref Duvarı", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 4),
+                    Text("$totalCount madalyadan $unlockedCount tanesini kazandın.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -15,6 +15,8 @@ import 'package:bilge_ai/features/home/screens/test_detail_screen.dart';
 import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart';
 import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
 import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
+import 'package:bilge_ai/features/profile/screens/honor_wall_screen.dart'; // YENİ IMPORT
+import 'package:bilge_ai/features/profile/models/badge_model.dart' as app_badge; // YENİ IMPORT
 import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/command_center_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
@@ -174,7 +176,17 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
           routes: [
             GoRoute(
                 path: AppRoutes.profile,
-                builder: (context, state) => const ProfileScreen())
+                builder: (context, state) => const ProfileScreen(),
+                routes: [ // YENİ ALT ROTA
+                  GoRoute(
+                    path: 'honor-wall',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final allBadges = state.extra as List<app_badge.Badge>;
+                      return HonorWallScreen(allBadges: allBadges);
+                    },
+                  ),
+                ]),
           ]),
     ],
   );
