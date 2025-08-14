@@ -11,11 +11,8 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/features/profile/models/badge_model.dart' as app_badge;
 import 'package:bilge_ai/core/navigation/app_routes.dart';
-import '../widgets/warrior_id_card.dart';
-import '../widgets/war_stats.dart';
-import '../widgets/profile_action_cards.dart';
-
-// HonorWall ve FutureVictories importları kaldırıldı.
+import 'package:rive/rive.dart' hide LinearGradient; // HATA ÇÖZÜMÜ: Rive'dan gelen LinearGradient gizlendi.
+import '../widgets/xp_bar.dart';
 
 final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
@@ -59,34 +56,41 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  String _getWarriorTitle(int testCount, double avgNet) {
-    if (testCount < 5) return "Acemi Kâşif";
-    if (avgNet > 90 && testCount > 20) return "Efsanevi Komutan";
-    if (avgNet > 70) return "Usta Stratejist";
-    if (testCount > 15) return "Kıdemli Savaşçı";
-    return "Azimli Savaşçı";
+  (String, int, IconData) _getWarriorRank(int testCount, double avgNet, int score) {
+    if (score > 15000 && testCount > 50 && avgNet > 90) return ("Efsanevi Komutan", 20000, Icons.workspace_premium);
+    if (score > 8000 && testCount > 30 && avgNet > 70) return ("Usta Stratejist", 15000, Icons.star_rounded);
+    if (score > 3000 && testCount > 15) return ("Kıdemli Savaşçı", 8000, Icons.military_tech);
+    if (score > 1000 && testCount > 5) return ("Azimli Savaşçı", 3000, Icons.shield);
+    return ("Acemi Kâşif", 1000, Icons.explore);
   }
 
   List<app_badge.Badge> _generateBadges(UserModel user, int testCount, double avgNet, List<FocusSessionModel> focusSessions) {
     return [
-      app_badge.Badge(name: 'İlk Adım', description: 'İlk denemeni ekle.', icon: Icons.flag, color: Colors.green, isUnlocked: testCount >= 1),
-      app_badge.Badge(name: 'Acemi Savaşçı', description: '5 deneme ekle.', icon: Icons.shield_outlined, color: Colors.green, isUnlocked: testCount >= 5),
-      app_badge.Badge(name: 'Deneyimli Savaşçı', description: '15 deneme ekle.', icon: Icons.shield, color: Colors.green, isUnlocked: testCount >= 15),
-      app_badge.Badge(name: 'Usta Savaşçı', description: '30 deneme ekle.', icon: Icons.military_tech_outlined, color: Colors.green, isUnlocked: testCount >= 30),
-      app_badge.Badge(name: 'Deneme Fatihi', description: '50 deneme ekle.', icon: Icons.military_tech, color: Colors.green, isUnlocked: testCount >= 50),
-      app_badge.Badge(name: 'Kıvılcım', description: '3 günlük seri yakala.', icon: Icons.whatshot_outlined, color: Colors.orange, isUnlocked: user.streak >= 3),
-      app_badge.Badge(name: 'Ateşleyici', description: '7 günlük seri yakala.', icon: Icons.local_fire_department_outlined, color: Colors.orange, isUnlocked: user.streak >= 7),
-      app_badge.Badge(name: 'Alev Ustası', description: '14 günlük seri yakala.', icon: Icons.local_fire_department, color: Colors.orange, isUnlocked: user.streak >= 14),
-      app_badge.Badge(name: 'Durdurulamaz', description: '30 günlük seri yakala.', icon: Icons.wb_sunny, color: Colors.orange, isUnlocked: user.streak >= 30),
-      app_badge.Badge(name: 'Yükseliş', description: '50 Net ortalamasını geç.', icon: Icons.trending_up, color: Colors.blue, isUnlocked: avgNet > 50),
-      app_badge.Badge(name: 'Nişancı', description: '70 Net ortalamasını geç.', icon: Icons.gps_fixed, color: Colors.blue, isUnlocked: avgNet > 70),
-      app_badge.Badge(name: 'Usta Nişancı', description: '90 Net ortalamasını geç.', icon: Icons.gps_not_fixed, color: Colors.blue, isUnlocked: avgNet > 90),
-      app_badge.Badge(name: 'Bilge Nişancı', description: '100 Net ortalamasını geç.', icon: Icons.gps_fixed, color: Colors.blue, isUnlocked: avgNet > 100),
-      app_badge.Badge(name: 'Stratejist', description: 'İlk stratejini oluştur.', icon: Icons.insights, color: AppTheme.successColor, isUnlocked: user.longTermStrategy != null),
-      app_badge.Badge(name: 'Planlayıcı', description: 'Haftalık planındaki 10 görevi tamamla.', icon: Icons.checklist, color: AppTheme.successColor, isUnlocked: (user.completedDailyTasks.values.expand((e) => e).length) >= 10),
-      app_badge.Badge(name: 'Odaklanma Ustası', description: 'İlk Pomodoro seansını tamamla.', icon: Icons.timer, color: AppTheme.successColor, isUnlocked: focusSessions.isNotEmpty),
-      app_badge.Badge(name: 'Kâşif', description: 'İlk zayıf konunu işle.', icon: Icons.construction, color: Colors.purple, isUnlocked: user.topicPerformances.isNotEmpty),
-      app_badge.Badge(name: 'Lider', description: 'Liderlik tablosuna gir.', icon: Icons.leaderboard, color: Colors.purple, isUnlocked: user.engagementScore > 0),
+      // Deneme Madalyaları
+      app_badge.Badge(name: 'İlk Adım', description: 'İlk denemeni başarıyla ekledin ve zafere giden yola çıktın.', icon: Icons.flag, color: AppTheme.successColor, isUnlocked: testCount >= 1, hint: "İlk denemeni ekleyerek başla."),
+      app_badge.Badge(name: 'Acemi Savaşçı', description: '5 farklı denemede savaş meydanının tozunu attın.', icon: Icons.shield_outlined, color: AppTheme.successColor, isUnlocked: testCount >= 5, rarity: app_badge.BadgeRarity.common, hint: "Toplam 5 deneme ekle."),
+      app_badge.Badge(name: 'Kıdemli Savaşçı', description: '15 deneme! Artık bu işin kurdu olmaya başladın.', icon: Icons.shield, color: AppTheme.successColor, isUnlocked: testCount >= 15, rarity: app_badge.BadgeRarity.rare, hint: "Toplam 15 deneme ekle."),
+      app_badge.Badge(name: 'Deneme Fatihi', description: 'Tam 50 denemeyi arşivine ekledin. Önünde kimse duramaz!', icon: Icons.military_tech, color: AppTheme.successColor, isUnlocked: testCount >= 50, rarity: app_badge.BadgeRarity.epic, hint: "Toplam 50 deneme ekle."),
+
+      // Seri Madalyaları
+      app_badge.Badge(name: 'Kıvılcım', description: 'Ateşi yaktın! 3 günlük çalışma serisine ulaştın.', icon: Icons.whatshot_outlined, color: Colors.orange, isUnlocked: user.streak >= 3, hint: "3 gün ara vermeden çalış."),
+      app_badge.Badge(name: 'Alev Ustası', description: 'Tam 14 gün boyunca disiplini elden bırakmadın. Bu bir irade zaferidir!', icon: Icons.local_fire_department, color: Colors.orange, isUnlocked: user.streak >= 14, rarity: app_badge.BadgeRarity.rare, hint: "14 günlük seriye ulaş."),
+      app_badge.Badge(name: 'Durdurulamaz', description: '30 gün! Sen artık bir alışkanlık abidesisin.', icon: Icons.wb_sunny, color: Colors.orange, isUnlocked: user.streak >= 30, rarity: app_badge.BadgeRarity.epic, hint: "Tam 30 gün ara verme."),
+
+      // Net Ortalaması Madalyaları
+      app_badge.Badge(name: 'Yükseliş', description: 'Ortalama 50 net barajını aştın. Bu daha başlangıç!', icon: Icons.trending_up, color: Colors.blueAccent, isUnlocked: avgNet > 50, hint: "Net ortalamanı 50'nin üzerine çıkar."),
+      app_badge.Badge(name: 'Usta Nişancı', description: 'Ortalama 90 net! Elitler arasına hoş geldin.', icon: Icons.gps_not_fixed, color: Colors.blueAccent, isUnlocked: avgNet > 90, rarity: app_badge.BadgeRarity.rare, hint: "Net ortalamanı 90'ın üzerine çıkar."),
+      app_badge.Badge(name: 'Bilge Nişancı', description: 'Ortalama 100 net barajını yıktın. Sen bir efsanesin!', icon: Icons.workspace_premium, color: Colors.blueAccent, isUnlocked: avgNet > 100, rarity: app_badge.BadgeRarity.epic, hint: "Net ortalamanı 100'ün üzerine çıkar."),
+
+      // Strateji ve Planlama Madalyaları
+      app_badge.Badge(name: 'Stratejist', description: 'BilgeAI ile ilk uzun vadeli stratejini oluşturdun.', icon: Icons.insights, color: Colors.purpleAccent, isUnlocked: user.longTermStrategy != null, hint: "AI Hub'da stratejini oluştur."),
+      app_badge.Badge(name: 'Haftanın Hakimi', description: 'Bir haftalık plandaki tüm görevleri tamamladın.', icon: Icons.checklist, color: Colors.purpleAccent, isUnlocked: (user.completedDailyTasks.values.expand((e) => e).length) >= 15, rarity: app_badge.BadgeRarity.rare, hint: "Bir haftalık plandaki tüm görevleri bitir."),
+      app_badge.Badge(name: 'Odaklanma Ninjası', description: 'Toplam 10 saat Pomodoro tekniği ile odaklandın.', icon: Icons.timer, color: Colors.purpleAccent, isUnlocked: focusSessions.fold(0, (p, c) => p + c.durationInSeconds) >= 36000, rarity: app_badge.BadgeRarity.rare, hint: "Toplam 10 saat odaklan."),
+
+      // Atölye ve Arena Madalyaları
+      app_badge.Badge(name: 'Cevher Avcısı', description: 'Cevher Atölyesi\'nde ilk zayıf konunu işledin.', icon: Icons.construction, color: AppTheme.secondaryColor, isUnlocked: user.topicPerformances.isNotEmpty, hint: "Cevher Atölyesi'ni kullan."),
+      app_badge.Badge(name: 'Arena Gladyatörü', description: 'Liderlik tablosuna girerek adını duyurdun.', icon: Icons.leaderboard, color: AppTheme.secondaryColor, isUnlocked: user.engagementScore > 0, rarity: app_badge.BadgeRarity.common, hint: "Etkileşim puanı kazan."),
+      app_badge.Badge(name: 'Efsane', description: 'Tüm madalyaları toplayarak ölümsüzleştin!', icon: Icons.auto_stories, color: Colors.amber, isUnlocked: false, rarity: app_badge.BadgeRarity.legendary, hint: "Tüm diğer madalyaları kazan."),
     ];
   }
 
@@ -97,6 +101,7 @@ class ProfileScreen extends ConsumerWidget {
     final focusSessionsAsync = ref.watch(focusSessionsProvider);
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: const Text('Komuta Merkezi'),
         backgroundColor: Colors.transparent,
@@ -125,28 +130,85 @@ class ProfileScreen extends ConsumerWidget {
               final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
               final allBadges = _generateBadges(user, testCount, avgNet, focusSessions);
               final unlockedCount = allBadges.where((b) => b.isUnlocked).length;
+              final (rankName, nextLevelXp, rankIcon) = _getWarriorRank(testCount, avgNet, user.engagementScore);
 
-              return ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              return Stack(
                 children: [
-                  WarriorIDCard(user: user, title: _getWarriorTitle(testCount, avgNet)),
-                  const SizedBox(height: 24),
-                  WarStats(testCount: testCount, avgNet: avgNet, streak: user.streak),
-                  const SizedBox(height: 24),
-
-                  // YENİ ŞEREF DUVARI KARTI
-                  _HonorWallPreviewCard(
-                    unlockedCount: unlockedCount,
-                    totalCount: allBadges.length,
-                    onTap: () => context.push('/profile/honor-wall', extra: allBadges),
+                  const RiveAnimation.asset(
+                    'assets/rive/space_background.riv',
+                    fit: BoxFit.cover,
                   ),
-
-                  const SizedBox(height: 12),
-                  const TimeManagementActions(),
-                  const SizedBox(height: 12),
-                  StrategicActions(user: user),
-                  const SizedBox(height: 24),
-                ].animate(interval: 100.ms).fadeIn(duration: 500.ms).slideY(begin: 0.2),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Colors.transparent, AppTheme.primaryColor.withOpacity(0.8), AppTheme.primaryColor],
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        stops: const [0, 0.6, 1.0],
+                      ),
+                    ),
+                  ),
+                  SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                      child: Column(
+                        children: [
+                          const Spacer(flex: 2),
+                          CircleAvatar(
+                            radius: 50,
+                            backgroundColor: AppTheme.secondaryColor.withOpacity(0.2),
+                            child: CircleAvatar(
+                              radius: 46,
+                              backgroundColor: AppTheme.cardColor,
+                              child: Text(
+                                user.name?.substring(0, 1).toUpperCase() ?? 'B',
+                                style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ).animate().fadeIn(duration: 500.ms).scale(),
+                          const SizedBox(height: 12),
+                          Text(user.name ?? 'İsimsiz Savaşçı', style: Theme.of(context).textTheme.headlineSmall).animate().fadeIn(delay: 200.ms),
+                          const SizedBox(height: 4),
+                          Chip(
+                            avatar: Icon(rankIcon, size: 18, color: AppTheme.secondaryColor),
+                            label: Text(rankName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            backgroundColor: AppTheme.secondaryColor.withOpacity(0.2),
+                          ).animate().fadeIn(delay: 300.ms),
+                          const SizedBox(height: 16),
+                          XpBar(
+                            currentXp: user.engagementScore,
+                            nextLevelXp: nextLevelXp,
+                            rankName: "Rütbe Puanı",
+                          ).animate().fadeIn(delay: 400.ms),
+                          const Spacer(flex: 1),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _StatItem(value: testCount.toString(), label: 'Deneme', icon: Icons.library_books_rounded).animate().fadeIn(delay: 500.ms).slideY(begin: 0.5),
+                              _StatItem(value: avgNet.toStringAsFixed(1), label: 'Ort. Net', icon: Icons.track_changes_rounded).animate().fadeIn(delay: 600.ms).slideY(begin: 0.5),
+                              _StatItem(value: user.streak.toString(), label: 'Günlük Seri', icon: Icons.local_fire_department_rounded).animate().fadeIn(delay: 700.ms).slideY(begin: 0.5),
+                            ],
+                          ),
+                          const Spacer(flex: 2),
+                          _ActionCard(
+                            title: "Şeref Duvarı",
+                            subtitle: "$unlockedCount / ${allBadges.length} Madalya",
+                            icon: Icons.military_tech_rounded,
+                            onTap: () => context.push('/profile/honor-wall', extra: allBadges),
+                          ).animate().fadeIn(delay: 800.ms).slideX(begin: -0.5),
+                          const SizedBox(height: 16),
+                          _ActionCard(
+                            title: "Stratejik Plan",
+                            subtitle: "Uzun vadeli zafer planını görüntüle.",
+                            icon: Icons.map_rounded,
+                            onTap: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
+                          ).animate().fadeIn(delay: 900.ms).slideX(begin: 0.5),
+                          const Spacer(flex: 1),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               );
             },
             loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
@@ -160,53 +222,55 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-// YENİ WIDGET: Şeref Duvarı Önizleme ve Giriş Kartı
-class _HonorWallPreviewCard extends StatelessWidget {
-  final int unlockedCount;
-  final int totalCount;
-  final VoidCallback onTap;
-
-  const _HonorWallPreviewCard({
-    required this.unlockedCount,
-    required this.totalCount,
-    required this.onTap,
-  });
+class _StatItem extends StatelessWidget {
+  final String value;
+  final String label;
+  final IconData icon;
+  const _StatItem({required this.value, required this.label, required this.icon});
 
   @override
   Widget build(BuildContext context) {
-    final progress = totalCount > 0 ? unlockedCount / totalCount : 0.0;
+    return Column(
+      children: [
+        Icon(icon, color: AppTheme.secondaryTextColor, size: 28),
+        const SizedBox(height: 8),
+        Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
+        Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+      ],
+    );
+  }
+}
+
+class _ActionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+  const _ActionCard({required this.title, required this.subtitle, required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
+      color: AppTheme.cardColor.withOpacity(0.8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: AppTheme.lightSurfaceColor.withOpacity(0.5)),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
             children: [
-              Stack(
-                alignment: Alignment.center,
-                children: [
-                  SizedBox(
-                    width: 52,
-                    height: 52,
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 6,
-                      backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
-                      valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondaryColor),
-                    ),
-                  ),
-                  const Icon(Icons.military_tech_rounded, color: AppTheme.secondaryColor, size: 32),
-                ],
-              ),
+              Icon(icon, color: AppTheme.secondaryColor, size: 32),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text("Şeref Duvarı", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    Text("$totalCount madalyadan $unlockedCount tanesini kazandın.", style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                    Text(title, style: Theme.of(context).textTheme.titleLarge),
+                    Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
                   ],
                 ),
               ),
