@@ -69,8 +69,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         return ListView(
           padding: const EdgeInsets.symmetric(vertical: 16.0),
           children: [
-            // *** DÜZELTME BURADA YAPILDI ***
-            // Üstten boşluk vermek için Padding güncellendi.
             Padding(
               padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
               child: DashboardHeader(
@@ -80,6 +78,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             ),
             const SizedBox(height: 24),
             Container(key: todaysPlanKey, child: const TodaysPlan()),
+            const SizedBox(height: 24),
+
+            // --- YENİ KART BURAYA EKLENDİ ---
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16.0),
+              child: _DailyQuestsCard(),
+            ),
+            // ---------------------------------
+
             const SizedBox(height: 24),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -102,6 +109,70 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   }
 }
 
+// --- YENİ WIDGET: GÜNLÜK GÖREVLER KARTI ---
+class _DailyQuestsCard extends StatelessWidget {
+  const _DailyQuestsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Animate(
+      onPlay: (controller) => controller.repeat(reverse: true),
+      effects: [
+        ShimmerEffect(
+          duration: 2500.ms,
+          color: AppTheme.secondaryColor.withOpacity(0.5),
+        ),
+      ],
+      child: Card(
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: const BorderSide(color: AppTheme.secondaryColor, width: 2),
+        ),
+        child: InkWell(
+          onTap: () => context.go('/home/quests'),
+          child: Container(
+            padding: const EdgeInsets.all(20.0),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppTheme.secondaryColor.withOpacity(0.2),
+                  AppTheme.cardColor.withOpacity(0.5),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.shield_moon_rounded, size: 40, color: AppTheme.secondaryColor),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Günlük Fetihler",
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Yeni BP ve ödüller için tıkla!",
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+// ------------------------------------------
 
 class _QuickStats extends StatelessWidget {
   final List<TestModel> tests;

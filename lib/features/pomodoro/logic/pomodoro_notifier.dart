@@ -5,6 +5,8 @@ import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:intl/intl.dart';
+import 'package:bilge_ai/features/quests/logic/quest_notifier.dart'; // YENİ IMPORT
+import 'package:bilge_ai/features/quests/models/quest_model.dart';   // YENİ IMPORT
 
 enum PomodoroSessionState { idle, work, shortBreak, longBreak, completed }
 
@@ -95,6 +97,12 @@ class PomodoroNotifier extends StateNotifier<PomodoroModel> {
   void _handleSessionEnd() {
     if (state.sessionState == PomodoroSessionState.work) {
       _saveSession(state.currentTask, state.workDuration);
+
+      // --- GÖREV SİSTEMİ ENTEGRASYONU ---
+      // "Etkileşim" kategorisindeki görevleri güncelle.
+      _ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.engagement);
+      // ------------------------------------
+
       final result = FocusSessionResult(
         totalFocusSeconds: state.workDuration,
         roundsCompleted: state.currentRound,

@@ -1,6 +1,8 @@
 // lib/data/models/user_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
+// GÖREV SİSTEMİ İÇİN YENİ MODEL İÇERİ AKTARILDI
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
 class UserModel {
   final String id;
@@ -10,7 +12,7 @@ class UserModel {
   final List<String>? challenges;
   final double? weeklyStudyGoal;
   final bool onboardingCompleted;
-  final bool tutorialCompleted; // YENİ EKLENDİ
+  final bool tutorialCompleted;
   final int streak;
   final DateTime? lastStreakUpdate;
   final String? selectedExam;
@@ -26,6 +28,10 @@ class UserModel {
   final Map<String, List<String>> weeklyAvailability;
   final List<String> masteredTopics;
 
+  // YENİ EKLENEN GÖREV ALANLARI
+  final List<Quest> activeQuests;
+  final Timestamp? lastQuestRefreshDate;
+
   UserModel({
     required this.id,
     required this.email,
@@ -34,7 +40,7 @@ class UserModel {
     this.challenges,
     this.weeklyStudyGoal,
     this.onboardingCompleted = false,
-    this.tutorialCompleted = false, // YENİ EKLENDİ
+    this.tutorialCompleted = false,
     this.streak = 0,
     this.lastStreakUpdate,
     this.selectedExam,
@@ -49,6 +55,9 @@ class UserModel {
     this.weeklyPlan,
     this.weeklyAvailability = const {},
     this.masteredTopics = const [],
+    // YENİ ALANLAR CONSTRUCTOR'A EKLENDİ
+    this.activeQuests = const [],
+    this.lastQuestRefreshDate,
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -80,6 +89,17 @@ class UserModel {
       });
     }
 
+    // YENİ: Aktif görevleri veritabanından okumak için eklendi.
+    // Hata kontrolü ile birlikte.
+    final List<Quest> quests = [];
+    if (data['activeQuests'] is List) {
+      for (var questData in (data['activeQuests'] as List)) {
+        if (questData is Map<String, dynamic> && questData['id'] != null) {
+          quests.add(Quest.fromMap(questData, questData['id']));
+        }
+      }
+    }
+
     return UserModel(
       id: doc.id,
       email: data['email'],
@@ -88,7 +108,7 @@ class UserModel {
       challenges: List<String>.from(data['challenges'] ?? []),
       weeklyStudyGoal: (data['weeklyStudyGoal'] as num?)?.toDouble(),
       onboardingCompleted: data['onboardingCompleted'] ?? false,
-      tutorialCompleted: data['tutorialCompleted'] ?? false, // YENİ EKLENDİ
+      tutorialCompleted: data['tutorialCompleted'] ?? false,
       streak: data['streak'] ?? 0,
       lastStreakUpdate: (data['lastStreakUpdate'] as Timestamp?)?.toDate(),
       selectedExam: data['selectedExam'],
@@ -107,6 +127,9 @@ class UserModel {
         ),
       ),
       masteredTopics: List<String>.from(data['masteredTopics'] ?? []),
+      // YENİ ALANLARIN DEĞERLERİ ATANDI
+      activeQuests: quests,
+      lastQuestRefreshDate: data['lastQuestRefreshDate'] as Timestamp?,
     );
   }
 
@@ -119,7 +142,7 @@ class UserModel {
       'challenges': challenges,
       'weeklyStudyGoal': weeklyStudyGoal,
       'onboardingCompleted': onboardingCompleted,
-      'tutorialCompleted': tutorialCompleted, // YENİ EKLENDİ
+      'tutorialCompleted': tutorialCompleted,
       'streak': streak,
       'lastStreakUpdate': lastStreakUpdate != null ? Timestamp.fromDate(lastStreakUpdate!) : null,
       'selectedExam': selectedExam,
@@ -139,6 +162,9 @@ class UserModel {
       'weeklyPlan': weeklyPlan,
       'weeklyAvailability': weeklyAvailability,
       'masteredTopics': masteredTopics,
+      // YENİ ALANLARIN VERİTABANINA YAZILMASI İÇİN EKLENDİ
+      'activeQuests': activeQuests.map((quest) => quest.toMap()..['id'] = quest.id).toList(), // ID'yi de ekliyoruz
+      'lastQuestRefreshDate': lastQuestRefreshDate,
     };
   }
 }

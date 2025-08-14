@@ -30,6 +30,7 @@ import 'app_routes.dart';
 import 'package:bilge_ai/features/weakness_workshop/screens/workshop_stats_screen.dart';
 // ✅ WeeklyPlanScreen import eklendi
 import 'package:bilge_ai/features/home/screens/weekly_plan_screen.dart';
+import 'package:bilge_ai/features/quests/screens/quests_screen.dart'; // YENİ EKLENEN IMPORT
 
 StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
   return StatefulShellRoute.indexedStack(
@@ -42,6 +43,11 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
             path: AppRoutes.home,
             builder: (context, state) => const DashboardScreen(),
             routes: [
+              GoRoute(
+                path: AppRoutes.quests, // 'quests'
+                parentNavigatorKey: rootNavigatorKey,
+                builder: (context, state) => const QuestsScreen(),
+              ),
               // ✅ Yeni eklenen rota
               GoRoute(
                 path: 'weekly-plan', // AppRoutes'a eklenebilir: AppRoutes.weeklyPlan

@@ -20,19 +20,22 @@ class FirestoreService {
     return FirebaseAuth.instance.currentUser?.uid;
   }
 
-  CollectionReference<Map<String, dynamic>> get _usersCollection => _firestore.collection('users');
+  // --- HATA DÜZELTMESİ: GÖREV MOTORUNUN ERİŞEBİLMESİ İÇİN PUBLIC HALE GETİRİLDİ ---
+  CollectionReference<Map<String, dynamic>> get usersCollection => _firestore.collection('users');
+  // ------------------------------------------------------------------------------------
+
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
 
   // YENİ EKLENEN FONKSİYONLAR: CEVHER ATÖLYESİ İÇİN
   Future<void> saveWorkshopForUser(String userId, SavedWorkshopModel workshop) async {
-    final userDocRef = _usersCollection.doc(userId);
+    final userDocRef = usersCollection.doc(userId);
     final workshopCollectionRef = userDocRef.collection('savedWorkshops');
     await workshopCollectionRef.doc(workshop.id).set(workshop.toMap());
   }
 
   Stream<List<SavedWorkshopModel>> getSavedWorkshops(String userId) {
-    return _usersCollection
+    return usersCollection
         .doc(userId)
         .collection('savedWorkshops')
         .orderBy('savedDate', descending: true)
@@ -43,15 +46,15 @@ class FirestoreService {
 
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name, tutorialCompleted: false);
-    await _usersCollection.doc(user.uid).set(userProfile.toJson());
+    await usersCollection.doc(user.uid).set(userProfile.toJson());
   }
 
   Future<void> updateUserName({required String userId, required String newName}) async {
-    await _usersCollection.doc(userId).update({'name': newName});
+    await usersCollection.doc(userId).update({'name': newName});
   }
 
   Future<void> markTutorialAsCompleted(String userId) async {
-    await _usersCollection.doc(userId).update({'tutorialCompleted': true});
+    await usersCollection.doc(userId).update({'tutorialCompleted': true});
   }
 
   Future<void> updateOnboardingData({
@@ -60,7 +63,7 @@ class FirestoreService {
     required List<String> challenges,
     required double weeklyStudyGoal,
   }) async {
-    await _usersCollection.doc(userId).update({
+    await usersCollection.doc(userId).update({
       'goal': goal,
       'challenges': challenges,
       'weeklyStudyGoal': weeklyStudyGoal,
@@ -69,21 +72,21 @@ class FirestoreService {
   }
 
   Stream<UserModel> getUserProfile(String userId) {
-    return _usersCollection.doc(userId).snapshots().map((doc) => UserModel.fromSnapshot(doc));
+    return usersCollection.doc(userId).snapshots().map((doc) => UserModel.fromSnapshot(doc));
   }
 
   Future<List<UserModel>> getAllUsers() async {
-    final snapshot = await _usersCollection.get();
+    final snapshot = await usersCollection.get();
     return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
   }
 
   Future<void> updateEngagementScore(String userId, int pointsToAdd) async {
-    final userDocRef = _usersCollection.doc(userId);
+    final userDocRef = usersCollection.doc(userId);
     await userDocRef.update({'engagementScore': FieldValue.increment(pointsToAdd)});
   }
 
   Future<void> addTestResult(TestModel test) async {
-    final userDocRef = _usersCollection.doc(test.userId);
+    final userDocRef = usersCollection.doc(test.userId);
     await _firestore.runTransaction((transaction) async {
       final userSnapshot = await transaction.get(userDocRef);
       if (!userSnapshot.exists) throw Exception("Kullanıcı bulunamadı!");
@@ -123,7 +126,7 @@ class FirestoreService {
     required ExamType examType,
     required String sectionName,
   }) async {
-    await _usersCollection.doc(userId).update({
+    await usersCollection.doc(userId).update({
       'selectedExam': examType.name,
       'selectedExamSection': sectionName,
     });
@@ -135,7 +138,7 @@ class FirestoreService {
     required String topic,
     required TopicPerformanceModel performance,
   }) async {
-    final userDocRef = _usersCollection.doc(userId);
+    final userDocRef = usersCollection.doc(userId);
     final sanitizedSubject = _sanitizeKey(subject);
     final sanitizedTopic = _sanitizeKey(topic);
     final fieldPath = 'topicPerformances.$sanitizedSubject.$sanitizedTopic';
@@ -155,7 +158,7 @@ class FirestoreService {
     required String task,
     required bool isCompleted,
   }) async {
-    final userDocRef = _usersCollection.doc(userId);
+    final userDocRef = usersCollection.doc(userId);
     final fieldPath = 'completedDailyTasks.$dateKey';
 
     final batch = _firestore.batch();
@@ -170,7 +173,7 @@ class FirestoreService {
     required String userId,
     required Map<String, List<String>> availability,
   }) async {
-    await _usersCollection.doc(userId).update({
+    await usersCollection.doc(userId).update({
       'weeklyAvailability': availability,
     });
   }
@@ -181,7 +184,7 @@ class FirestoreService {
     required String longTermStrategy,
     required Map<String, dynamic> weeklyPlan,
   }) async {
-    await _usersCollection.doc(userId).update({
+    await usersCollection.doc(userId).update({
       'studyPacing': pacing,
       'longTermStrategy': longTermStrategy,
       'weeklyPlan': weeklyPlan,
@@ -196,7 +199,7 @@ class FirestoreService {
     final sanitizedSubject = _sanitizeKey(subject);
     final sanitizedTopic = _sanitizeKey(topic);
     final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
-    await _usersCollection.doc(userId).update({
+    await usersCollection.doc(userId).update({
       'masteredTopics': FieldValue.arrayUnion([uniqueIdentifier])
     });
   }
@@ -204,7 +207,7 @@ class FirestoreService {
   Future<void> resetUserDataForNewExam(String userId) async {
     final WriteBatch batch = _firestore.batch();
 
-    final userDocRef = _usersCollection.doc(userId);
+    final userDocRef = usersCollection.doc(userId);
     batch.update(userDocRef, {
       'onboardingCompleted': false,
       'tutorialCompleted': false,
