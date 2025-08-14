@@ -30,8 +30,8 @@ class ArenaScreen extends ConsumerWidget {
           bottom: const TabBar(
             indicatorColor: AppTheme.secondaryColor,
             indicatorWeight: 3,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal),
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14), // Güncellendi
+            unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal, fontSize: 14), // Güncellendi
             tabs: [
               Tab(text: 'Bu Haftanın Onuru'),
               Tab(text: 'Tüm Zamanların Efsaneleri'),
@@ -83,27 +83,61 @@ class _LeaderboardView extends ConsumerWidget {
           final currentUserIndex = entries.indexWhere((e) => e.userId == currentUserId);
           final LeaderboardEntry? currentUserEntry = currentUserIndex != -1 ? entries[currentUserIndex] : null;
 
-          final otherEntries = entries.where((e) => e.userId != currentUserId).toList();
+          // Kullanıcıyı listeden filtreleme mantığı kaldırıldı, direkt tüm liste gösterilecek
+          // final otherEntries = entries.where((e) => e.userId != currentUserId).toList();
 
-          // DEĞİŞİKLİK: Stack yerine Column kullanılarak alttaki kartın konumu daha güvenli hale getirildi.
           return Column(
             children: [
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-                  itemCount: otherEntries.length,
+                  itemCount: entries.length, // Artık tüm girişler gösterilecek
                   separatorBuilder: (context, index) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
-                    final entry = otherEntries[index];
-                    int rank = entries.indexWhere((e) => e.userId == entry.userId) + 1;
-                    return _RankCard(
-                      entry: entry,
-                      rank: rank,
-                    ).animate().fadeIn(delay: (50 * (index % 15)).ms);
+                    final entry = entries[index];
+                    // Sıralama zaten firestore'dan doğru geliyor, tekrar index aramaya gerek yok.
+                    // Rank'ı doğrudan index + 1 olarak alabiliriz veya entry içinde rank bilgisi varsa o kullanılır.
+                    // Şimdilik index + 1 varsayalım, eğer rank bilgisi entry'de varsa ona göre güncelleriz.
+                    int rank = index + 1; // Basitleştirilmiş rank hesaplaması
+
+                    // Kartı tıklanabilir yapmak için GestureDetector eklendi
+                    return GestureDetector(
+                      onTap: () {
+                        showDialog(
+                          context: context,
+                          builder: (BuildContext context) {
+                            return AlertDialog(
+                              title: Text(entry.userName),
+                              content: Text('${entry.userName} adlı oyuncunun profili çok yakında!'),
+                              actions: <Widget>[
+                                TextButton(
+                                  child: const Text('Kapat'),
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                  },
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                      child: _RankCard(
+                        entry: entry,
+                        rank: rank,
+                        // Kullanıcının kendi kartı olup olmadığını kontrol et
+                        isCurrentUser: entry.userId == currentUserId,
+                      )
+                          .animate()
+                          .fadeIn(duration: 400.ms, delay: (60 * (index % 15)).ms)
+                          .slideX(begin: index.isEven ? -0.1 : 0.1, end: 0, duration: 400.ms, curve: Curves.easeOutCubic),
+                    );
                   },
                 ),
               ),
-              if (currentUserEntry != null)
+              // _CurrentUserCard sadece kullanıcı ilk N kişi arasında değilse gösterilecek.
+              // Şimdilik basit bir kontrol, eğer kullanıcı ilk 15'te değilse göster.
+              // Bu N değeri, listenin kaç kişi gösterdiğine bağlı olarak ayarlanabilir.
+              if (currentUserEntry != null && currentUserIndex >= 15)
                 _CurrentUserCard(
                   entry: currentUserEntry,
                   rank: currentUserIndex + 1,
@@ -150,9 +184,9 @@ class _RankCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final rankColor = switch (rank) {
-      1 => const Color(0xFFFFD700),
-      2 => const Color(0xFFC0C0C0),
-      3 => const Color(0xFFCD7F32),
+      1 => const Color(0xFFFFD700), // Gold
+      2 => const Color(0xFFC0C0C0), // Silver
+      3 => const Color(0xFFCD7F32), // Bronze
       _ => AppTheme.lightSurfaceColor,
     };
 
@@ -165,7 +199,7 @@ class _RankCard extends StatelessWidget {
         boxShadow: [
           if (isCurrentUser)
             BoxShadow(color: AppTheme.successColor.withOpacity(0.4), blurRadius: 15, spreadRadius: 2),
-          if (rank <= 3)
+          if (rank <= 3 && !isCurrentUser) // Mevcut kullanıcı değilse ve ilk 3'teyse normal gölge
             BoxShadow(color: rankColor.withOpacity(0.4), blurRadius: 15, spreadRadius: 2),
         ],
       ),
@@ -173,23 +207,41 @@ class _RankCard extends StatelessWidget {
         children: [
           SizedBox(
             width: 40,
-            child: Text(
-              '$rank',
-              textAlign: TextAlign.center,
-              style: textTheme.headlineSmall?.copyWith(color: rankColor, fontWeight: FontWeight.bold),
-            ),
+            child: (rank <= 3)
+                ? Icon(
+                    Icons.emoji_events,
+                    color: rankColor,
+                    size: rank == 1 ? 32 : (rank == 2 ? 28 : 24),
+                  )
+                : Text(
+                    '$rank',
+                    textAlign: TextAlign.center,
+                    style: textTheme.headlineSmall?.copyWith(color: rankColor, fontWeight: FontWeight.bold),
+                  ),
           ),
           const SizedBox(width: 16),
           CircleAvatar(
             backgroundColor: AppTheme.lightSurfaceColor,
-            child: Text(entry.userName.substring(0, 1).toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(entry.userName.isNotEmpty ? entry.userName.substring(0, 1).toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              entry.userName,
-              style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-              overflow: TextOverflow.ellipsis,
+            child: Row(
+              children: [
+                // Kullanıcı kendi kartında değilse ve 1. sıradaysa tacı göster
+                if (rank == 1 && !isCurrentUser)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6.0),
+                    child: Icon(Icons.workspace_premium, color: const Color(0xFFFFD700), size: 22),
+                  ),
+                Expanded(
+                  child: Text(
+                    entry.userName,
+                    style: textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 16),
@@ -214,30 +266,45 @@ class _CurrentUserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Kullanıcının kendi kartı her zaman vurgulu olacak
     return Animate(
       effects: [
         SlideEffect(begin: const Offset(0, 1), duration: 500.ms, curve: Curves.easeOutCubic),
         FadeEffect(duration: 500.ms),
       ],
-      child: Container(
-        decoration: BoxDecoration(
-          color: AppTheme.cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 5),
-          ],
-        ),
-        // DEĞİŞİKLİK: Padding ve SafeArea, kartın içeriğini ve kendisini korur.
-        child: Padding(
-          padding: const EdgeInsets.only(top: 8.0),
-          child: SafeArea(
-            top: false,
-            child: Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: _RankCard(
-                entry: entry,
-                rank: rank,
-                isCurrentUser: true,
+      child: Animate( 
+        onPlay: (controller) => controller.repeat(reverse: true),
+        effects: [
+          ScaleEffect(
+            delay: 500.ms, 
+            duration: 1500.ms,
+            begin: const Offset(1, 1),
+            end: const Offset(1.02, 1.02), 
+            curve: Curves.easeInOut,
+          ),
+        ],
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.cardColor, // Vurgu için belki farklı bir renk veya daha opak
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              // Vurguyu artırmak için gölgeyi belirginleştirebiliriz
+              BoxShadow(color: AppTheme.successColor.withOpacity(0.6), blurRadius: 25, spreadRadius: 6),
+              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 5),
+            ],
+            border: Border.all(color: AppTheme.successColor, width: 2) // Ekstra vurgu için çerçeve
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8.0), // Consistent padding
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: _RankCard(
+                  entry: entry,
+                  rank: rank,
+                  isCurrentUser: true, // Her zaman true çünkü bu _CurrentUserCard
+                ),
               ),
             ),
           ),
