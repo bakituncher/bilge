@@ -26,12 +26,10 @@ class UserModel {
   final Map<String, dynamic>? weeklyPlan;
   final Map<String, List<String>> weeklyAvailability;
   final List<String> masteredTopics;
-
-  // --- YENİ VE GÜNCELLENMİŞ ALANLAR ---
-  final List<Quest> activeDailyQuests;      // GÜNCELLENDİ: Artık sadece günlük görevleri tutacak.
-  final Quest? activeWeeklyCampaign;         // YENİ: Sadece aktif haftalık seferi tutacak.
+  final List<Quest> activeDailyQuests;
+  final Quest? activeWeeklyCampaign;
   final Timestamp? lastQuestRefreshDate;
-  final Map<String, Timestamp> unlockedAchievements; // YENİ: Kalıcı başarımları (ID ve tarih) saklayacak.
+  final Map<String, Timestamp> unlockedAchievements;
 
   UserModel({
     required this.id,
@@ -56,27 +54,42 @@ class UserModel {
     this.weeklyPlan,
     this.weeklyAvailability = const {},
     this.masteredTopics = const [],
-    // YENİ ALANLAR CONSTRUCTOR'A EKLENDİ
     this.activeDailyQuests = const [],
     this.activeWeeklyCampaign,
     this.lastQuestRefreshDate,
     this.unlockedAchievements = const {},
   });
 
-  // fromSnapshot ve toJson metotları bu yeni yapıya göre güncellenecek.
-  // Bu kod bloğu tam ve çalışır haldedir, endişelenmene gerek yok.
-
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
-    // (Güvenli veri okuma mantığı burada yer alıyor, kopyalaman yeterli)
+
+    // --- KESİN ÇÖZÜM: EKSİK OLAN VERİ OKUMA MANTIĞI EKLENDİ ---
     final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
     if (data['topicPerformances'] is Map<String, dynamic>) {
-      // ... (iç mantık)
+      final topicsMap = data['topicPerformances'] as Map<String, dynamic>;
+      topicsMap.forEach((subjectKey, subjectValue) {
+        if (subjectValue is Map<String, dynamic>) {
+          final newSubjectMap = <String, TopicPerformanceModel>{};
+          subjectValue.forEach((topicKey, topicValue) {
+            if (topicValue is Map<String, dynamic>) {
+              newSubjectMap[topicKey] = TopicPerformanceModel.fromMap(topicValue);
+            }
+          });
+          safeTopicPerformances[subjectKey] = newSubjectMap;
+        }
+      });
     }
+
     final Map<String, List<String>> safeCompletedTasks = {};
     if (data['completedDailyTasks'] is Map<String, dynamic>) {
-      // ... (iç mantık)
+      (data['completedDailyTasks'] as Map<String, dynamic>).forEach((key, value) {
+        if (value is List) {
+          safeCompletedTasks[key] = List<String>.from(value);
+        }
+      });
     }
+    // --------------------------------------------------------------------
+
     final List<Quest> quests = [];
     if (data['activeDailyQuests'] is List) {
       for (var questData in (data['activeDailyQuests'] as List)) {
@@ -109,8 +122,8 @@ class UserModel {
       testCount: data['testCount'] ?? 0,
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
       engagementScore: data['engagementScore'] ?? 0,
-      topicPerformances: safeTopicPerformances,
-      completedDailyTasks: safeCompletedTasks,
+      topicPerformances: safeTopicPerformances, // Düzeltilmiş veri kullanılıyor
+      completedDailyTasks: safeCompletedTasks, // Düzeltilmiş veri kullanılıyor
       studyPacing: data['studyPacing'],
       longTermStrategy: data['longTermStrategy'],
       weeklyPlan: data['weeklyPlan'] as Map<String, dynamic>?,
@@ -129,11 +142,28 @@ class UserModel {
 
   Map<String, dynamic> toJson() {
     return {
-      // ... (tüm eski alanlar)
       'id': id,
       'email': email,
       'name': name,
-      // ...
+      'goal': goal,
+      'challenges': challenges,
+      'weeklyStudyGoal': weeklyStudyGoal,
+      'onboardingCompleted': onboardingCompleted,
+      'tutorialCompleted': tutorialCompleted,
+      'streak': streak,
+      'lastStreakUpdate': lastStreakUpdate != null ? Timestamp.fromDate(lastStreakUpdate!) : null,
+      'selectedExam': selectedExam,
+      'selectedExamSection': selectedExamSection,
+      'testCount': testCount,
+      'totalNetSum': totalNetSum,
+      'engagementScore': engagementScore,
+      'topicPerformances': topicPerformances.map((key, value) => MapEntry(key, value.map((k, v) => MapEntry(k, v.toMap())))),
+      'completedDailyTasks': completedDailyTasks,
+      'studyPacing': studyPacing,
+      'longTermStrategy': longTermStrategy,
+      'weeklyPlan': weeklyPlan,
+      'weeklyAvailability': weeklyAvailability,
+      'masteredTopics': masteredTopics,
       'activeDailyQuests': activeDailyQuests.map((quest) => quest.toMap()).toList(),
       'activeWeeklyCampaign': activeWeeklyCampaign?.toMap(),
       'lastQuestRefreshDate': lastQuestRefreshDate,
