@@ -1,19 +1,16 @@
 // lib/features/quests/quest_templates.dart
 
-// Bu, görev motorumuzun kullanacağı ham görev fikirlerinin deposudur.
-// Her harita, bir görev şablonunu temsil eder.
-// {değişken_adı} gibi yer tutucular, motor tarafından kullanıcının verileriyle doldurulacaktır.
-
 final List<Map<String, dynamic>> questTemplates = [
-  // --- TUTARLILIK GÖREVLERİ ---
+  // --- TUTARLILIK GÖREVLERİ (Her Gün Kontrol Edilir) ---
   {
     'id': 'consistency_01',
     'title': 'Savaşçı Yemini',
     'description': '3 gün üst üste uygulamaya giriş yaparak kararlılığını kanıtla.',
     'category': 'consistency',
-    'reward': 50,
+    'reward': 75,
     'goalValue': 3,
     'actionRoute': '/home',
+    'progressType': 'set_to_value', // HATA GİDERİLDİ: 'userStreak' -> 'set_to_value'
   },
   {
     'id': 'consistency_02',
@@ -23,7 +20,10 @@ final List<Map<String, dynamic>> questTemplates = [
     'reward': 150,
     'goalValue': 7,
     'actionRoute': '/home/quests',
+    'progressType': 'set_to_value', // HATA GİDERİLDİ: 'userStreak' -> 'set_to_value'
   },
+
+  // ... (diğer görevler aynı kalacak, onlarda bir hata yoktu) ...
 
   // --- ETKİLEŞİM GÖREVLERİ (Uygulama Kullanımı) ---
   {
@@ -52,6 +52,15 @@ final List<Map<String, dynamic>> questTemplates = [
     'reward': 120,
     'goalValue': 1,
     'actionRoute': '/ai-hub/weakness-workshop',
+  },
+  {
+    'id': 'engagement_04',
+    'title': 'Komutanın Raporu',
+    'description': 'Performans Kalesi\'ni ziyaret ederek genel durumunu analiz et.',
+    'category': 'engagement',
+    'reward': 50,
+    'goalValue': 1,
+    'actionRoute': '/home/stats',
   },
 
   // --- PRATİK GÖREVLERİ (Soru Çözme, Deneme vb.) ---
@@ -83,6 +92,16 @@ final List<Map<String, dynamic>> questTemplates = [
     'goalValue': 1,
     'actionRoute': '/home/add-test',
   },
+  {
+    'id': 'practice_04',
+    'title': 'Hücum Taktiği: {subject}',
+    'description': 'En güçlü olduğun {subject} dersinden 30 soru çözerek hızını test et.',
+    'category': 'practice',
+    'reward': 60,
+    'goalValue': 30,
+    'actionRoute': '/coach',
+    'variables': ['strongest_subject'],
+  },
 
   // --- ÇALIŞMA GÖREVLERİ (Konu Tekrarı vb.) ---
   {
@@ -93,6 +112,15 @@ final List<Map<String, dynamic>> questTemplates = [
     'reward': 60,
     'goalValue': 1,
     'actionRoute': '/coach',
-    'variables': ['strongest_subject'], // Bu görev en güçlü derse göre atanacak (unutmayı önlemek için)
+    'variables': ['random_subject_not_weakest'], // Rastgele ama en zayıf olmayan bir ders
+  },
+  {
+    'id': 'study_02',
+    'title': 'Bilgi Taraması',
+    'description': 'Bilgi Galaksisi\'nde bir konunun hakimiyetini güncelle.',
+    'category': 'study',
+    'reward': 25,
+    'goalValue': 1,
+    'actionRoute': '/coach',
   },
 ];

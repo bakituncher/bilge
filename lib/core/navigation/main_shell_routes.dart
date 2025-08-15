@@ -31,7 +31,6 @@ import 'package:bilge_ai/features/weakness_workshop/screens/workshop_stats_scree
 // ✅ WeeklyPlanScreen import eklendi
 import 'package:bilge_ai/features/home/screens/weekly_plan_screen.dart';
 import 'package:bilge_ai/features/quests/screens/quests_screen.dart'; // YENİ EKLENEN IMPORT
-
 StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
   return StatefulShellRoute.indexedStack(
     builder: (context, state, navigationShell) {

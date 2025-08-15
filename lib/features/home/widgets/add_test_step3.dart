@@ -8,8 +8,8 @@ import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/home/logic/add_test_notifier.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
-import 'package:bilge_ai/features/quests/logic/quest_notifier.dart'; // YENİ IMPORT
-import 'package:bilge_ai/features/quests/models/quest_model.dart';   // YENİ IMPORT
+import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
 class Step3Summary extends ConsumerWidget {
   const Step3Summary({super.key});
@@ -82,8 +82,8 @@ class Step3Summary extends ConsumerWidget {
                 await ref.read(firestoreServiceProvider).addTestResult(newTest);
 
                 // --- GÖREV SİSTEMİ ENTEGRASYONU ---
-                // "Pratik" kategorisindeki görevleri güncelle.
-                await ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.practice);
+                // "Pratik" kategorisindeki görevleri 1 ilerlet.
+                await ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.practice, amount: 1);
                 // ------------------------------------
 
                 if (context.mounted) {

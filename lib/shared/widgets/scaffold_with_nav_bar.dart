@@ -9,6 +9,9 @@ import 'package:bilge_ai/features/onboarding/providers/tutorial_provider.dart';
 import 'package:bilge_ai/features/onboarding/widgets/tutorial_overlay.dart';
 import 'package:bilge_ai/features/onboarding/models/tutorial_step.dart';
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
+import 'package:bilge_ai/features/quests/logic/quest_completion_notifier.dart';
+import 'package:bilge_ai/shared/widgets/quest_completion_toast.dart';
 
 class ScaffoldWithNavBar extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
@@ -20,7 +23,7 @@ class ScaffoldWithNavBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // YENİ VE GELİŞTİRİLMİŞ ÖĞRETİCİ ADIMLARI
+    // HATA GİDERİLDİ: Tanıtım adımları eksiksiz bir şekilde geri eklendi.
     final List<TutorialStep> tutorialSteps = [
       TutorialStep( // Adım 0
         title: "Karargaha Hoş Geldin!",
@@ -78,17 +81,24 @@ class ScaffoldWithNavBar extends ConsumerWidget {
 
     return ProviderScope(
       overrides: [
-        // DEĞİŞİKLİK: Notifier'a veritabanı işlemleri için 'ref' parametresi aktarılıyor.
         tutorialProvider.overrideWith((ref) => TutorialNotifier(tutorialSteps.length, navigationShell, ref)),
       ],
       child: Consumer(
           builder: (context, ref, child) {
             final currentStepIndex = ref.watch(tutorialProvider);
-            final currentScreenIndex = navigationShell.currentIndex;
+            final shouldShowTutorial = currentStepIndex != null;
+            final completedQuest = ref.watch(questCompletionProvider);
 
-            final shouldShowTutorial = currentStepIndex != null &&
-                (tutorialSteps[currentStepIndex].requiredScreenIndex == null ||
-                    tutorialSteps[currentStepIndex].requiredScreenIndex == currentScreenIndex);
+            // Zafer Sancağı Dinleyicisi
+            ref.listen<Quest?>(questCompletionProvider, (previous, next) {
+              if (next != null) {
+                Future.delayed(3.seconds, () {
+                  if (ref.read(questCompletionProvider) == next) {
+                    ref.read(questCompletionProvider.notifier).clear();
+                  }
+                });
+              }
+            });
 
             return Stack(
               children: [
@@ -125,6 +135,16 @@ class ScaffoldWithNavBar extends ConsumerWidget {
                 ),
                 if (shouldShowTutorial)
                   TutorialOverlay(steps: tutorialSteps),
+
+                // Zafer Sancağı Widget'ı
+                if (completedQuest != null && !shouldShowTutorial)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 80.0),
+                      child: QuestCompletionToast(completedQuest: completedQuest),
+                    ),
+                  ),
               ],
             );
           }
@@ -149,7 +169,7 @@ class ScaffoldWithNavBar extends ConsumerWidget {
     final currentStepIndex = ref.read(tutorialProvider);
 
     if (currentStepIndex != null) {
-      if (currentStepIndex >= tutorialSteps.length) return; // Güvenlik kontrolü
+      if (currentStepIndex >= tutorialSteps.length) return;
       final step = tutorialSteps[currentStepIndex];
       if (step.isNavigational) {
         if ( (currentStepIndex == 3 && index == 1) ||

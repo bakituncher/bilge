@@ -10,6 +10,9 @@ import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:bilge_ai/data/repositories/ai_service.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
+// --- GÖREV SİSTEMİ İMPORTLARI ---
+import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
 class StrategyReviewScreen extends ConsumerStatefulWidget {
   final Map<String, dynamic> generationResult;
@@ -47,6 +50,12 @@ class _StrategyReviewScreenState extends ConsumerState<StrategyReviewScreen> {
       // ARTIK DOĞRUDAN GÜNCEL STATE'İ KULLANIYORUZ, MANUEL OLUŞTURMA YOK!
       weeklyPlan: _currentStrategyData['weeklyPlan'],
     );
+
+    // --- GÖREV SİSTEMİ ENTEGRASYONU ---
+    // "Stratejist" gibi görevleri tetikle.
+    ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.engagement, amount: 1);
+    // ------------------------------------
+
     // ignore: unused_result
     ref.refresh(userProfileProvider);
     context.go('/home');
