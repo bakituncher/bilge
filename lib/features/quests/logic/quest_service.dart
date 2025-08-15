@@ -94,6 +94,28 @@ class QuestService {
       }
     }
 
+    // Strateji 3.5: Rastgele bir ders için çalışma görevi ata.
+    final studyQuestTemplate = templatesToUse.firstWhere((q) => q['id'] == 'study_01', orElse: () => {});
+    if (studyQuestTemplate.isNotEmpty && examData != null) {
+      // Tüm dersleri bir listeye topla
+      final allSubjects = examData.sections.expand((s) => s.subjects.keys).toList();
+      final weakestSubject = analysis?.weakestSubjectByNet;
+
+      // Zayıf dersi listeden çıkar (eğer varsa ve listede birden fazla ders varsa)
+      if (weakestSubject != null && allSubjects.length > 1) {
+        allSubjects.remove(weakestSubject);
+      }
+
+      // Kalan derslerden rastgele birini seç
+      if (allSubjects.isNotEmpty) {
+        final randomSubject = allSubjects[random.nextInt(allSubjects.length)];
+        generatedQuests.add(_createQuestFromTemplate(
+            studyQuestTemplate,
+            variables: {'{subject}': randomSubject}
+        ));
+      }
+    }
+
     // Strateji 4: Geri kalan slotları doldur. Hedef: Toplam 4-5 görev.
     final engagementQuests = templatesToUse.where((q) => q['category'] == 'engagement').toList();
     final studyQuests = templatesToUse.where((q) => q['category'] == 'study').toList();

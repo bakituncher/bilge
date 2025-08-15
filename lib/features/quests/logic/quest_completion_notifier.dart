@@ -9,7 +9,10 @@ class QuestCompletionNotifier extends StateNotifier<Quest?> {
 
   /// UI'ın göstermesi için tamamlanan görevi ayarlar.
   void show(Quest completedQuest) {
-    state = completedQuest;
+    // Sadece ekranda başka bir bildirim yoksa yenisini göster.
+    if (state == null) {
+      state = completedQuest;
+    }
   }
 
   /// Bildirim gösterildikten sonra durumu temizler.
