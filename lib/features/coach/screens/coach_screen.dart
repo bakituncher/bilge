@@ -1,4 +1,5 @@
 // lib/features/coach/screens/coach_screen.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/coach/widgets/mastery_topic_bubble.dart';
+import 'package:bilge_ai/features/coach/widgets/topic_stats_dialog.dart';
 
 // Bu provider, hangi sekmede olduğumuzun bilgisini uygulama genelinde tutar.
 final coachScreenTabProvider = StateProvider<int>((ref) => 0);
@@ -24,7 +26,7 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
     with TickerProviderStateMixin {
   TabController? _tabController;
 
-  // DÜZELTME: Anahtarları güvenli hale getiren merkezi fonksiyon
+  // Anahtarları güvenli hale getiren merkezi fonksiyon
   String _sanitizeKey(String key) {
     return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
   }
@@ -70,9 +72,18 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
     );
     _tabController!.addListener(() {
       if (_tabController!.indexIsChanging) {
-        ref.read(coachScreenTabProvider.notifier).state = _tabController!.index;
+        ref.read(coachScreenTabProvider.notifier).state =
+            _tabController!.index;
       }
     });
+  }
+
+  // YENİ: Rehber diyalogunu gösteren fonksiyon
+  void _showGalaxyGuide(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const _GalaxyGuideDialog(),
+    );
   }
 
   @override
@@ -109,13 +120,14 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
               return Scaffold(
                   appBar: AppBar(title: const Text('Bilgi Galaksisi')),
                   body: Center(
-                      child:
-                      Text('Sınav verileri yüklenemedi: ${snapshot.error}')));
+                      child: Text(
+                          'Sınav verileri yüklenemedi: ${snapshot.error}')));
             }
             if (!snapshot.hasData) {
               return Scaffold(
                   appBar: AppBar(title: const Text('Bilgi Galaksisi')),
-                  body: const Center(child: Text('Sınav verisi bulunamadı.')));
+                  body:
+                  const Center(child: Text('Sınav verisi bulunamadı.')));
             }
 
             final exam = snapshot.data!;
@@ -124,17 +136,26 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
             if (subjects.isEmpty) {
               return Scaffold(
                   appBar: AppBar(title: const Text('Bilgi Galaksisi')),
-                  body:
-                  const Center(child: Text('Bu sınav için konu bulunamadı.')));
+                  body: const Center(
+                      child: Text('Bu sınav için konu bulunamadı.')));
             }
 
-            if (_tabController == null || _tabController!.length != subjects.length) {
+            if (_tabController == null ||
+                _tabController!.length != subjects.length) {
               _setupTabController(subjects.length);
             }
 
             return Scaffold(
               appBar: AppBar(
                 title: const Text('Bilgi Galaksisi'),
+                // YENİ: Rehber butonu eklendi
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.info_outline_rounded),
+                    tooltip: "Rehber",
+                    onPressed: () => _showGalaxyGuide(context),
+                  ),
+                ],
                 bottom: TabBar(
                   controller: _tabController,
                   isScrollable: true,
@@ -164,10 +185,12 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
       loading: () => Scaffold(
           appBar: AppBar(title: const Text('Bilgi Galaksisi')),
           body: const Center(
-              child: CircularProgressIndicator(color: AppTheme.secondaryColor))),
+              child:
+              CircularProgressIndicator(color: AppTheme.secondaryColor))),
       error: (e, s) => Scaffold(
           appBar: AppBar(title: const Text('Bilgi Galaksisi')),
-          body: Center(child: Text('Veriler yüklenirken bir hata oluştu: $e'))),
+          body:
+          Center(child: Text('Veriler yüklenirken bir hata oluştu: $e'))),
     );
   }
 }
@@ -186,15 +209,14 @@ class _SubjectGalaxyView extends ConsumerWidget {
     required this.topics,
   });
 
-  // DÜZELTME: Anahtarları güvenli hale getiren merkezi fonksiyon
   String _sanitizeKey(String key) {
     return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // DÜZELTME: Veriye erişirken temizlenmiş anahtar kullanılıyor.
-    final performances = user.topicPerformances[_sanitizeKey(subjectName)] ?? {};
+    final performances =
+        user.topicPerformances[_sanitizeKey(subjectName)] ?? {};
     int totalQuestions = 0;
     int totalCorrect = 0;
     int totalWrong = 0;
@@ -211,9 +233,11 @@ class _SubjectGalaxyView extends ConsumerWidget {
       totalWrong += value.wrongCount;
     });
 
-    final double overallNet = totalCorrect - (totalWrong * penaltyCoefficient);
-    final double overallMastery =
-    totalQuestions == 0 ? 0.0 : (overallNet / totalQuestions).clamp(0.0, 1.0);
+    final double overallNet =
+        totalCorrect - (totalWrong * penaltyCoefficient);
+    final double overallMastery = totalQuestions == 0
+        ? 0.0
+        : (overallNet / totalQuestions).clamp(0.0, 1.0);
 
     final auraColor = Color.lerp(
         AppTheme.accentColor, AppTheme.successColor, overallMastery)!
@@ -240,9 +264,18 @@ class _SubjectGalaxyView extends ConsumerWidget {
               runSpacing: 20.0,
               alignment: WrapAlignment.center,
               children: topics.map((topic) {
-                // DÜZELTME: Konu verisine erişirken temizlenmiş anahtar kullanılıyor.
-                final performance =
-                    performances[_sanitizeKey(topic.name)] ?? TopicPerformanceModel();
+                final performance = performances[_sanitizeKey(topic.name)] ??
+                    TopicPerformanceModel();
+
+                final double netCorrect = performance.correctCount -
+                    (performance.wrongCount * penaltyCoefficient);
+                final double mastery = performance.questionCount < 5
+                    ? -1
+                    : performance.questionCount == 0
+                    ? 0
+                    : (netCorrect / performance.questionCount)
+                    .clamp(0.0, 1.0);
+
                 return MasteryTopicBubble(
                   topic: topic,
                   performance: performance,
@@ -255,6 +288,16 @@ class _SubjectGalaxyView extends ConsumerWidget {
                       'performance': performance,
                     },
                   ),
+                  onLongPress: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => TopicStatsDialog(
+                        topicName: topic.name,
+                        performance: performance,
+                        mastery: mastery,
+                      ),
+                    );
+                  },
                 );
               }).toList(),
             ).animate().fadeIn(duration: 500.ms, delay: 200.ms),
@@ -276,7 +319,8 @@ class _SubjectGalaxyView extends ConsumerWidget {
         children: [
           Text(
             '$subjectName Sistemi',
-            style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+            style:
+            textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           Text(
@@ -319,5 +363,105 @@ class _SubjectGalaxyView extends ConsumerWidget {
         ],
       ),
     ).animate().fadeIn(duration: 400.ms).slideX(begin: -0.2);
+  }
+}
+
+
+// YENİ: Bilgi Galaksisi Rehber Diyalog Widget'ı
+class _GalaxyGuideDialog extends StatelessWidget {
+  const _GalaxyGuideDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+      child: AlertDialog(
+        backgroundColor: AppTheme.cardColor.withOpacity(0.95),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
+          children: [
+            Icon(Icons.auto_awesome, color: AppTheme.secondaryColor),
+            SizedBox(width: 12),
+            Text("Bilgi Galaksisi Rehberi"),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              _GuideDetailRow(
+                icon: Icons.explore_rounded,
+                title: "Galaksiyi Keşfet",
+                subtitle: "Burası, her bir dersin bir sistem, her bir konunun ise bir gezegen olduğu senin kişisel bilgi evrenin.",
+              ),
+              _GuideDetailRow(
+                icon: Icons.palette_rounded,
+                title: "Gezegen Renkleri",
+                subtitle: "Gezegenlerin rengi, o konudaki hakimiyetini gösterir. Kırmızı zayıf, sarı orta, yeşil ise güçlü olduğun anlamına gelir.",
+              ),
+              _GuideDetailRow(
+                icon: Icons.touch_app_rounded,
+                title: "Hızlı Dokunuş: Veri Girişi",
+                subtitle: "Bir gezegene kısa dokunarak o konuyla ilgili çözdüğün son testin doğru/yanlış sayılarını girebilir ve hakimiyetini güncelleyebilirsin.",
+              ),
+              _GuideDetailRow(
+                icon: Icons.integration_instructions_rounded,
+                title: "Uzun Dokunuş: Analiz",
+                subtitle: "Bir gezegene uzun basarak o konunun detaylı istatistiklerini ve BilgeAI'nin özel yorumunu içeren 'Konu Künyesi'ni açabilirsin.",
+              ),
+            ].animate(interval: 100.ms).fadeIn(duration: 500.ms).slideX(begin: 0.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            child: const Text("Anladım, Kapat"),
+            onPressed: () => Navigator.of(context).pop(),
+          )
+        ],
+      ),
+    );
+  }
+}
+
+// YENİ: Rehber satırları için özel widget
+class _GuideDetailRow extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+
+  const _GuideDetailRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppTheme.secondaryTextColor, size: 28),
+          const SizedBox(width: 16),
+          Expanded( // PIXEL HATASI ÇÖZÜMÜ: Metnin taşmasını engellemek için Expanded eklendi.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

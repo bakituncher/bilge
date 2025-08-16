@@ -8,15 +8,17 @@ import 'package:bilge_ai/data/models/exam_model.dart';
 class MasteryTopicBubble extends StatefulWidget {
   final SubjectTopic topic;
   final TopicPerformanceModel performance;
-  final double penaltyCoefficient; // HATA BURADAYDI: Bu satır eksikti.
+  final double penaltyCoefficient;
   final VoidCallback onTap;
+  final VoidCallback onLongPress; // YENİ: Uzun basma callback'i
 
   const MasteryTopicBubble({
     super.key,
     required this.topic,
     required this.performance,
-    required this.penaltyCoefficient, // HATA BURADAYDI: Bu satır eksikti.
+    required this.penaltyCoefficient,
     required this.onTap,
+    required this.onLongPress, // YENİ
   });
 
   @override
@@ -53,7 +55,8 @@ class _MasteryTopicBubbleState extends State<MasteryTopicBubble>
 
   @override
   Widget build(BuildContext context) {
-    final double netCorrect = widget.performance.correctCount - (widget.performance.wrongCount * widget.penaltyCoefficient);
+    final double netCorrect = widget.performance.correctCount -
+        (widget.performance.wrongCount * widget.penaltyCoefficient);
     final double mastery = widget.performance.questionCount < 5
         ? -1
         : widget.performance.questionCount == 0
@@ -76,13 +79,15 @@ class _MasteryTopicBubbleState extends State<MasteryTopicBubble>
       child: MouseRegion(
         onEnter: (_) => setState(() => _isHovered = true),
         onExit: (_) => setState(() => _isHovered = false),
-        child: GestureDetector(
+        child: GestureDetector( // YENİ: GestureDetector ile sarmaladık
           onTap: widget.onTap,
+          onLongPress: widget.onLongPress, // YENİ
           child: ScaleTransition(
             scale: _scaleAnimation,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(30),
