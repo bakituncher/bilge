@@ -11,8 +11,10 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/features/profile/models/badge_model.dart' as app_badge;
 import 'package:bilge_ai/core/navigation/app_routes.dart';
-import 'package:rive/rive.dart' hide LinearGradient; // HATA ÇÖZÜMÜ: Rive'dan gelen LinearGradient gizlendi.
+import 'package:rive/rive.dart' hide LinearGradient;
+import 'package:confetti/confetti.dart'; // YENİ: Rütbe atlama animasyonu için
 import '../widgets/xp_bar.dart';
+import '../logic/rank_service.dart'; // YENİ: Merkezi Rütbe Sistemi
 
 final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
@@ -26,8 +28,28 @@ final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>
   return Stream.value([]);
 });
 
-class ProfileScreen extends ConsumerWidget {
+// GÜNCELLENDİ: StatefulWidget'a çevrildi
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  late ConfettiController _confettiController;
+
+  @override
+  void initState() {
+    super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
 
   void _showLogoutDialog(BuildContext context, WidgetRef ref) {
     showDialog(
@@ -56,38 +78,25 @@ class ProfileScreen extends ConsumerWidget {
     );
   }
 
-  (String, int, IconData) _getWarriorRank(int testCount, double avgNet, int score) {
-    if (score > 15000 && testCount > 50 && avgNet > 90) return ("Efsanevi Komutan", 20000, Icons.workspace_premium);
-    if (score > 8000 && testCount > 30 && avgNet > 70) return ("Usta Stratejist", 15000, Icons.star_rounded);
-    if (score > 3000 && testCount > 15) return ("Kıdemli Savaşçı", 8000, Icons.military_tech);
-    if (score > 1000 && testCount > 5) return ("Azimli Savaşçı", 3000, Icons.shield);
-    return ("Acemi Kâşif", 1000, Icons.explore);
-  }
+  // KALDIRILDI: Artık RankService kullanılacak
+  // (String, int, IconData) _getWarriorRank(...) { ... }
 
   List<app_badge.Badge> _generateBadges(UserModel user, int testCount, double avgNet, List<FocusSessionModel> focusSessions) {
+    // Bu fonksiyon aynı kalıyor...
     return [
-      // Deneme Madalyaları
       app_badge.Badge(name: 'İlk Adım', description: 'İlk denemeni başarıyla ekledin ve zafere giden yola çıktın.', icon: Icons.flag, color: AppTheme.successColor, isUnlocked: testCount >= 1, hint: "İlk denemeni ekleyerek başla."),
       app_badge.Badge(name: 'Acemi Savaşçı', description: '5 farklı denemede savaş meydanının tozunu attın.', icon: Icons.shield_outlined, color: AppTheme.successColor, isUnlocked: testCount >= 5, rarity: app_badge.BadgeRarity.common, hint: "Toplam 5 deneme ekle."),
       app_badge.Badge(name: 'Kıdemli Savaşçı', description: '15 deneme! Artık bu işin kurdu olmaya başladın.', icon: Icons.shield, color: AppTheme.successColor, isUnlocked: testCount >= 15, rarity: app_badge.BadgeRarity.rare, hint: "Toplam 15 deneme ekle."),
       app_badge.Badge(name: 'Deneme Fatihi', description: 'Tam 50 denemeyi arşivine ekledin. Önünde kimse duramaz!', icon: Icons.military_tech, color: AppTheme.successColor, isUnlocked: testCount >= 50, rarity: app_badge.BadgeRarity.epic, hint: "Toplam 50 deneme ekle."),
-
-      // Seri Madalyaları
       app_badge.Badge(name: 'Kıvılcım', description: 'Ateşi yaktın! 3 günlük çalışma serisine ulaştın.', icon: Icons.whatshot_outlined, color: Colors.orange, isUnlocked: user.streak >= 3, hint: "3 gün ara vermeden çalış."),
       app_badge.Badge(name: 'Alev Ustası', description: 'Tam 14 gün boyunca disiplini elden bırakmadın. Bu bir irade zaferidir!', icon: Icons.local_fire_department, color: Colors.orange, isUnlocked: user.streak >= 14, rarity: app_badge.BadgeRarity.rare, hint: "14 günlük seriye ulaş."),
       app_badge.Badge(name: 'Durdurulamaz', description: '30 gün! Sen artık bir alışkanlık abidesisin.', icon: Icons.wb_sunny, color: Colors.orange, isUnlocked: user.streak >= 30, rarity: app_badge.BadgeRarity.epic, hint: "Tam 30 gün ara verme."),
-
-      // Net Ortalaması Madalyaları
       app_badge.Badge(name: 'Yükseliş', description: 'Ortalama 50 net barajını aştın. Bu daha başlangıç!', icon: Icons.trending_up, color: Colors.blueAccent, isUnlocked: avgNet > 50, hint: "Net ortalamanı 50'nin üzerine çıkar."),
       app_badge.Badge(name: 'Usta Nişancı', description: 'Ortalama 90 net! Elitler arasına hoş geldin.', icon: Icons.gps_not_fixed, color: Colors.blueAccent, isUnlocked: avgNet > 90, rarity: app_badge.BadgeRarity.rare, hint: "Net ortalamanı 90'ın üzerine çıkar."),
       app_badge.Badge(name: 'Bilge Nişancı', description: 'Ortalama 100 net barajını yıktın. Sen bir efsanesin!', icon: Icons.workspace_premium, color: Colors.blueAccent, isUnlocked: avgNet > 100, rarity: app_badge.BadgeRarity.epic, hint: "Net ortalamanı 100'ün üzerine çıkar."),
-
-      // Strateji ve Planlama Madalyaları
       app_badge.Badge(name: 'Stratejist', description: 'BilgeAI ile ilk uzun vadeli stratejini oluşturdun.', icon: Icons.insights, color: Colors.purpleAccent, isUnlocked: user.longTermStrategy != null, hint: "AI Hub'da stratejini oluştur."),
       app_badge.Badge(name: 'Haftanın Hakimi', description: 'Bir haftalık plandaki tüm görevleri tamamladın.', icon: Icons.checklist, color: Colors.purpleAccent, isUnlocked: (user.completedDailyTasks.values.expand((e) => e).length) >= 15, rarity: app_badge.BadgeRarity.rare, hint: "Bir haftalık plandaki tüm görevleri bitir."),
       app_badge.Badge(name: 'Odaklanma Ninjası', description: 'Toplam 10 saat Pomodoro tekniği ile odaklandın.', icon: Icons.timer, color: Colors.purpleAccent, isUnlocked: focusSessions.fold(0, (p, c) => p + c.durationInSeconds) >= 36000, rarity: app_badge.BadgeRarity.rare, hint: "Toplam 10 saat odaklan."),
-
-      // Atölye ve Arena Madalyaları
       app_badge.Badge(name: 'Cevher Avcısı', description: 'Cevher Atölyesi\'nde ilk zayıf konunu işledin.', icon: Icons.construction, color: AppTheme.secondaryColor, isUnlocked: user.topicPerformances.isNotEmpty, hint: "Cevher Atölyesi'ni kullan."),
       app_badge.Badge(name: 'Arena Gladyatörü', description: 'Liderlik tablosuna girerek adını duyurdun.', icon: Icons.leaderboard, color: AppTheme.secondaryColor, isUnlocked: user.engagementScore > 0, rarity: app_badge.BadgeRarity.common, hint: "Etkileşim puanı kazan."),
       app_badge.Badge(name: 'Efsane', description: 'Tüm madalyaları toplayarak ölümsüzleştin!', icon: Icons.auto_stories, color: Colors.amber, isUnlocked: false, rarity: app_badge.BadgeRarity.legendary, hint: "Tüm diğer madalyaları kazan."),
@@ -95,10 +104,25 @@ class ProfileScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final userAsync = ref.watch(userProfileProvider);
     final testsAsync = ref.watch(testsProvider);
     final focusSessionsAsync = ref.watch(focusSessionsProvider);
+
+    // YENİ: Rütbe atlama anını yakalamak için dinleyici
+    ref.listen<AsyncValue<UserModel?>>(userProfileProvider, (previous, next) {
+      final prevUser = previous?.valueOrNull;
+      final nextUser = next.valueOrNull;
+
+      if (prevUser != null && nextUser != null) {
+        final prevRank = RankService.getRankInfo(prevUser.engagementScore).current;
+        final nextRank = RankService.getRankInfo(nextUser.engagementScore).current;
+        if (prevRank.name != nextRank.name) {
+          // Rütbe atlandı! Konfetiyi patlat!
+          _confettiController.play();
+        }
+      }
+    });
 
     return Scaffold(
       extendBodyBehindAppBar: true,
@@ -130,9 +154,14 @@ class ProfileScreen extends ConsumerWidget {
               final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
               final allBadges = _generateBadges(user, testCount, avgNet, focusSessions);
               final unlockedCount = allBadges.where((b) => b.isUnlocked).length;
-              final (rankName, nextLevelXp, rankIcon) = _getWarriorRank(testCount, avgNet, user.engagementScore);
+
+              // GÜNCELLENDİ: Yeni RankService kullanılıyor
+              final rankInfo = RankService.getRankInfo(user.engagementScore);
+              final currentRank = rankInfo.current;
+              final nextRank = rankInfo.next;
 
               return Stack(
+                alignment: Alignment.topCenter,
                 children: [
                   const RiveAnimation.asset(
                     'assets/rive/space_background.riv',
@@ -170,14 +199,14 @@ class ProfileScreen extends ConsumerWidget {
                           Text(user.name ?? 'İsimsiz Savaşçı', style: Theme.of(context).textTheme.headlineSmall).animate().fadeIn(delay: 200.ms),
                           const SizedBox(height: 4),
                           Chip(
-                            avatar: Icon(rankIcon, size: 18, color: AppTheme.secondaryColor),
-                            label: Text(rankName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            backgroundColor: AppTheme.secondaryColor.withOpacity(0.2),
+                            avatar: Icon(currentRank.icon, size: 18, color: currentRank.color),
+                            label: Text(currentRank.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            backgroundColor: currentRank.color.withOpacity(0.2),
                           ).animate().fadeIn(delay: 300.ms),
                           const SizedBox(height: 16),
-                          XpBar(
+                          XpBar( // Artık doğru verilerle çalışıyor
                             currentXp: user.engagementScore,
-                            nextLevelXp: nextLevelXp,
+                            nextLevelXp: nextRank.requiredScore,
                             rankName: "Rütbe Puanı",
                           ).animate().fadeIn(delay: 400.ms),
                           const Spacer(flex: 1),
@@ -207,6 +236,15 @@ class ProfileScreen extends ConsumerWidget {
                         ],
                       ),
                     ),
+                  ),
+                  // YENİ: Terfi Töreni Konfeti Efekti
+                  ConfettiWidget(
+                    confettiController: _confettiController,
+                    blastDirectionality: BlastDirectionality.explosive,
+                    shouldLoop: false,
+                    numberOfParticles: 30,
+                    gravity: 0.2,
+                    colors: const [AppTheme.secondaryColor, AppTheme.successColor, Colors.white, Colors.amber],
                   ),
                 ],
               );

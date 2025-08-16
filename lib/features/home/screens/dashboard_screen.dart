@@ -13,6 +13,7 @@ import 'package:bilge_ai/features/home/widgets/todays_plan.dart';
 import 'package:bilge_ai/shared/widgets/stat_card.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:bilge_ai/features/onboarding/providers/tutorial_provider.dart';
+import 'package:bilge_ai/features/profile/logic/rank_service.dart'; // YENİ: Merkezi Rütbe Sistemi import edildi.
 
 // Widget'ları vurgulamak için GlobalKey'ler
 final GlobalKey todaysPlanKey = GlobalKey();
@@ -43,13 +44,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     });
   }
 
-  String _getWarriorTitle(int testCount, double avgNet) {
-    if (testCount < 5) return "Acemi Kâşif";
-    if (avgNet > 90 && testCount > 20) return "Efsanevi Komutan";
-    if (avgNet > 70) return "Usta Stratejist";
-    if (testCount > 15) return "Kıdemli Savaşçı";
-    return "Azimli Savaşçı";
-  }
+  // KALDIRILDI: Bu eski ve tutarsız unvan sistemi artık kullanılmıyor.
+  // String _getWarriorTitle(int testCount, double avgNet) { ... }
 
   @override
   Widget build(BuildContext context) {
@@ -62,9 +58,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           return const Center(child: Text('Kullanıcı verisi yüklenemedi.'));
         }
         final tests = testsAsync.valueOrNull ?? [];
-        final testCount = tests.length;
-        final avgNet = testCount > 0 ? (user.totalNetSum / testCount) : 0.0;
-        final warriorTitle = _getWarriorTitle(testCount, avgNet);
+
+        // GÜNCELLENDİ: Rütbe artık merkezi RankService'ten, sadece Bilgelik Puanı'na göre alınıyor.
+        final rankInfo = RankService.getRankInfo(user.engagementScore);
+        final warriorTitle = rankInfo.current.name;
 
         // SORUN ÇÖZÜMÜ: İçeriği SafeArea ile sarmalayarak bildirim paneliyle çakışmayı önle.
         return SafeArea(
@@ -74,7 +71,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
                 child: DashboardHeader(
                   name: user.name ?? 'Savaşçı',
-                  title: warriorTitle,
+                  title: warriorTitle, // GÜNCELLENDİ: Yeni ve doğru unvan kullanılıyor.
                 ),
               ),
               Expanded(
