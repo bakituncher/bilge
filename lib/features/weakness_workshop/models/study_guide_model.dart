@@ -42,15 +42,35 @@ class QuizQuestion {
   });
 
   factory QuizQuestion.fromJson(Map<String, dynamic> json) {
+    // HATAYI GİDEREN ZIRHLI VERİ TEMİZLEYİCİ
     String cleanText(String text) {
-      return text.replaceAll(RegExp(r'[\\*_]'), '').trim();
+      // Markdown karakterlerini ve baştaki/sondaki boşlukları temizle
+      String cleaned = text.replaceAll(RegExp(r'[\\*_]'), '').trim();
+
+      // Yapay zekanın bazen eklediği ['...'] veya [\"...\"] formatını temizle
+      if (cleaned.startsWith("['") && cleaned.endsWith("']")) {
+        cleaned = cleaned.substring(2, cleaned.length - 2);
+      }
+      if (cleaned.startsWith('["') && cleaned.endsWith('"]')) {
+        cleaned = cleaned.substring(2, cleaned.length - 2);
+      }
+      if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
+        cleaned = cleaned.substring(1, cleaned.length - 1);
+      }
+
+      // Kalan tek veya çift tırnakları da temizle
+      if ((cleaned.startsWith("'") && cleaned.endsWith("'")) || (cleaned.startsWith('"') && cleaned.endsWith('"'))) {
+        cleaned = cleaned.substring(1, cleaned.length - 1);
+      }
+
+      return cleaned.trim();
     }
 
     return QuizQuestion(
       question: cleanText(json['question'] ?? 'Soru yüklenemedi.'),
-      options: (List<String>.from(json['options'] ?? [])).map(cleanText).toList(),
+      options: (List<dynamic>.from(json['options'] ?? [])).map((option) => cleanText(option.toString())).toList(),
       correctOptionIndex: json['correctOptionIndex'] ?? 0,
-      explanation: json['explanation'] ?? 'Bu soru için açıklama bulunamadı.', // YENİ EKLENDİ
+      explanation: json['explanation'] ?? 'Bu soru için açıklama bulunamadı.',
     );
   }
 }

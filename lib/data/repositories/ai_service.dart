@@ -192,7 +192,7 @@ class AiService {
     return _callGemini(prompt, expectJson: true);
   }
 
-  Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'normal'}) async {
+  Future<String> generateStudyGuideAndQuiz(UserModel user, List<TestModel> tests, {Map<String, String>? topicOverride, String difficulty = 'normal', int attemptCount = 1}) async { // YENİ: attemptCount parametresi eklendi
     if (tests.isEmpty) {
       return '{"error":"Analiz için en az bir deneme sonucu gereklidir."}';
     }
@@ -219,7 +219,8 @@ class AiService {
       weakestTopic = weakestTopicInfo['topic']!;
     }
 
-    final prompt = getStudyGuideAndQuizPrompt(weakestSubject, weakestTopic, user.selectedExam, difficulty);
+    // YENİ: Prompt'a attemptCount parametresi de gönderiliyor
+    final prompt = getStudyGuideAndQuizPrompt(weakestSubject, weakestTopic, user.selectedExam, difficulty, attemptCount);
 
     return _callGemini(prompt, expectJson: true);
   }

@@ -26,12 +26,13 @@ enum WorkshopStep { briefing, study, quiz, results }
 
 // Seçilen konuyu ve zorluk seviyesini tutan provider'lar
 final _selectedTopicProvider = StateProvider<Map<String, String>?>((ref) => null);
-final _difficultyProvider = StateProvider<String>((ref) => 'normal');
+// YENİ: Zorluk ve deneme sayısını birlikte tutan provider
+final _difficultyProvider = StateProvider<(String, int)>((ref) => ('normal', 1));
 
 // AI'dan gelen çalışma materyalini yöneten ana provider
 final workshopSessionProvider = FutureProvider.autoDispose<StudyGuideAndQuiz>((ref) async {
   final selectedTopic = ref.watch(_selectedTopicProvider);
-  final difficulty = ref.watch(_difficultyProvider);
+  final difficultyInfo = ref.watch(_difficultyProvider); // YENİ
 
   if (selectedTopic == null) {
     return Future.error("Konu seçilmedi.");
@@ -44,11 +45,13 @@ final workshopSessionProvider = FutureProvider.autoDispose<StudyGuideAndQuiz>((r
     return Future.error("Analiz için kullanıcı veya test verisi bulunamadı.");
   }
 
+  // YENİ: AI servisine zorluk ve deneme sayısı birlikte gönderiliyor
   final jsonString = await ref.read(aiServiceProvider).generateStudyGuideAndQuiz(
     user,
     tests,
     topicOverride: selectedTopic,
-    difficulty: difficulty,
+    difficulty: difficultyInfo.$1, // difficulty string
+    attemptCount: difficultyInfo.$2, // attempt integer
   ).timeout(
     const Duration(seconds: 45),
     onTimeout: () => throw TimeoutException("Yapay zeka çok uzun süredir yanıt vermiyor. Lütfen tekrar deneyin."),
@@ -71,10 +74,13 @@ class WeaknessWorkshopScreen extends ConsumerStatefulWidget {
 class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen> {
   WorkshopStep _currentStep = WorkshopStep.briefing;
   Map<int, int> _selectedAnswers = {}; // {soruIndex: secenekIndex}
+  // YENİ: Konu anlatımını atlayıp doğrudan teste geçmek için bir bayrak
+  bool _skipStudyView = false;
 
   void _startWorkshop(Map<String, String> topic) {
     ref.read(_selectedTopicProvider.notifier).state = topic;
-    ref.read(_difficultyProvider.notifier).state = 'normal';
+    // YENİ: Zorluk provider'ını başlangıç durumuna getir.
+    ref.read(_difficultyProvider.notifier).state = ('normal', 1);
     _selectedAnswers = {};
     setState(() => _currentStep = WorkshopStep.study);
   }
@@ -129,20 +135,30 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
         isScrollControlled: true,
         backgroundColor: Colors.transparent,
         builder: (context) => _DeepenWorkshopSheet(
-          onOptionSelected: (String difficulty, bool invalidate) {
+          onOptionSelected: (String difficulty, bool invalidate, bool skipStudy) {
             Navigator.of(context).pop();
-            _setDifficultyAndChangeStep(difficulty, invalidate);
+            // YENİ: Skip study bayrağı ile fonksiyon çağrılıyor
+            _setDifficultyAndChangeStep(difficulty, invalidate, skipStudy: skipStudy);
           },
         )
     );
   }
 
-  void _setDifficultyAndChangeStep(String difficulty, bool invalidate) {
-    ref.read(_difficultyProvider.notifier).state = difficulty;
+  // YENİ: Fonksiyon artık skipStudy parametresini alıyor
+  void _setDifficultyAndChangeStep(String difficulty, bool invalidate, {bool skipStudy = false}) {
+    // YENİ: Zorluk provider'ı güncellenirken deneme sayısı artırılıyor
+    ref.read(_difficultyProvider.notifier).update((state) => (difficulty, state.$2 + 1));
     _selectedAnswers = {};
+
+    // YENİ: Eğer konu anlatımı atlanacaksa, bayrağı true yap
+    if(skipStudy) {
+      _skipStudyView = true;
+    }
+
     if (invalidate) {
       ref.invalidate(workshopSessionProvider);
     }
+    // Her durumda çalışma adımına dönüyoruz, build metodu gerisini halledecek.
     setState(() => _currentStep = WorkshopStep.study);
   }
 
@@ -198,6 +214,22 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
         });
       },
       data: (material) {
+        // YENİ MANTIK:
+        // Eğer _skipStudyView bayrağı true ise, build işlemi bittikten hemen sonra
+        // adımı quiz'e geçir ve bayrağı sıfırla.
+        if (_skipStudyView) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              setState(() {
+                _currentStep = WorkshopStep.quiz;
+                _skipStudyView = false; // Bayrağı sıfırla
+              });
+            }
+          });
+          // State değişene kadar kısa bir yükleme ekranı göster
+          return const _LoadingCevherView(key: ValueKey('reloading_quiz'));
+        }
+
         switch (_currentStep) {
           case WorkshopStep.study:
             return _StudyView(key: ValueKey('study_${material.topic}_${ref.read(_difficultyProvider)}'), material: material, onStartQuiz: () => setState(() => _currentStep = WorkshopStep.quiz));
@@ -886,8 +918,9 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
+// YENİ: _DeepenWorkshopSheet widget'ı artık skipStudy bayrağını da iletiyor.
 class _DeepenWorkshopSheet extends StatelessWidget {
-  final Function(String difficulty, bool invalidate) onOptionSelected;
+  final Function(String difficulty, bool invalidate, bool skipStudy) onOptionSelected;
   const _DeepenWorkshopSheet({required this.onOptionSelected});
 
   @override
@@ -917,14 +950,14 @@ class _DeepenWorkshopSheet extends StatelessWidget {
             title: "Konuyu Tekrar Oku",
             subtitle: "Anlatımı gözden geçirip zor teste hazırlan.",
             icon: Icons.menu_book_rounded,
-            onTap: () => onOptionSelected('hard', false),
+            onTap: () => onOptionSelected('hard', false, false), // skipStudy: false
           ),
           const SizedBox(height: 12),
           _ResultActionCard(
             title: "Yeni Zor Test Oluştur",
             subtitle: "Bilgini en çeldirici sorularla sına.",
             icon: Icons.auto_awesome_motion_rounded,
-            onTap: () => onOptionSelected('hard', true),
+            onTap: () => onOptionSelected('hard', true, true), // skipStudy: true
             isPrimary: true,
           ),
         ],
