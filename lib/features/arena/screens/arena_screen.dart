@@ -6,6 +6,8 @@ import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
+import 'package:go_router/go_router.dart'; // YENİ: Navigasyon için import
+import 'package:bilge_ai/core/navigation/app_routes.dart'; // YENİ: Rota isimleri için import
 
 class ArenaScreen extends ConsumerWidget {
   const ArenaScreen({super.key});
@@ -30,8 +32,8 @@ class ArenaScreen extends ConsumerWidget {
           bottom: const TabBar(
             indicatorColor: AppTheme.secondaryColor,
             indicatorWeight: 3,
-            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14), // Güncellendi
-            unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal, fontSize: 14), // Güncellendi
+            labelStyle: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+            unselectedLabelStyle: TextStyle(fontWeight: FontWeight.normal, fontSize: 14),
             tabs: [
               Tab(text: 'Bu Haftanın Onuru'),
               Tab(text: 'Tüm Zamanların Efsaneleri'),
@@ -83,48 +85,25 @@ class _LeaderboardView extends ConsumerWidget {
           final currentUserIndex = entries.indexWhere((e) => e.userId == currentUserId);
           final LeaderboardEntry? currentUserEntry = currentUserIndex != -1 ? entries[currentUserIndex] : null;
 
-          // Kullanıcıyı listeden filtreleme mantığı kaldırıldı, direkt tüm liste gösterilecek
-          // final otherEntries = entries.where((e) => e.userId != currentUserId).toList();
-
           return Column(
             children: [
               Expanded(
                 child: ListView.separated(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-                  itemCount: entries.length, // Artık tüm girişler gösterilecek
+                  itemCount: entries.length,
                   separatorBuilder: (context, index) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final entry = entries[index];
-                    // Sıralama zaten firestore'dan doğru geliyor, tekrar index aramaya gerek yok.
-                    // Rank'ı doğrudan index + 1 olarak alabiliriz veya entry içinde rank bilgisi varsa o kullanılır.
-                    // Şimdilik index + 1 varsayalım, eğer rank bilgisi entry'de varsa ona göre güncelleriz.
-                    int rank = index + 1; // Basitleştirilmiş rank hesaplaması
+                    int rank = index + 1;
 
-                    // Kartı tıklanabilir yapmak için GestureDetector eklendi
                     return GestureDetector(
+                      // GÜNCELLENDİ: Artık diyalog yerine yeni ekrana yönlendiriyor.
                       onTap: () {
-                        showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return AlertDialog(
-                              title: Text(entry.userName),
-                              content: Text('${entry.userName} adlı oyuncunun profili çok yakında!'),
-                              actions: <Widget>[
-                                TextButton(
-                                  child: const Text('Kapat'),
-                                  onPressed: () {
-                                    Navigator.of(context).pop();
-                                  },
-                                ),
-                              ],
-                            );
-                          },
-                        );
+                        context.push('${AppRoutes.arena}/${entry.userId}');
                       },
                       child: _RankCard(
                         entry: entry,
                         rank: rank,
-                        // Kullanıcının kendi kartı olup olmadığını kontrol et
                         isCurrentUser: entry.userId == currentUserId,
                       )
                           .animate()
@@ -134,9 +113,6 @@ class _LeaderboardView extends ConsumerWidget {
                   },
                 ),
               ),
-              // _CurrentUserCard sadece kullanıcı ilk N kişi arasında değilse gösterilecek.
-              // Şimdilik basit bir kontrol, eğer kullanıcı ilk 15'te değilse göster.
-              // Bu N değeri, listenin kaç kişi gösterdiğine bağlı olarak ayarlanabilir.
               if (currentUserEntry != null && currentUserIndex >= 15)
                 _CurrentUserCard(
                   entry: currentUserEntry,
@@ -170,7 +146,7 @@ class _LeaderboardView extends ConsumerWidget {
             ),
           ],
         ).animate().fadeIn(duration: 600.ms).scale(begin: const Offset(0.8, 0.8)));
-    }
+  }
 }
 
 class _RankCard extends StatelessWidget {

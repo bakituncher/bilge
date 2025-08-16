@@ -75,6 +75,14 @@ class FirestoreService {
     return usersCollection.doc(userId).snapshots().map((doc) => UserModel.fromSnapshot(doc));
   }
 
+  Future<UserModel?> getUserById(String userId) async {
+    final doc = await usersCollection.doc(userId).get();
+    if(doc.exists) {
+      return UserModel.fromSnapshot(doc);
+    }
+    return null;
+  }
+
   Future<List<UserModel>> getAllUsers() async {
     final snapshot = await usersCollection.get();
     return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();

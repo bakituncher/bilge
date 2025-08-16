@@ -5,6 +5,7 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
+import 'package:bilge_ai/features/arena/screens/public_profile_screen.dart'; // YENİ: Public profil ekranı import edildi
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
 import 'package:bilge_ai/features/coach/screens/coach_screen.dart';
 import 'package:bilge_ai/features/coach/screens/motivation_chat_screen.dart';
@@ -15,8 +16,8 @@ import 'package:bilge_ai/features/home/screens/test_detail_screen.dart';
 import 'package:bilge_ai/features/home/screens/test_result_summary_screen.dart';
 import 'package:bilge_ai/features/pomodoro/pomodoro_screen.dart';
 import 'package:bilge_ai/features/profile/screens/profile_screen.dart';
-import 'package:bilge_ai/features/profile/screens/honor_wall_screen.dart'; // YENİ IMPORT
-import 'package:bilge_ai/features/profile/models/badge_model.dart' as app_badge; // YENİ IMPORT
+import 'package:bilge_ai/features/profile/screens/honor_wall_screen.dart';
+import 'package:bilge_ai/features/profile/models/badge_model.dart' as app_badge;
 import 'package:bilge_ai/features/stats/screens/stats_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/command_center_screen.dart';
 import 'package:bilge_ai/features/strategic_planning/screens/strategic_planning_screen.dart';
@@ -28,9 +29,9 @@ import 'package:bilge_ai/features/weakness_workshop/screens/weakness_workshop_sc
 import 'package:bilge_ai/shared/widgets/scaffold_with_nav_bar.dart';
 import 'app_routes.dart';
 import 'package:bilge_ai/features/weakness_workshop/screens/workshop_stats_screen.dart';
-// ✅ WeeklyPlanScreen import eklendi
 import 'package:bilge_ai/features/home/screens/weekly_plan_screen.dart';
-import 'package:bilge_ai/features/quests/screens/quests_screen.dart'; // YENİ EKLENEN IMPORT
+import 'package:bilge_ai/features/quests/screens/quests_screen.dart';
+
 StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
   return StatefulShellRoute.indexedStack(
     builder: (context, state, navigationShell) {
@@ -43,13 +44,12 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
             builder: (context, state) => const DashboardScreen(),
             routes: [
               GoRoute(
-                path: AppRoutes.quests, // 'quests'
+                path: AppRoutes.quests,
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) => const QuestsScreen(),
               ),
-              // ✅ Yeni eklenen rota
               GoRoute(
-                path: 'weekly-plan', // AppRoutes'a eklenebilir: AppRoutes.weeklyPlan
+                path: 'weekly-plan',
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) => const WeeklyPlanScreen(),
               ),
@@ -175,14 +175,25 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
           routes: [
             GoRoute(
                 path: AppRoutes.arena,
-                builder: (context, state) => const ArenaScreen())
+                builder: (context, state) => const ArenaScreen(),
+                routes: [ // GÜNCELLENDİ: Artık public profil için bir alt rota var
+                  GoRoute(
+                    path: ':userId', // Örn: /arena/123xyz
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) {
+                      final userId = state.pathParameters['userId']!;
+                      return PublicProfileScreen(userId: userId);
+                    },
+                  )
+                ]
+            )
           ]),
       StatefulShellBranch(
           routes: [
             GoRoute(
                 path: AppRoutes.profile,
                 builder: (context, state) => const ProfileScreen(),
-                routes: [ // YENİ ALT ROTA
+                routes: [
                   GoRoute(
                     path: 'honor-wall',
                     parentNavigatorKey: rootNavigatorKey,
