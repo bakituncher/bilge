@@ -30,6 +30,8 @@ class UserModel {
   final Quest? activeWeeklyCampaign;
   final Timestamp? lastQuestRefreshDate;
   final Map<String, Timestamp> unlockedAchievements;
+  // YENİ ALAN: Savaşçı Yemini görevi için gün içi ziyaretleri takip eder.
+  final List<Timestamp> dailyVisits;
 
   UserModel({
     required this.id,
@@ -58,12 +60,12 @@ class UserModel {
     this.activeWeeklyCampaign,
     this.lastQuestRefreshDate,
     this.unlockedAchievements = const {},
+    this.dailyVisits = const [], // YENİ
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
 
-    // --- KESİN ÇÖZÜM: EKSİK OLAN VERİ OKUMA MANTIĞI EKLENDİ ---
     final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
     if (data['topicPerformances'] is Map<String, dynamic>) {
       final topicsMap = data['topicPerformances'] as Map<String, dynamic>;
@@ -88,7 +90,6 @@ class UserModel {
         }
       });
     }
-    // --------------------------------------------------------------------
 
     final List<Quest> quests = [];
     if (data['activeDailyQuests'] is List) {
@@ -122,8 +123,8 @@ class UserModel {
       testCount: data['testCount'] ?? 0,
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
       engagementScore: data['engagementScore'] ?? 0,
-      topicPerformances: safeTopicPerformances, // Düzeltilmiş veri kullanılıyor
-      completedDailyTasks: safeCompletedTasks, // Düzeltilmiş veri kullanılıyor
+      topicPerformances: safeTopicPerformances,
+      completedDailyTasks: safeCompletedTasks,
       studyPacing: data['studyPacing'],
       longTermStrategy: data['longTermStrategy'],
       weeklyPlan: data['weeklyPlan'] as Map<String, dynamic>?,
@@ -137,6 +138,7 @@ class UserModel {
       activeWeeklyCampaign: weeklyCampaign,
       lastQuestRefreshDate: data['lastQuestRefreshDate'] as Timestamp?,
       unlockedAchievements: Map<String, Timestamp>.from(data['unlockedAchievements'] ?? {}),
+      dailyVisits: List<Timestamp>.from(data['dailyVisits'] ?? []), // YENİ
     );
   }
 
@@ -168,6 +170,7 @@ class UserModel {
       'activeWeeklyCampaign': activeWeeklyCampaign?.toMap(),
       'lastQuestRefreshDate': lastQuestRefreshDate,
       'unlockedAchievements': unlockedAchievements,
+      'dailyVisits': dailyVisits, // YENİ
     };
   }
 }

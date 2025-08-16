@@ -6,8 +6,6 @@ import 'package:bilge_ai/features/quests/logic/quest_service.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
 import 'quest_completion_notifier.dart';
 
-// YENİ: Bu, mevcut uygulama oturumunda tamamlanan görevlerin ID'lerini geçici olarak saklar.
-// Bu sayede, veritabanı güncellenmeden önce aynı görevin tekrar tamamlanmasını engeller.
 final _sessionCompletedQuestsProvider = StateProvider<Set<String>>((ref) => {});
 
 final questNotifierProvider = Provider.autoDispose<QuestNotifier>((ref) {
@@ -22,7 +20,6 @@ class QuestNotifier {
     final user = _ref.read(userProfileProvider).value;
     if (user == null || user.activeDailyQuests.isEmpty) return;
 
-    // Oturum içinde daha önce tamamlanmış görevlerin ID'lerini al
     final sessionCompletedIds = _ref.read(_sessionCompletedQuestsProvider);
     bool questUpdated = false;
     final activeQuestsCopy = List<Quest>.from(user.activeDailyQuests);
@@ -30,11 +27,6 @@ class QuestNotifier {
     for (var i = 0; i < activeQuestsCopy.length; i++) {
       var quest = activeQuestsCopy[i];
 
-      // GÜNCELLENEN KONTROL:
-      // 1. Kategori eşleşiyor mu?
-      // 2. Veritabanında tamamlanmış olarak işaretlenmiş mi?
-      // 3. Bu oturumda zaten tamamlandı olarak işaretlendi mi?
-      // Bu üç kontrolden herhangi biri doğruysa, bu görevi atla.
       if (quest.category != category || quest.isCompleted || sessionCompletedIds.contains(quest.id)) {
         continue;
       }
@@ -46,9 +38,15 @@ class QuestNotifier {
           newProgress += amount;
           break;
         case QuestProgressType.set_to_value:
-        // Bu örnekte 'userStreak' yerine doğrudan 'user.streak' kullanılıyor
-        // Bu, modelin güncel veriye sahip olduğunu varsayar
-          newProgress = user.streak;
+        // --- YENİ MANTIK: Görev ID'sine göre özel değer ataması ---
+          if (quest.id == 'consistency_01') {
+            // "Savaşçı Yemini" için güncel ziyaret sayısını al
+            newProgress = user.dailyVisits.length;
+          } else {
+            // Diğer 'set_to_value' görevleri için (örn: seri)
+            newProgress = user.streak;
+          }
+          // --- BİTTİ ---
           break;
       }
 
@@ -59,10 +57,8 @@ class QuestNotifier {
           completionDate: Timestamp.now(),
         );
 
-        // Bu görevi, bu oturumda tamamlananlar listesine ekle
         _ref.read(_sessionCompletedQuestsProvider.notifier).update((state) => {...state, quest.id});
 
-        // Zafer Habercisine sinyal gönder
         _ref.read(questCompletionProvider.notifier).show(completedQuest);
         await _ref.read(firestoreServiceProvider).updateEngagementScore(user.id, quest.reward);
 

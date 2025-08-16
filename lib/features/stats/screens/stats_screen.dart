@@ -8,6 +8,8 @@ import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/stats/widgets/fortress_tab_selector.dart';
 import 'package:bilge_ai/features/stats/widgets/analysis_view.dart';
+import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
 final selectedTabIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -25,6 +27,15 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
   void initState() {
     super.initState();
     _pageController = PageController();
+    // --- KALICI ÇÖZÜM ---
+    // Ekran açılır açılmaz "engagement" kategorisindeki görevleri tetikle.
+    // Bu, "Komutanın Raporu" görevinin tamamlanmasını sağlar.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.engagement);
+      }
+    });
+    // --- BİTTİ ---
   }
 
   @override

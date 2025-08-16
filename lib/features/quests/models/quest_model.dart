@@ -1,16 +1,14 @@
 // lib/features/quests/models/quest_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// HATA GİDERİLDİ: Bu enum, görev ikonlarını belirlemek için kritikti ve geri eklendi.
-enum QuestCategory { study, practice, engagement, consistency }
+// GÜNCELLENDİ: Yeni kategori eklendi.
+enum QuestCategory { study, practice, engagement, consistency, test_submission }
 
-// YENİ: Görevin katmanını belirler (Günlük, Haftalık, Başarım).
 enum QuestType { daily, weekly, achievement }
 
-// GÜNCELLENDİ: Görevin ilerlemesinin nasıl hesaplanacağını netleştirir.
 enum QuestProgressType {
-  increment,    // Her eylemde sayacı artırır (örn: 1 pomodoro yap).
-  set_to_value  // İlerlemeyi doğrudan bir değere eşitler (örn: kullanıcının serisine).
+  increment,
+  set_to_value
 }
 
 class Quest {
@@ -18,7 +16,7 @@ class Quest {
   final String title;
   final String description;
   final QuestType type;
-  final QuestCategory category; // HATA GİDERİLDİ: Bu alan sisteme geri eklendi.
+  final QuestCategory category;
   final QuestProgressType progressType;
   final int reward;
   final int goalValue;
@@ -32,7 +30,7 @@ class Quest {
     required this.title,
     required this.description,
     required this.type,
-    required this.category, // HATA GİDERİLDİ: Constructor'a eklendi.
+    required this.category,
     required this.progressType,
     required this.reward,
     required this.goalValue,
@@ -48,7 +46,7 @@ class Quest {
       title: map['title'] ?? 'İsimsiz Görev',
       description: map['description'] ?? 'Açıklama yok.',
       type: QuestType.values.byName(map['type'] ?? 'daily'),
-      category: QuestCategory.values.byName(map['category'] ?? 'engagement'), // HATA GİDERİLDİ
+      category: QuestCategory.values.byName(map['category'] ?? 'engagement'),
       progressType: QuestProgressType.values.byName(map['progressType'] ?? 'increment'),
       reward: map['reward'] ?? 10,
       goalValue: map['goalValue'] ?? 1,
@@ -65,7 +63,7 @@ class Quest {
       'title': title,
       'description': description,
       'type': type.name,
-      'category': category.name, // HATA GİDERİLDİ
+      'category': category.name,
       'progressType': progressType.name,
       'reward': reward,
       'goalValue': goalValue,
@@ -86,7 +84,7 @@ class Quest {
       title: title,
       description: description,
       type: type,
-      category: category, // HATA GİDERİLDİ
+      category: category,
       progressType: progressType,
       reward: reward,
       goalValue: goalValue,

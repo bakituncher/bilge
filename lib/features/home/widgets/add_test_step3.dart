@@ -81,9 +81,8 @@ class Step3Summary extends ConsumerWidget {
               try {
                 await ref.read(firestoreServiceProvider).addTestResult(newTest);
 
-                // --- GÖREV SİSTEMİ ENTEGRASYONU ---
-                // "Pratik" kategorisindeki görevleri 1 ilerlet.
-                await ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.practice, amount: 1);
+                // --- GÜNCELLENDİ: Sadece 'test_submission' görevini tetikle ---
+                await ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.test_submission, amount: 1);
                 // ------------------------------------
 
                 if (context.mounted) {

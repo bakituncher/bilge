@@ -10,7 +10,6 @@ import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:uuid/uuid.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 
-// Bu servis, görev oluşturma ve yenileme mantığının beynidir.
 final questServiceProvider = Provider<QuestService>((ref) {
   return QuestService(ref);
 });
@@ -19,13 +18,10 @@ class QuestService {
   final Ref _ref;
   QuestService(this._ref);
 
-  /// Kullanıcı için günlük görevleri yenileyen ana fonksiyon.
-  /// Her gün sadece bir kez çalışır.
   Future<List<Quest>> refreshDailyQuestsForUser(UserModel user) async {
     final today = DateTime.now();
     final lastRefresh = user.lastQuestRefreshDate?.toDate();
 
-    // Eğer bugün zaten görevler yenilendiyse, mevcut görevleri döndür.
     if (lastRefresh != null &&
         lastRefresh.year == today.year &&
         lastRefresh.month == today.month &&
@@ -33,10 +29,8 @@ class QuestService {
       return user.activeDailyQuests;
     }
 
-    // Bugün için yeni görevler oluştur.
     final newQuests = await _generateQuestsForUser(user);
 
-    // Yeni görevleri ve yenilenme tarihini veritabanına kaydet.
     await _ref.read(firestoreServiceProvider).usersCollection.doc(user.id).update({
       'activeDailyQuests': newQuests.map((q) => q.toMap()).toList(),
       'lastQuestRefreshDate': Timestamp.now(),
@@ -45,14 +39,12 @@ class QuestService {
     return newQuests;
   }
 
-  /// "KADERİN KALEMİ" MOTORU: Kullanıcıya özel görevleri akıllıca seçer.
   Future<List<Quest>> _generateQuestsForUser(UserModel user) async {
     final List<Quest> generatedQuests = [];
     final random = Random();
     final templatesToUse = List<Map<String, dynamic>>.from(questTemplates);
-    templatesToUse.shuffle(); // Görevlerin her gün farklı sırada gelmesi için karıştır.
+    templatesToUse.shuffle();
 
-    // Kullanıcının performans analizi için verileri hazırla.
     final tests = await _ref.read(testsProvider.future);
     final examData = user.selectedExam != null
         ? await ExamData.getExamByType(ExamType.values.byName(user.selectedExam!))
@@ -63,21 +55,24 @@ class QuestService {
       analysis = StatsAnalysis(tests, user.topicPerformances, examData, user: user);
     }
 
-    // --- GÖREV ATAMA STRATEJİSİ ---
-
-    // Strateji 1: Her zaman bir tutarlılık görevi ver.
-    final consistencyQuest = templatesToUse.firstWhere((q) => q['category'] == 'consistency', orElse: () => {});
-    if (consistencyQuest.isNotEmpty) {
-      generatedQuests.add(_createQuestFromTemplate(consistencyQuest));
+    // Strateji 1: Tutarlılık görevi ata (Artık her zaman değil)
+    if (random.nextDouble() < 0.7) { // %70 ihtimalle Savaşçı Yemini
+      final consistencyQuest = templatesToUse.firstWhere((q) => q['id'] == 'consistency_01', orElse: () => {});
+      if (consistencyQuest.isNotEmpty) {
+        generatedQuests.add(_createQuestFromTemplate(consistencyQuest));
+      }
+    } else { // %30 ihtimalle Demir İrade
+      final consistencyQuest = templatesToUse.firstWhere((q) => q['id'] == 'consistency_02', orElse: () => {});
+      if (consistencyQuest.isNotEmpty) {
+        generatedQuests.add(_createQuestFromTemplate(consistencyQuest));
+      }
     }
 
-    // Strateji 2: Her zaman bir deneme ekleme görevi ver.
     final addTestQuest = templatesToUse.firstWhere((q) => q['id'] == 'practice_03', orElse: () => {});
     if (addTestQuest.isNotEmpty) {
       generatedQuests.add(_createQuestFromTemplate(addTestQuest));
     }
 
-    // Strateji 3: Zayıf noktaya saldır! En zayıf derse özel bir pratik görevi ata.
     if (analysis?.weakestSubjectByNet != null && analysis!.weakestSubjectByNet != "Belirlenemedi") {
       final practiceQuest = templatesToUse.firstWhere((q) => q['id'] == 'practice_01', orElse: () => {});
       if (practiceQuest.isNotEmpty) {
@@ -87,26 +82,22 @@ class QuestService {
         ));
       }
     } else {
-      // Eğer zayıf ders bulunamazsa, rastgele bir pratik görevi ver.
       final randomPractice = templatesToUse.firstWhere((q) => q['category'] == 'practice' && q['variables'] == null, orElse: () => {});
       if (randomPractice.isNotEmpty) {
         generatedQuests.add(_createQuestFromTemplate(randomPractice));
       }
     }
 
-    // Strateji 3.5: Rastgele bir ders için çalışma görevi ata.
     final studyQuestTemplate = templatesToUse.firstWhere((q) => q['id'] == 'study_01', orElse: () => {});
     if (studyQuestTemplate.isNotEmpty && examData != null) {
-      // Tüm dersleri bir listeye topla
-      final allSubjects = examData.sections.expand((s) => s.subjects.keys).toList();
+      final relevantSections = _getRelevantSectionsForUser(user, examData);
+      final allSubjects = relevantSections.expand((s) => s.subjects.keys).toSet().toList();
       final weakestSubject = analysis?.weakestSubjectByNet;
 
-      // Zayıf dersi listeden çıkar (eğer varsa ve listede birden fazla ders varsa)
       if (weakestSubject != null && allSubjects.length > 1) {
         allSubjects.remove(weakestSubject);
       }
 
-      // Kalan derslerden rastgele birini seç
       if (allSubjects.isNotEmpty) {
         final randomSubject = allSubjects[random.nextInt(allSubjects.length)];
         generatedQuests.add(_createQuestFromTemplate(
@@ -116,14 +107,12 @@ class QuestService {
       }
     }
 
-    // Strateji 4: Geri kalan slotları doldur. Hedef: Toplam 4-5 görev.
     final engagementQuests = templatesToUse.where((q) => q['category'] == 'engagement').toList();
     final studyQuests = templatesToUse.where((q) => q['category'] == 'study').toList();
     final remainingPool = [...engagementQuests, ...studyQuests]..shuffle();
 
     while (generatedQuests.length < 5 && remainingPool.isNotEmpty) {
       final template = remainingPool.removeAt(0);
-      // Aynı ID'li görevin tekrar eklenmesini engelle.
       if (!generatedQuests.any((q) => q.title == template['title'])) {
         generatedQuests.add(_createQuestFromTemplate(template));
       }
@@ -134,8 +123,12 @@ class QuestService {
 
   /// Şablondan, tüm alanları doldurulmuş, hatasız bir Quest nesnesi oluşturur.
   Quest _createQuestFromTemplate(Map<String, dynamic> template, {Map<String, String>? variables}) {
-    String title = template['title'];
-    String description = template['description'];
+    // --- KALICI ÇÖZÜM: Null değerlere karşı zırh eklendi. ---
+    // Bu, 'title', 'description' gibi alanlar şablonda eksik olsa bile uygulamanın çökmesini engeller.
+    String title = template['title'] ?? 'İsimsiz Görev';
+    String description = template['description'] ?? 'Açıklama bulunamadı.';
+    String actionRoute = template['actionRoute'] ?? '/home';
+    // --- BİTTİ ---
 
     if (variables != null) {
       variables.forEach((key, value) {
@@ -148,17 +141,36 @@ class QuestService {
       id: template['id'] ?? const Uuid().v4(),
       title: title,
       description: description,
-      type: QuestType.daily,
-      category: QuestCategory.values.byName(template['category']),
+      type: QuestType.values.byName(template['type'] ?? 'daily'),
+      category: QuestCategory.values.byName(template['category'] ?? 'engagement'),
       progressType: QuestProgressType.values.byName(template['progressType'] ?? 'increment'),
-      reward: template['reward'],
+      reward: template['reward'] ?? 10,
       goalValue: template['goalValue'] ?? 1,
-      actionRoute: template['actionRoute'],
+      actionRoute: actionRoute, // Güvenli değişken kullanılıyor.
     );
+  }
+
+  List<ExamSection> _getRelevantSectionsForUser(UserModel user, Exam exam) {
+    if (user.selectedExam == ExamType.lgs.name) {
+      return exam.sections;
+    } else if (user.selectedExam == ExamType.yks.name) {
+      final tytSection = exam.sections.firstWhere((s) => s.name == 'TYT');
+      final userAytSection = exam.sections.firstWhere(
+            (s) => s.name == user.selectedExamSection,
+        orElse: () => exam.sections.first,
+      );
+      if (tytSection.name == userAytSection.name) return [tytSection];
+      return [tytSection, userAytSection];
+    } else {
+      final relevantSection = exam.sections.firstWhere(
+            (s) => s.name == user.selectedExamSection,
+        orElse: () => exam.sections.first,
+      );
+      return [relevantSection];
+    }
   }
 }
 
-/// Bu provider, UI'ın o anki günlük görevleri anlık olarak dinlemesini sağlar.
 final dailyQuestsProvider = FutureProvider.autoDispose<List<Quest>>((ref) async {
   final user = ref.watch(userProfileProvider).value;
   if (user == null) {

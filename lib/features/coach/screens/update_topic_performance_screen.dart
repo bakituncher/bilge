@@ -9,11 +9,9 @@ import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/shared/widgets/score_slider.dart';
-// GÖREV SİSTEMİ İMPORTLARI
 import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
-// State Management Provider'ları
 final _updateModeProvider = StateProvider.autoDispose<bool>((ref) => true);
 final _sessionQuestionCountProvider = StateProvider.autoDispose<int>((ref) => 20);
 final _correctCountProvider = StateProvider.autoDispose<int>((ref) => 0);
@@ -132,9 +130,11 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
                   performance: newPerformance,
                 );
 
-                // GÖREV GÜNCELLEME EMRİ
+                // --- GÜNCELLENDİ: İlgili görev kategorileri tetikleniyor ---
+                // Bu, hem "Kale Kuşatması" hem de "Tozlu Raflar" görevlerini ilerletir.
                 ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.practice, amount: sessionQuestions);
                 ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.study, amount: 1);
+                // --- BİTTİ ---
 
                 context.pop();
               },
@@ -196,7 +196,7 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
       width: 180,
       height: 180,
       child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: mastery < 0 ? 0 : mastery), // Negatifse 0 göster
+        tween: Tween(begin: 0.0, end: mastery < 0 ? 0 : mastery),
         duration: 400.ms,
         curve: Curves.easeInOut,
         builder: (context, value, child) {

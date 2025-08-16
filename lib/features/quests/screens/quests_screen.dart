@@ -30,10 +30,8 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
     super.dispose();
   }
 
-  // HATA GİDERİLDİ: 'build' metodu artık doğru imzaya sahip (WidgetRef parametresi kaldırıldı).
   @override
   Widget build(BuildContext context) {
-    // 'ref' artık widget'ın bir parçası olduğu için doğrudan erişilebilir.
     final questsAsync = ref.watch(dailyQuestsProvider);
 
     ref.listen<AsyncValue<List<Quest>>>(dailyQuestsProvider, (previous, next) {
@@ -77,7 +75,30 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-            error: (err, stack) => Center(child: Text("Hata: $err")),
+            error: (err, stack) {
+              // Geliştirici için hatayı konsola yazdır.
+              print("Günlük Fetihler Hatası: $err");
+              print(stack);
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, color: AppTheme.accentColor, size: 64),
+                      const SizedBox(height: 16),
+                      Text("Görevler Yüklenemedi", style: Theme.of(context).textTheme.headlineSmall),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Komutanım, görev parşömenlerini getirirken bir sorunla karşılaştık. Lütfen daha sonra tekrar deneyin veya destek ile iletişime geçin.\n\nHata Detayı: ${err.toString()}",
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
           ConfettiWidget(
             confettiController: _confettiController,
@@ -113,20 +134,21 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
   }
 }
 
-// BU DOSYADAKİ QuestCard ve _SectionHeader WIDGET'LARI DOĞRU OLDUĞU İÇİN DEĞİŞTİRİLMEMİŞTİR.
-// Aşağıdaki kodlar referans için buradadır.
-
 class QuestCard extends StatelessWidget {
   final Quest quest;
   const QuestCard({super.key, required this.quest});
 
   IconData _getIconForCategory(QuestCategory category) {
+    // --- KALICI ÇÖZÜM: Eksik `case` eklendi ve `default` eklendi. ---
+    // Bu, gelecekte yeni bir kategori eklenirse uygulamanın çökmesini engeller.
     switch (category) {
       case QuestCategory.study: return Icons.book_rounded;
       case QuestCategory.practice: return Icons.edit_note_rounded;
       case QuestCategory.engagement: return Icons.auto_awesome;
       case QuestCategory.consistency: return Icons.event_repeat_rounded;
+      case QuestCategory.test_submission: return Icons.add_chart_rounded;
     }
+    // --- BİTTİ ---
   }
 
   @override

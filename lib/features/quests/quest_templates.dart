@@ -1,16 +1,16 @@
 // lib/features/quests/quest_templates.dart
 
 final List<Map<String, dynamic>> questTemplates = [
-  // --- TUTARLILIK GÖREVLERİ (Her Gün Kontrol Edilir) ---
+  // --- TUTARLILIK GÖREVLERİ ---
   {
     'id': 'consistency_01',
     'title': 'Savaşçı Yemini',
-    'description': '3 gün üst üste uygulamaya giriş yaparak kararlılığını kanıtla.',
+    'description': 'Günün farklı zamanlarında (en az 1 saat arayla) 3 kez uygulamayı ziyaret ederek kararlılığını kanıtla.',
     'category': 'consistency',
-    'reward': 75,
+    'reward': 10,
     'goalValue': 3,
     'actionRoute': '/home',
-    'progressType': 'set_to_value', // HATA GİDERİLDİ: 'userStreak' -> 'set_to_value'
+    'progressType': 'set_to_value',
   },
   {
     'id': 'consistency_02',
@@ -20,12 +20,10 @@ final List<Map<String, dynamic>> questTemplates = [
     'reward': 150,
     'goalValue': 7,
     'actionRoute': '/home/quests',
-    'progressType': 'set_to_value', // HATA GİDERİLDİ: 'userStreak' -> 'set_to_value'
+    'progressType': 'set_to_value',
   },
 
-  // ... (diğer görevler aynı kalacak, onlarda bir hata yoktu) ...
-
-  // --- ETKİLEŞİM GÖREVLERİ (Uygulama Kullanımı) ---
+  // --- ETKİLEŞİM GÖREVLERİ ---
   {
     'id': 'engagement_01',
     'title': 'Zihinsel Gözlemevi',
@@ -63,7 +61,7 @@ final List<Map<String, dynamic>> questTemplates = [
     'actionRoute': '/home/stats',
   },
 
-  // --- PRATİK GÖREVLERİ (Soru Çözme, Deneme vb.) ---
+  // --- PRATİK GÖREVLERİ ---
   {
     'id': 'practice_01',
     'title': 'Kale Kuşatması: {subject}',
@@ -72,7 +70,7 @@ final List<Map<String, dynamic>> questTemplates = [
     'reward': 75,
     'goalValue': 50,
     'actionRoute': '/coach',
-    'variables': ['weakest_subject'], // Bu görev en zayıf derse göre atanacak
+    'variables': ['weakest_subject'],
   },
   {
     'id': 'practice_02',
@@ -82,15 +80,6 @@ final List<Map<String, dynamic>> questTemplates = [
     'reward': 30,
     'goalValue': 20,
     'actionRoute': '/coach',
-  },
-  {
-    'id': 'practice_03',
-    'title': 'Savaş Tatbikatı',
-    'description': 'Yeni bir deneme sonucunu sisteme ekleyerek genel durumunu raporla.',
-    'category': 'practice',
-    'reward': 150,
-    'goalValue': 1,
-    'actionRoute': '/home/add-test',
   },
   {
     'id': 'practice_04',
@@ -103,16 +92,27 @@ final List<Map<String, dynamic>> questTemplates = [
     'variables': ['strongest_subject'],
   },
 
-  // --- ÇALIŞMA GÖREVLERİ (Konu Tekrarı vb.) ---
+  // --- DENEME SINAVI GÖREVİ (YENİ KATEGORİ) ---
+  {
+    'id': 'practice_03',
+    'title': 'Savaş Tatbikatı',
+    'description': 'Yeni bir deneme sonucunu sisteme ekleyerek genel durumunu raporla.',
+    'category': 'test_submission', // GÜNCELLENDİ: Kategori değiştirildi.
+    'reward': 150,
+    'goalValue': 1,
+    'actionRoute': '/home/add-test',
+  },
+
+  // --- ÇALIŞMA GÖREVLERİ ---
   {
     'id': 'study_01',
     'title': 'Tozlu Raflar: {subject}',
-    'description': '{subject} dersinden eski bir konuyu hızlıca tekrar et.',
+    'description': '{subject} dersinden bir konunun hakimiyetini Bilgi Galaksisi\'nde güncelle.', // GÜNCELLENDİ: Açıklama netleştirildi.
     'category': 'study',
     'reward': 60,
     'goalValue': 1,
     'actionRoute': '/coach',
-    'variables': ['random_subject_not_weakest'], // Rastgele ama en zayıf olmayan bir ders
+    'variables': ['random_subject_not_weakest'],
   },
   {
     'id': 'study_02',
