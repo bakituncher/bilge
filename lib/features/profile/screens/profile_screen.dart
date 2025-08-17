@@ -177,35 +177,58 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         children: [
                           const Spacer(flex: 2),
 
-                          // === GÖRSEL DÜZELTME KODU BAŞLANGICI ===
-                          GestureDetector(
-                            onTap: () => context.push('/profile/avatar-selection'),
-                            child: CircleAvatar(
-                              radius: 50,
-                              backgroundColor: AppTheme.secondaryColor.withOpacity(0.2),
-                              child: Padding(
-                                padding: const EdgeInsets.all(4.0),
-                                child: ClipOval(
-                                  child: Container(
-                                    color: AppTheme.cardColor,
-                                    child: user.avatarStyle != null && user.avatarSeed != null
-                                        ? SvgPicture.network(
-                                      "https://api.dicebear.com/9.x/${user.avatarStyle}/svg?seed=${user.avatarSeed}",
-                                      placeholderBuilder: (context) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                      fit: BoxFit.cover,
-                                    )
-                                        : Center(
-                                      child: Text(
-                                        user.name?.substring(0, 1).toUpperCase() ?? 'B',
-                                        style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                          // === GÖRSEL DÜZELTME VE KALEM İKONU EKLEME ===
+                          Stack(
+                            alignment: Alignment.bottomRight,
+                            children: [
+                              GestureDetector(
+                                onTap: () => context.push('/profile/avatar-selection'),
+                                child: Container(
+                                  width: 100,
+                                  height: 100,
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.secondaryColor.withOpacity(0.2),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: ClipOval(
+                                    child: Container(
+                                      color: AppTheme.cardColor,
+                                      child: user.avatarStyle != null && user.avatarSeed != null
+                                          ? SvgPicture.network(
+                                        "https://api.dicebear.com/9.x/${user.avatarStyle}/svg?seed=${user.avatarSeed}",
+                                        fit: BoxFit.cover,
+                                        placeholderBuilder: (context) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                      )
+                                          : Center(
+                                        child: Text(
+                                          user.name?.substring(0, 1).toUpperCase() ?? 'B',
+                                          style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                            ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Material(
+                                  color: AppTheme.secondaryColor,
+                                  borderRadius: BorderRadius.circular(16),
+                                  child: InkWell(
+                                    onTap: () => context.push('/profile/avatar-selection'),
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: const Padding(
+                                      padding: EdgeInsets.all(6.0),
+                                      child: Icon(Icons.edit_rounded, size: 18, color: AppTheme.primaryColor),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ).animate().fadeIn(duration: 500.ms).scale(),
-                          // === GÖRSEL DÜZELTME KODU BİTİŞİ ===
+                          // === GÖRSEL DÜZELTME VE KALEM İKONU EKLEME BİTİŞİ ===
 
                           const SizedBox(height: 12),
                           Text(user.name ?? 'İsimsiz Savaşçı', style: Theme.of(context).textTheme.headlineSmall).animate().fadeIn(delay: 200.ms),

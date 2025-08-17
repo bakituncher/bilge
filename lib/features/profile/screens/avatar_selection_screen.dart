@@ -68,11 +68,14 @@ class AvatarSelectionScreen extends ConsumerWidget {
           CircleAvatar(
             radius: 80,
             backgroundColor: AppTheme.lightSurfaceColor,
-            child: SvgPicture.network(
-              _getAvatarUri(selectedStyle, avatarSeed).toString(),
-              placeholderBuilder: (context) => const CircularProgressIndicator(),
-              height: 150,
-              width: 150,
+            child: ClipOval(
+              child: SvgPicture.network(
+                _getAvatarUri(selectedStyle, avatarSeed).toString(),
+                fit: BoxFit.cover,
+                placeholderBuilder: (context) => const CircularProgressIndicator(),
+                height: 160,
+                width: 160,
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -113,8 +116,12 @@ class AvatarSelectionScreen extends ConsumerWidget {
                         width: 3,
                       ),
                     ),
-                    child: SvgPicture.network(
-                      _getAvatarUri(style, avatarSeed).toString(),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SvgPicture.network(
+                        _getAvatarUri(style, avatarSeed).toString(),
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                 );
