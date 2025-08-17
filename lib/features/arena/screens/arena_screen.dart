@@ -8,6 +8,7 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:go_router/go_router.dart'; // YENİ: Navigasyon için import
 import 'package:bilge_ai/core/navigation/app_routes.dart'; // YENİ: Rota isimleri için import
+import 'package:flutter_svg/flutter_svg.dart'; // YENİ: Avatar için import
 
 class ArenaScreen extends ConsumerWidget {
   const ArenaScreen({super.key});
@@ -185,20 +186,28 @@ class _RankCard extends StatelessWidget {
             width: 40,
             child: (rank <= 3)
                 ? Icon(
-                    Icons.emoji_events,
-                    color: rankColor,
-                    size: rank == 1 ? 32 : (rank == 2 ? 28 : 24),
-                  )
+              Icons.emoji_events,
+              color: rankColor,
+              size: rank == 1 ? 32 : (rank == 2 ? 28 : 24),
+            )
                 : Text(
-                    '$rank',
-                    textAlign: TextAlign.center,
-                    style: textTheme.headlineSmall?.copyWith(color: rankColor, fontWeight: FontWeight.bold),
-                  ),
+              '$rank',
+              textAlign: TextAlign.center,
+              style: textTheme.headlineSmall?.copyWith(color: rankColor, fontWeight: FontWeight.bold),
+            ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
+          // *** GÜNCELLENDİ: Avatar gösterimi entegre edildi ***
           CircleAvatar(
             backgroundColor: AppTheme.lightSurfaceColor,
-            child: Text(entry.userName.isNotEmpty ? entry.userName.substring(0, 1).toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold)),
+            child: ClipOval(
+              child: (entry.avatarStyle != null && entry.avatarSeed != null)
+                  ? SvgPicture.network(
+                "https://api.dicebear.com/9.x/${entry.avatarStyle}/svg?seed=${entry.avatarSeed}",
+                fit: BoxFit.cover,
+              )
+                  : Text(entry.userName.isNotEmpty ? entry.userName.substring(0, 1).toUpperCase() : '?', style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -248,27 +257,27 @@ class _CurrentUserCard extends StatelessWidget {
         SlideEffect(begin: const Offset(0, 1), duration: 500.ms, curve: Curves.easeOutCubic),
         FadeEffect(duration: 500.ms),
       ],
-      child: Animate( 
+      child: Animate(
         onPlay: (controller) => controller.repeat(reverse: true),
         effects: [
           ScaleEffect(
-            delay: 500.ms, 
+            delay: 500.ms,
             duration: 1500.ms,
             begin: const Offset(1, 1),
-            end: const Offset(1.02, 1.02), 
+            end: const Offset(1.02, 1.02),
             curve: Curves.easeInOut,
           ),
         ],
         child: Container(
           decoration: BoxDecoration(
-            color: AppTheme.cardColor, // Vurgu için belki farklı bir renk veya daha opak
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            boxShadow: [
-              // Vurguyu artırmak için gölgeyi belirginleştirebiliriz
-              BoxShadow(color: AppTheme.successColor.withOpacity(0.6), blurRadius: 25, spreadRadius: 6),
-              BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 5),
-            ],
-            border: Border.all(color: AppTheme.successColor, width: 2) // Ekstra vurgu için çerçeve
+              color: AppTheme.cardColor, // Vurgu için belki farklı bir renk veya daha opak
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                // Vurguyu artırmak için gölgeyi belirginleştirebiliriz
+                BoxShadow(color: AppTheme.successColor.withOpacity(0.6), blurRadius: 25, spreadRadius: 6),
+                BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 5),
+              ],
+              border: Border.all(color: AppTheme.successColor, width: 2) // Ekstra vurgu için çerçeve
           ),
           child: Padding(
             padding: const EdgeInsets.only(top: 8.0), // Consistent padding

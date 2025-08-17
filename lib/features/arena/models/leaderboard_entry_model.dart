@@ -5,11 +5,15 @@ class LeaderboardEntry {
   final String userName;
   final int score; // GÜNCELLENDİ: averageNet -> score
   final int testCount;
+  final String? avatarStyle; // YENİ: Avatar stili eklendi
+  final String? avatarSeed; // YENİ: Avatar tohumu eklendi
 
   LeaderboardEntry({
     required this.userId,
     required this.userName,
     required this.score,
     required this.testCount,
+    this.avatarStyle, // YENİ
+    this.avatarSeed, // YENİ
   });
 }

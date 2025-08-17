@@ -44,6 +44,8 @@ final leaderboardProvider = FutureProvider.family.autoDispose<List<LeaderboardEn
         userName: user.name!,
         score: user.engagementScore,
         testCount: user.testCount,
+        avatarStyle: user.avatarStyle, // YENİ: Avatar stili eklendi
+        avatarSeed: user.avatarSeed, // YENİ: Avatar tohumu eklendi
       ));
     }
   }
