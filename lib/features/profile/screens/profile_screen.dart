@@ -12,9 +12,10 @@ import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/features/profile/models/badge_model.dart' as app_badge;
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:rive/rive.dart' hide LinearGradient;
-import 'package:confetti/confetti.dart'; // YENİ: Rütbe atlama animasyonu için
+import 'package:confetti/confetti.dart';
+import 'package:flutter_svg/flutter_svg.dart'; // Avatar için eklendi
 import '../widgets/xp_bar.dart';
-import '../logic/rank_service.dart'; // YENİ: Merkezi Rütbe Sistemi
+import '../logic/rank_service.dart';
 
 final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
@@ -28,7 +29,6 @@ final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>
   return Stream.value([]);
 });
 
-// GÜNCELLENDİ: StatefulWidget'a çevrildi
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
@@ -78,11 +78,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  // KALDIRILDI: Artık RankService kullanılacak
-  // (String, int, IconData) _getWarriorRank(...) { ... }
-
   List<app_badge.Badge> _generateBadges(UserModel user, int testCount, double avgNet, List<FocusSessionModel> focusSessions) {
-    // Bu fonksiyon aynı kalıyor...
     return [
       app_badge.Badge(name: 'İlk Adım', description: 'İlk denemeni başarıyla ekledin ve zafere giden yola çıktın.', icon: Icons.flag, color: AppTheme.successColor, isUnlocked: testCount >= 1, hint: "İlk denemeni ekleyerek başla."),
       app_badge.Badge(name: 'Acemi Savaşçı', description: '5 farklı denemede savaş meydanının tozunu attın.', icon: Icons.shield_outlined, color: AppTheme.successColor, isUnlocked: testCount >= 5, rarity: app_badge.BadgeRarity.common, hint: "Toplam 5 deneme ekle."),
@@ -109,7 +105,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final testsAsync = ref.watch(testsProvider);
     final focusSessionsAsync = ref.watch(focusSessionsProvider);
 
-    // YENİ: Rütbe atlama anını yakalamak için dinleyici
     ref.listen<AsyncValue<UserModel?>>(userProfileProvider, (previous, next) {
       final prevUser = previous?.valueOrNull;
       final nextUser = next.valueOrNull;
@@ -118,7 +113,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         final prevRank = RankService.getRankInfo(prevUser.engagementScore).current;
         final nextRank = RankService.getRankInfo(nextUser.engagementScore).current;
         if (prevRank.name != nextRank.name) {
-          // Rütbe atlandı! Konfetiyi patlat!
           _confettiController.play();
         }
       }
@@ -155,7 +149,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               final allBadges = _generateBadges(user, testCount, avgNet, focusSessions);
               final unlockedCount = allBadges.where((b) => b.isUnlocked).length;
 
-              // GÜNCELLENDİ: Yeni RankService kullanılıyor
               final rankInfo = RankService.getRankInfo(user.engagementScore);
               final currentRank = rankInfo.current;
               final nextRank = rankInfo.next;
@@ -183,18 +176,37 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       child: Column(
                         children: [
                           const Spacer(flex: 2),
-                          CircleAvatar(
-                            radius: 50,
-                            backgroundColor: AppTheme.secondaryColor.withOpacity(0.2),
+
+                          // === GÖRSEL DÜZELTME KODU BAŞLANGICI ===
+                          GestureDetector(
+                            onTap: () => context.push('/profile/avatar-selection'),
                             child: CircleAvatar(
-                              radius: 46,
-                              backgroundColor: AppTheme.cardColor,
-                              child: Text(
-                                user.name?.substring(0, 1).toUpperCase() ?? 'B',
-                                style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                              radius: 50,
+                              backgroundColor: AppTheme.secondaryColor.withOpacity(0.2),
+                              child: Padding(
+                                padding: const EdgeInsets.all(4.0),
+                                child: ClipOval(
+                                  child: Container(
+                                    color: AppTheme.cardColor,
+                                    child: user.avatarStyle != null && user.avatarSeed != null
+                                        ? SvgPicture.network(
+                                      "https://api.dicebear.com/9.x/${user.avatarStyle}/svg?seed=${user.avatarSeed}",
+                                      placeholderBuilder: (context) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                      fit: BoxFit.cover,
+                                    )
+                                        : Center(
+                                      child: Text(
+                                        user.name?.substring(0, 1).toUpperCase() ?? 'B',
+                                        style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ).animate().fadeIn(duration: 500.ms).scale(),
+                          // === GÖRSEL DÜZELTME KODU BİTİŞİ ===
+
                           const SizedBox(height: 12),
                           Text(user.name ?? 'İsimsiz Savaşçı', style: Theme.of(context).textTheme.headlineSmall).animate().fadeIn(delay: 200.ms),
                           const SizedBox(height: 4),
@@ -204,7 +216,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             backgroundColor: currentRank.color.withOpacity(0.2),
                           ).animate().fadeIn(delay: 300.ms),
                           const SizedBox(height: 16),
-                          XpBar( // Artık doğru verilerle çalışıyor
+                          XpBar(
                             currentXp: user.engagementScore,
                             nextLevelXp: nextRank.requiredScore,
                             rankName: "Rütbe Puanı",
@@ -237,7 +249,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                   ),
-                  // YENİ: Terfi Töreni Konfeti Efekti
                   ConfettiWidget(
                     confettiController: _confettiController,
                     blastDirectionality: BlastDirectionality.explosive,

@@ -32,6 +32,8 @@ class UserModel {
   final Map<String, Timestamp> unlockedAchievements;
   // YENİ ALAN: Savaşçı Yemini görevi için gün içi ziyaretleri takip eder.
   final List<Timestamp> dailyVisits;
+  final String? avatarStyle;
+  final String? avatarSeed;
 
   UserModel({
     required this.id,
@@ -61,6 +63,8 @@ class UserModel {
     this.lastQuestRefreshDate,
     this.unlockedAchievements = const {},
     this.dailyVisits = const [], // YENİ
+    this.avatarStyle, // YENİ
+    this.avatarSeed, // YENİ
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -139,6 +143,8 @@ class UserModel {
       lastQuestRefreshDate: data['lastQuestRefreshDate'] as Timestamp?,
       unlockedAchievements: Map<String, Timestamp>.from(data['unlockedAchievements'] ?? {}),
       dailyVisits: List<Timestamp>.from(data['dailyVisits'] ?? []), // YENİ
+      avatarStyle: data['avatarStyle'],
+      avatarSeed: data['avatarSeed'],
     );
   }
 
@@ -171,6 +177,8 @@ class UserModel {
       'lastQuestRefreshDate': lastQuestRefreshDate,
       'unlockedAchievements': unlockedAchievements,
       'dailyVisits': dailyVisits, // YENİ
+      'avatarStyle': avatarStyle,
+      'avatarSeed': avatarSeed,
     };
   }
 }

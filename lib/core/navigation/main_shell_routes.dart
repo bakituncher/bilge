@@ -5,7 +5,7 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/features/arena/screens/arena_screen.dart';
-import 'package:bilge_ai/features/arena/screens/public_profile_screen.dart'; // YENİ: Public profil ekranı import edildi
+import 'package:bilge_ai/features/arena/screens/public_profile_screen.dart';
 import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
 import 'package:bilge_ai/features/coach/screens/coach_screen.dart';
 import 'package:bilge_ai/features/coach/screens/motivation_chat_screen.dart';
@@ -31,6 +31,7 @@ import 'app_routes.dart';
 import 'package:bilge_ai/features/weakness_workshop/screens/workshop_stats_screen.dart';
 import 'package:bilge_ai/features/home/screens/weekly_plan_screen.dart';
 import 'package:bilge_ai/features/quests/screens/quests_screen.dart';
+import 'package:bilge_ai/features/profile/screens/avatar_selection_screen.dart'; // YENİ: Avatar ekranı import edildi
 
 StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
   return StatefulShellRoute.indexedStack(
@@ -176,9 +177,9 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
             GoRoute(
                 path: AppRoutes.arena,
                 builder: (context, state) => const ArenaScreen(),
-                routes: [ // GÜNCELLENDİ: Artık public profil için bir alt rota var
+                routes: [
                   GoRoute(
-                    path: ':userId', // Örn: /arena/123xyz
+                    path: ':userId',
                     parentNavigatorKey: rootNavigatorKey,
                     builder: (context, state) {
                       final userId = state.pathParameters['userId']!;
@@ -201,6 +202,12 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
                       final allBadges = state.extra as List<app_badge.Badge>;
                       return HonorWallScreen(allBadges: allBadges);
                     },
+                  ),
+                  // YENİ EKLENEN AVATAR ROTASI
+                  GoRoute(
+                    path: 'avatar-selection',
+                    parentNavigatorKey: rootNavigatorKey,
+                    builder: (context, state) => const AvatarSelectionScreen(),
                   ),
                 ]),
           ]),
