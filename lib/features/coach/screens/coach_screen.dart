@@ -378,11 +378,14 @@ class _GalaxyGuideDialog extends StatelessWidget {
       child: AlertDialog(
         backgroundColor: AppTheme.cardColor.withOpacity(0.95),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        // *** HATA ÇÖZÜMÜ: Başlık (Text) widget'ı Expanded ile sarmalandı ***
         title: const Row(
           children: [
             Icon(Icons.auto_awesome, color: AppTheme.secondaryColor),
             SizedBox(width: 12),
-            Text("Bilgi Galaksisi Rehberi"),
+            Expanded(
+              child: Text("Bilgi Galaksisi Rehberi"),
+            ),
           ],
         ),
         content: SingleChildScrollView(
