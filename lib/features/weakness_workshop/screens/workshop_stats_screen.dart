@@ -130,9 +130,10 @@ class WorkshopStatsScreen extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _StatItem(value: analysis.totalQuestionsAnswered.toString(), label: "Toplam Soru"),
-              _StatItem(value: analysis.uniqueTopicsWorkedOn.toString(), label: "İşlenen Cevher"),
-              _StatItem(value: analysis.mostWorkedSubject, label: "Favori Cephe"),
+              // *** HATA ÇÖZÜMÜ: Her istatistik öğesi Expanded ile sarmalandı ***
+              Expanded(child: _StatItem(value: analysis.totalQuestionsAnswered.toString(), label: "Toplam Soru")),
+              Expanded(child: _StatItem(value: analysis.uniqueTopicsWorkedOn.toString(), label: "İşlenen Cevher")),
+              Expanded(child: _StatItem(value: analysis.mostWorkedSubject, label: "Favori Cephe")),
             ],
           ),
         ],
@@ -225,8 +226,19 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-        Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
+        // *** HATA ÇÖZÜMÜ: Uzun metinler için hizalama ve taşma kontrolü eklendi ***
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor),
+          textAlign: TextAlign.center,
+        ),
       ],
     );
   }
