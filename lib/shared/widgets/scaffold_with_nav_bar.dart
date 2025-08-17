@@ -103,6 +103,7 @@ class ScaffoldWithNavBar extends ConsumerWidget {
             return Stack(
               children: [
                 Scaffold(
+                  resizeToAvoidBottomInset: false, // <--- EKlenen SATIR BU
                   body: navigationShell,
                   extendBody: true,
                   floatingActionButton: FloatingActionButton(
