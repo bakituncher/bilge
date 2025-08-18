@@ -53,7 +53,7 @@ class _StrategyReviewScreenState extends ConsumerState<StrategyReviewScreen> {
 
     // --- GÖREV SİSTEMİ ENTEGRASYONU ---
     // "Stratejist" gibi görevleri tetikle.
-    ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.engagement, amount: 1);
+    ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.engagement, amount: 1);
     // ------------------------------------
 
     // ignore: unused_result

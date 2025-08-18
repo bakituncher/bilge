@@ -32,7 +32,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
     // Bu, "Komutanın Raporu" görevinin tamamlanmasını sağlar.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.engagement);
+        ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.engagement);
       }
     });
     // --- BİTTİ ---

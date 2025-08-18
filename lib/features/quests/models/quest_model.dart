@@ -1,8 +1,8 @@
 // lib/features/quests/models/quest_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// GÜNCELLENDİ: Yeni kategori eklendi.
-enum QuestCategory { study, practice, engagement, consistency, test_submission }
+// GÜNCELLENDİ: Yeni 'focus' kategorisi eklendi.
+enum QuestCategory { study, practice, engagement, consistency, test_submission, focus }
 
 enum QuestType { daily, weekly, achievement }
 

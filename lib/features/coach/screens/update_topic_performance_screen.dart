@@ -132,8 +132,8 @@ class UpdateTopicPerformanceScreen extends ConsumerWidget {
 
                 // --- GÜNCELLENDİ: İlgili görev kategorileri tetikleniyor ---
                 // Bu, hem "Kale Kuşatması" hem de "Tozlu Raflar" görevlerini ilerletir.
-                ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.practice, amount: sessionQuestions);
-                ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.study, amount: 1);
+                ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.practice, amount: sessionQuestions);
+                ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.study, amount: 1);
                 // --- BİTTİ ---
 
                 context.pop();

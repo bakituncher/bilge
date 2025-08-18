@@ -66,7 +66,7 @@ class AuthController extends StreamNotifier<User?> {
     }
 
     // Görev ilerlemesini tetikle
-    ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.consistency);
+    ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.consistency);
   }
 
 

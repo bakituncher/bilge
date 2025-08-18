@@ -34,6 +34,7 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
   Widget build(BuildContext context) {
     final questsAsync = ref.watch(dailyQuestsProvider);
 
+    // Bir görev tamamlandığında konfeti efektini tetiklemek için dinleyici
     ref.listen<AsyncValue<List<Quest>>>(dailyQuestsProvider, (previous, next) {
       final prevQuests = previous?.valueOrNull ?? [];
       final nextQuests = next.valueOrNull ?? [];
@@ -49,7 +50,7 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Günlük Fetihler"),
+        title: const Text("Fetih Kütüğü"),
       ),
       body: Stack(
         alignment: Alignment.topCenter,
@@ -59,14 +60,28 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
               if (quests.isEmpty) {
                 return _buildEmptyState(context);
               }
-              final completedQuests = quests.where((q) => q.isCompleted).toList();
-              final activeQuests = quests.where((q) => !q.isCompleted).toList();
+              // Görevleri mantıksal gruplara ayır
+              final weeklyCampaigns = quests.where((q) => q.type == QuestType.weekly).toList();
+              final completedQuests = quests.where((q) => q.isCompleted && q.type == QuestType.daily).toList();
+              final activeQuests = quests.where((q) => !q.isCompleted && q.type == QuestType.daily).toList();
 
               return ListView(
                 padding: const EdgeInsets.all(16.0),
                 children: [
-                  if (activeQuests.isNotEmpty)
+                  // Haftalık Seferler (varsa)
+                  if (weeklyCampaigns.isNotEmpty) ...[
+                    _SectionHeader(title: "Haftalık Sefer"),
+                    ...weeklyCampaigns.map((quest) => QuestCard(quest: quest)),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Aktif Günlük Emirler (varsa)
+                  if (activeQuests.isNotEmpty) ...[
+                    _SectionHeader(title: "Günlük Emirler"),
                     ...activeQuests.map((quest) => QuestCard(quest: quest)),
+                  ],
+
+                  // Tamamlanmış Görevler (varsa)
                   if (completedQuests.isNotEmpty) ...[
                     _SectionHeader(title: "Fethedilenler (${completedQuests.length})"),
                     ...completedQuests.map((quest) => QuestCard(quest: quest)),
@@ -76,9 +91,7 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
             },
             loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
             error: (err, stack) {
-              // Geliştirici için hatayı konsola yazdır.
-              print("Günlük Fetihler Hatası: $err");
-              print(stack);
+              // Kullanıcı dostu hata mesajı
               return Center(
                 child: Padding(
                   padding: const EdgeInsets.all(24.0),
@@ -90,7 +103,7 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
                       Text("Görevler Yüklenemedi", style: Theme.of(context).textTheme.headlineSmall),
                       const SizedBox(height: 8),
                       Text(
-                        "Komutanım, görev parşömenlerini getirirken bir sorunla karşılaştık. Lütfen daha sonra tekrar deneyin veya destek ile iletişime geçin.\n\nHata Detayı: ${err.toString()}",
+                        "Komutanım, görev parşömenlerini getirirken bir sorunla karşılaştık. Lütfen daha sonra tekrar deneyin.",
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
                       ),
@@ -130,7 +143,7 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
           ),
         ],
       ),
-    );
+    ).animate().fadeIn(duration: 500.ms);
   }
 }
 
@@ -139,16 +152,14 @@ class QuestCard extends StatelessWidget {
   const QuestCard({super.key, required this.quest});
 
   IconData _getIconForCategory(QuestCategory category) {
-    // --- KALICI ÇÖZÜM: Eksik `case` eklendi ve `default` eklendi. ---
-    // Bu, gelecekte yeni bir kategori eklenirse uygulamanın çökmesini engeller.
     switch (category) {
       case QuestCategory.study: return Icons.book_rounded;
       case QuestCategory.practice: return Icons.edit_note_rounded;
       case QuestCategory.engagement: return Icons.auto_awesome;
       case QuestCategory.consistency: return Icons.event_repeat_rounded;
       case QuestCategory.test_submission: return Icons.add_chart_rounded;
+      default: return Icons.shield_moon_rounded; // Beklenmedik durumlara karşı
     }
-    // --- BİTTİ ---
   }
 
   @override
@@ -161,6 +172,7 @@ class QuestCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       color: isCompleted ? AppTheme.cardColor.withOpacity(0.5) : AppTheme.cardColor,
       child: InkWell(
+        // Kullanıcıyı görevi tamamlayabileceği ekrana yönlendir.
         onTap: isCompleted ? null : () => context.go(quest.actionRoute),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
@@ -220,11 +232,19 @@ class QuestCard extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                   ),
                   if (isCompleted)
+                    Row(
+                      children: [
+                        const Text("Fethedildi!", style: TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.bold)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 20)
+                      ],
+                    ).animate().fadeIn().shake(delay: 200.ms, duration: 300.ms),
+                  if (!isCompleted)
                     const Row(
                       children: [
-                        Text("Fethedildi!", style: TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.bold)),
+                        Text("Yola Koyul", style: TextStyle(color: AppTheme.secondaryTextColor)),
                         SizedBox(width: 4),
-                        Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 20)
+                        Icon(Icons.arrow_forward, color: AppTheme.secondaryTextColor, size: 16),
                       ],
                     )
                 ],

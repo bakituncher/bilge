@@ -118,7 +118,7 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
     );
 
     // GÖREV GÜNCELLEME EMRİ
-    ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.engagement);
+    ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.engagement);
 
     setState(() => _currentStep = WorkshopStep.results);
   }

@@ -96,13 +96,11 @@ class PomodoroNotifier extends StateNotifier<PomodoroModel> {
 
   void _handleSessionEnd() {
     if (state.sessionState == PomodoroSessionState.work) {
+      // 1. Odaklanma seansını veritabanına kaydet.
       _saveSession(state.currentTask, state.workDuration);
 
-      // --- GÖREV SİSTEMİ ENTEGRASYONU ---
-      // "Etkileşim" kategorisindeki görevleri 1 ilerlet.
-      _ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.engagement, amount: 1);
-      // ------------------------------------
-
+      // 2. Sonucu oluştur ve ekran durumunu "tamamlandı" olarak değiştir.
+      // Not: QuestNotifier bu state değişikliğini dinleyerek görevi OTOMATİK tamamlayacak.
       final result = FocusSessionResult(
         totalFocusSeconds: state.workDuration,
         roundsCompleted: state.currentRound,
@@ -110,10 +108,12 @@ class PomodoroNotifier extends StateNotifier<PomodoroModel> {
       );
       state = state.copyWith(sessionState: PomodoroSessionState.completed, isPaused: true, lastResult: result);
     } else {
+      // Mola bittiyse, bir sonraki çalışma turuna hazırlan.
       state = state.copyWith(
         sessionState: PomodoroSessionState.work,
         timeRemaining: state.workDuration,
         isPaused: true,
+        // Eğer uzun bir aradan geliyorsak tur sayısını sıfırla, değilse bir artır.
         currentRound: (state.sessionState == PomodoroSessionState.longBreak) ? 1 : state.currentRound + 1,
       );
     }

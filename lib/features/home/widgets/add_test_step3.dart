@@ -82,7 +82,8 @@ class Step3Summary extends ConsumerWidget {
                 await ref.read(firestoreServiceProvider).addTestResult(newTest);
 
                 // --- GÜNCELLENDİ: Sadece 'test_submission' görevini tetikle ---
-                await ref.read(questNotifierProvider).updateQuestProgress(QuestCategory.test_submission, amount: 1);
+                ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.test_submission);
+
                 // ------------------------------------
 
                 if (context.mounted) {

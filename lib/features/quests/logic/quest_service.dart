@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
-import 'package:bilge_ai/features/quests/quest_templates.dart';
+import 'package:bilge_ai/features/quests/quest_armory.dart'; // YENİ CEPHANELİK
 import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:uuid/uuid.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
@@ -14,6 +14,7 @@ final questServiceProvider = Provider<QuestService>((ref) {
   return QuestService(ref);
 });
 
+// "Strateji Masası" - Görev Atama Motoru
 class QuestService {
   final Ref _ref;
   QuestService(this._ref);
@@ -22,6 +23,7 @@ class QuestService {
     final today = DateTime.now();
     final lastRefresh = user.lastQuestRefreshDate?.toDate();
 
+    // Eğer bugün zaten görevler yenilendiyse, mevcut görevleri döndür.
     if (lastRefresh != null &&
         lastRefresh.year == today.year &&
         lastRefresh.month == today.month &&
@@ -29,6 +31,7 @@ class QuestService {
       return user.activeDailyQuests;
     }
 
+    // "Strateji Masası"nı çalıştır ve yeni görevleri üret.
     final newQuests = await _generateQuestsForUser(user);
 
     await _ref.read(firestoreServiceProvider).usersCollection.doc(user.id).update({
@@ -39,12 +42,12 @@ class QuestService {
     return newQuests;
   }
 
+  // === MİLYON DOLARLIK OTOMASYONUN KALBİ: GÖREV ÜRETİM MOTORU ===
   Future<List<Quest>> _generateQuestsForUser(UserModel user) async {
     final List<Quest> generatedQuests = [];
     final random = Random();
-    final templatesToUse = List<Map<String, dynamic>>.from(questTemplates);
-    templatesToUse.shuffle();
 
+    // 1. VERİ TOPLAMA: Savaş alanının tam bir resmini çek.
     final tests = await _ref.read(testsProvider.future);
     final examData = user.selectedExam != null
         ? await ExamData.getExamByType(ExamType.values.byName(user.selectedExam!))
@@ -55,80 +58,85 @@ class QuestService {
       analysis = StatsAnalysis(tests, user.topicPerformances, examData, user: user);
     }
 
-    // Strateji 1: Tutarlılık görevi ata (Artık her zaman değil)
-    if (random.nextDouble() < 0.7) { // %70 ihtimalle Savaşçı Yemini
-      final consistencyQuest = templatesToUse.firstWhere((q) => q['id'] == 'consistency_01', orElse: () => {});
-      if (consistencyQuest.isNotEmpty) {
-        generatedQuests.add(_createQuestFromTemplate(consistencyQuest));
+    // 2. FİLTRELEME: Cephanelikteki tüm görevleri masaya yatır ve uygun olmayanları ele.
+    List<Map<String, dynamic>> availableQuestTemplates = List.from(questArmory);
+    availableQuestTemplates.shuffle();
+
+    // Zaten aktif olan veya bu oturumda tamamlanan görevleri tekrar atama.
+    availableQuestTemplates.removeWhere((template) => user.activeDailyQuests.any((q) => q.id == template['id']));
+
+    // 3. PUANLAMA VE ÖNCELİKLENDİRME: Her bir göreve, kullanıcının durumuna göre stratejik bir puan ver.
+    final List<({Map<String, dynamic> template, int score, Map<String, String> variables})> scoredQuests = [];
+
+    for (var template in availableQuestTemplates) {
+      int score = 100; // Temel puan
+      Map<String, String> variables = {};
+
+      // Tetikleme koşullarını kontrol et
+      if (template['triggerConditions'] is Map) {
+        final conditions = template['triggerConditions'] as Map<String, dynamic>;
+
+        // Zayıf ders koşulu
+        if (conditions['hasWeakSubject'] == true) {
+          if (analysis?.weakestSubjectByNet != null && analysis!.weakestSubjectByNet != "Belirlenemedi") {
+            score += 250; // En yüksek öncelik!
+            variables['{subject}'] = analysis.weakestSubjectByNet;
+          } else {
+            score = 0; // Atanamaz
+          }
+        }
+
+        // Güçlü ders koşulu
+        if (conditions['hasStrongSubject'] == true) {
+          if (analysis?.strongestSubjectByNet != null && analysis!.strongestSubjectByNet != "Belirlenemedi") {
+            score += 100;
+            variables['{subject}'] = analysis.strongestSubjectByNet;
+          } else {
+            score = 0; // Atanamaz
+          }
+        }
+
+        // Son zamanlarda test eklememe koşulu
+        if (conditions['noRecentTest'] == true) {
+          final lastTestDate = tests.isNotEmpty ? tests.first.date : null;
+          if (lastTestDate == null || DateTime.now().difference(lastTestDate).inDays > 3) {
+            score += 200; // Yüksek öncelik
+          } else {
+            score = 0; // Son 3 günde test eklediyse bu görevi atama
+          }
+        }
       }
-    } else { // %30 ihtimalle Demir İrade
-      final consistencyQuest = templatesToUse.firstWhere((q) => q['id'] == 'consistency_02', orElse: () => {});
-      if (consistencyQuest.isNotEmpty) {
-        generatedQuests.add(_createQuestFromTemplate(consistencyQuest));
-      }
-    }
 
-    final addTestQuest = templatesToUse.firstWhere((q) => q['id'] == 'practice_03', orElse: () => {});
-    if (addTestQuest.isNotEmpty) {
-      generatedQuests.add(_createQuestFromTemplate(addTestQuest));
-    }
-
-    if (analysis?.weakestSubjectByNet != null && analysis!.weakestSubjectByNet != "Belirlenemedi") {
-      final practiceQuest = templatesToUse.firstWhere((q) => q['id'] == 'practice_01', orElse: () => {});
-      if (practiceQuest.isNotEmpty) {
-        generatedQuests.add(_createQuestFromTemplate(
-            practiceQuest,
-            variables: {'{subject}': analysis.weakestSubjectByNet}
-        ));
-      }
-    } else {
-      final randomPractice = templatesToUse.firstWhere((q) => q['category'] == 'practice' && q['variables'] == null, orElse: () => {});
-      if (randomPractice.isNotEmpty) {
-        generatedQuests.add(_createQuestFromTemplate(randomPractice));
-      }
-    }
-
-    final studyQuestTemplate = templatesToUse.firstWhere((q) => q['id'] == 'study_01', orElse: () => {});
-    if (studyQuestTemplate.isNotEmpty && examData != null) {
-      final relevantSections = _getRelevantSectionsForUser(user, examData);
-      final allSubjects = relevantSections.expand((s) => s.subjects.keys).toSet().toList();
-      final weakestSubject = analysis?.weakestSubjectByNet;
-
-      if (weakestSubject != null && allSubjects.length > 1) {
-        allSubjects.remove(weakestSubject);
-      }
-
-      if (allSubjects.isNotEmpty) {
-        final randomSubject = allSubjects[random.nextInt(allSubjects.length)];
-        generatedQuests.add(_createQuestFromTemplate(
-            studyQuestTemplate,
-            variables: {'{subject}': randomSubject}
-        ));
-      }
-    }
-
-    final engagementQuests = templatesToUse.where((q) => q['category'] == 'engagement').toList();
-    final studyQuests = templatesToUse.where((q) => q['category'] == 'study').toList();
-    final remainingPool = [...engagementQuests, ...studyQuests]..shuffle();
-
-    while (generatedQuests.length < 5 && remainingPool.isNotEmpty) {
-      final template = remainingPool.removeAt(0);
-      if (!generatedQuests.any((q) => q.title == template['title'])) {
-        generatedQuests.add(_createQuestFromTemplate(template));
+      if(score > 0) {
+        scoredQuests.add((template: template, score: score, variables: variables));
       }
     }
 
-    return generatedQuests.toSet().toList();
+    // Görevleri puanlarına göre büyükten küçüğe sırala
+    scoredQuests.sort((a, b) => b.score.compareTo(a.score));
+
+    // 4. STRATEJİK SEÇİM: En yüksek puanlı ve en çeşitli görevleri seç.
+    final Set<QuestCategory> selectedCategories = {};
+
+    while(generatedQuests.length < 5 && scoredQuests.isNotEmpty) {
+      final candidate = scoredQuests.removeAt(0);
+
+      // Aynı kategoriden çok fazla görev atamamak için kontrol
+      if(selectedCategories.contains(QuestCategory.values.byName(candidate.template['category']))) {
+        if(random.nextDouble() > 0.6) continue; // %60 ihtimalle atla
+      }
+
+      generatedQuests.add(_createQuestFromTemplate(candidate.template, variables: candidate.variables));
+      selectedCategories.add(QuestCategory.values.byName(candidate.template['category']));
+    }
+
+    return generatedQuests;
   }
 
-  /// Şablondan, tüm alanları doldurulmuş, hatasız bir Quest nesnesi oluşturur.
   Quest _createQuestFromTemplate(Map<String, dynamic> template, {Map<String, String>? variables}) {
-    // --- KALICI ÇÖZÜM: Null değerlere karşı zırh eklendi. ---
-    // Bu, 'title', 'description' gibi alanlar şablonda eksik olsa bile uygulamanın çökmesini engeller.
     String title = template['title'] ?? 'İsimsiz Görev';
     String description = template['description'] ?? 'Açıklama bulunamadı.';
     String actionRoute = template['actionRoute'] ?? '/home';
-    // --- BİTTİ ---
 
     if (variables != null) {
       variables.forEach((key, value) {
@@ -146,10 +154,11 @@ class QuestService {
       progressType: QuestProgressType.values.byName(template['progressType'] ?? 'increment'),
       reward: template['reward'] ?? 10,
       goalValue: template['goalValue'] ?? 1,
-      actionRoute: actionRoute, // Güvenli değişken kullanılıyor.
+      actionRoute: actionRoute,
     );
   }
 
+  // ... (ExamSection helper fonksiyonu burada kalabilir)
   List<ExamSection> _getRelevantSectionsForUser(UserModel user, Exam exam) {
     if (user.selectedExam == ExamType.lgs.name) {
       return exam.sections;
