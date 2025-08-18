@@ -17,6 +17,7 @@ import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:uuid/uuid.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // eklendi: Timestamp için
 // GÖREV SİSTEMİ İMPORTLARI
 import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
@@ -101,6 +102,7 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
       }
     });
     int blank = material.quiz.length - correct - wrong;
+    final scorePercent = material.quiz.isEmpty ? 0 : (correct / material.quiz.length) * 100;
 
     final currentPerformance = user.topicPerformances[material.subject]?[material.topic] ?? TopicPerformanceModel();
     final newPerformance = TopicPerformanceModel(
@@ -117,8 +119,32 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
       performance: newPerformance,
     );
 
+    // Günlük Cevher serisi (workshopStreak) güncelle
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    DateTime? last = user.lastWorkshopDate?.toDate();
+    int newStreak = user.workshopStreak;
+    if (last == null) {
+      newStreak = 1;
+    } else {
+      final lastDay = DateTime(last.year, last.month, last.day);
+      final diff = today.difference(lastDay).inDays;
+      if (diff == 0) {
+        // aynı gün tekrar: streak değişmez
+      } else if (diff == 1) {
+        newStreak += 1;
+      } else if (diff > 1) {
+        newStreak = 1; // kopmuş
+      }
+    }
+    ref.read(firestoreServiceProvider).usersCollection.doc(user.id).update({
+      'workshopStreak': newStreak,
+      'lastWorkshopDate': Timestamp.fromDate(now),
+    });
+
     // GÖREV GÜNCELLEME EMRİ
     ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.engagement);
+    ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.practice, amount: 1); // yeni: atölye seansı practice ilerlemesi
 
     setState(() => _currentStep = WorkshopStep.results);
   }
@@ -714,12 +740,39 @@ class _SummaryViewState extends ConsumerState<_SummaryView> {
 
   @override
   Widget build(BuildContext context) {
+    final highScore = widget.score >= 80;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (highScore) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [AppTheme.successColor.withValues(alpha:0.25), AppTheme.secondaryColor.withValues(alpha:0.15)]),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppTheme.successColor.withValues(alpha:0.6), width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.workspace_premium_rounded, color: AppTheme.successColor, size: 32),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Ustalık Parlıyor!', style: Theme.of(context).textTheme.titleMedium?.copyWith(color: AppTheme.successColor, fontWeight: FontWeight.bold)),
+                        Text('Bu Cevher sınavında %80+ başarıyla ekstra bir yükseliş yakaladın.', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
+                      ],
+                    ),
+                  )
+                ],
+              ),
+            ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.2),
+            const SizedBox(height: 20),
+          ],
           const SizedBox(height: 20),
           Text("Ustalık Sınavı Tamamlandı!", style: Theme.of(context).textTheme.headlineMedium, textAlign: TextAlign.center,),
           const SizedBox(height: 16),
@@ -728,7 +781,7 @@ class _SummaryViewState extends ConsumerState<_SummaryView> {
           const SizedBox(height: 24),
           _ResultActionCard(
               title: "Sonuçları Değerlendir",
-              subtitle: "Başarını veya hatalarını AI koçunla konuş.",
+              subtitle: "Başarını veya hataların�� AI koçunla konuş.",
               icon: Icons.forum_rounded,
               onTap: (){
                 final reviewContext = {
@@ -741,7 +794,7 @@ class _SummaryViewState extends ConsumerState<_SummaryView> {
               }
           ),
           const SizedBox(height: 16),
-          _ResultActionCard(title: "Derinleşmek İstiyorum", subtitle: "Bu konuyla ilgili daha zor sorularla kendini sına.", icon: Icons.auto_awesome, onTap: widget.onRetryHarder, isPrimary: true),
+          _ResultActionCard(title: "Derinleşmek İstiyorum", subtitle: "Bu konuyla ilgili daha zor sorularla kendini s��na.", icon: Icons.auto_awesome, onTap: widget.onRetryHarder, isPrimary: true),
           const SizedBox(height: 16),
           _ResultActionCard(
             title: "Cevheri Kaydet",

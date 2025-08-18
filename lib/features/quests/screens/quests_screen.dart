@@ -526,7 +526,7 @@ class _QuestHintLine extends StatelessWidget {
     switch (quest.category) {
       case QuestCategory.practice:
         if (quest.goalValue <= 5) return 'Mini başla: birkaç soru tetikler.';
-        return '${quest.goalValue} soru hedefi. Koç ekranından soru çöz.';
+        return '${quest.goalValue} soru hedefi. Bilgi Galaksisi ekranından soru çöz.';
       case QuestCategory.study:
         return 'Plan / konu hakimiyeti. İlgili maddeyi haftalık plandan bitir.';
       case QuestCategory.engagement:

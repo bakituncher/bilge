@@ -41,6 +41,8 @@ class UserModel {
   final Map<String,dynamic>? lastWeeklyReport; // YENİ: geçen hafta raporu
   final double? dynamicDifficultyFactorToday; // YENİ: bugünkü dinamik zorluk çarpanı
   final Timestamp? weeklyPlanCompletedAt; // YENİ: haftalık plan tamamlanma anı
+  final int workshopStreak; // YENİ: art arda günlerde Cevher Atölyesi seansı
+  final Timestamp? lastWorkshopDate; // YENİ: son Cevher seansı tarihi (UTC gün)
 
   UserModel({
     required this.id,
@@ -79,6 +81,8 @@ class UserModel {
     this.lastWeeklyReport,
     this.dynamicDifficultyFactorToday,
     this.weeklyPlanCompletedAt,
+    this.workshopStreak = 0, // yeni
+    this.lastWorkshopDate, // yeni
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -168,6 +172,8 @@ class UserModel {
       lastWeeklyReport: data['lastWeeklyReport'] as Map<String,dynamic>?,
       dynamicDifficultyFactorToday: (data['dynamicDifficultyFactorToday'] as num?)?.toDouble(),
       weeklyPlanCompletedAt: data['weeklyPlanCompletedAt'] as Timestamp?,
+      workshopStreak: data['workshopStreak'] ?? 0, // yeni
+      lastWorkshopDate: data['lastWorkshopDate'] as Timestamp?, // yeni
     );
   }
 
@@ -209,6 +215,8 @@ class UserModel {
       'lastWeeklyReport': lastWeeklyReport,
       'dynamicDifficultyFactorToday': dynamicDifficultyFactorToday,
       'weeklyPlanCompletedAt': weeklyPlanCompletedAt,
+      'workshopStreak': workshopStreak,
+      'lastWorkshopDate': lastWorkshopDate,
     };
   }
 }

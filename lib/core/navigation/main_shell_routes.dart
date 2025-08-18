@@ -86,7 +86,7 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
       StatefulShellBranch(routes: [
         GoRoute(
             path: AppRoutes.coach,
-            builder: (context, state) => const CoachScreen(),
+            builder: (context, state) => CoachScreen(initialSubject: state.uri.queryParameters['subject']),
             routes: [
               GoRoute(
                 path: AppRoutes.updateTopicPerformance,
@@ -168,7 +168,7 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
               GoRoute(
                 path: AppRoutes.coachPushed,
                 parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) => const CoachScreen(),
+                builder: (context, state) => CoachScreen(initialSubject: state.uri.queryParameters['subject']),
               ),
             ]),
       ]),

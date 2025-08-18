@@ -16,7 +16,8 @@ import 'package:bilge_ai/features/coach/widgets/topic_stats_dialog.dart';
 final coachScreenTabProvider = StateProvider<int>((ref) => 0);
 
 class CoachScreen extends ConsumerStatefulWidget {
-  const CoachScreen({super.key});
+  final String? initialSubject; // yeni: açılışta doğrudan ders sekmesi
+  const CoachScreen({super.key, this.initialSubject});
 
   @override
   ConsumerState<CoachScreen> createState() => _CoachScreenState();
@@ -25,6 +26,7 @@ class CoachScreen extends ConsumerStatefulWidget {
 class _CoachScreenState extends ConsumerState<CoachScreen>
     with TickerProviderStateMixin {
   TabController? _tabController;
+  bool _appliedInitialSubject = false; // eklendi
 
   // Anahtarları güvenli hale getiren merkezi fonksiyon
   String _sanitizeKey(String key) {
@@ -143,8 +145,21 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
             if (_tabController == null ||
                 _tabController!.length != subjects.length) {
               _setupTabController(subjects.length);
+              _appliedInitialSubject = false; // resetle
             }
-
+            // initialSubject varsa ve henüz uygulanmadıysa sekmeye geç
+            if (!_appliedInitialSubject && widget.initialSubject != null && widget.initialSubject!.trim().isNotEmpty && _tabController != null) {
+              final keys = subjects.keys.toList();
+              final idx = keys.indexWhere((s) => s.toLowerCase() == widget.initialSubject!.toLowerCase());
+              if (idx != -1 && idx < _tabController!.length) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted && _tabController != null) {
+                    _tabController!.index = idx;
+                  }
+                });
+              }
+              _appliedInitialSubject = true; // bulundu ya da bulunamadı, tekrar deneme yok
+            }
             return Scaffold(
               appBar: AppBar(
                 title: const Text('Bilgi Galaksisi'),
@@ -241,7 +256,7 @@ class _SubjectGalaxyView extends ConsumerWidget {
 
     final auraColor = Color.lerp(
         AppTheme.accentColor, AppTheme.successColor, overallMastery)!
-        .withOpacity(0.15);
+        .withValues(alpha: 0.15);
 
     return Container(
       decoration: BoxDecoration(
@@ -337,7 +352,7 @@ class _SubjectGalaxyView extends ConsumerWidget {
               height: 12,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
-                color: AppTheme.lightSurfaceColor.withOpacity(0.5),
+                color: AppTheme.lightSurfaceColor.withValues(alpha: 0.5),
               ),
               child: FractionallySizedBox(
                 alignment: Alignment.centerLeft,
@@ -351,7 +366,7 @@ class _SubjectGalaxyView extends ConsumerWidget {
                       BoxShadow(
                         color: Color.lerp(AppTheme.accentColor,
                             AppTheme.successColor, value)!
-                            .withOpacity(0.5),
+                            .withValues(alpha: 0.5),
                         blurRadius: 8,
                       )
                     ],
@@ -376,7 +391,7 @@ class _GalaxyGuideDialog extends StatelessWidget {
     return BackdropFilter(
       filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
       child: AlertDialog(
-        backgroundColor: AppTheme.cardColor.withOpacity(0.95),
+        backgroundColor: AppTheme.cardColor.withValues(alpha: 0.95),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         // *** HATA ÇÖZÜMÜ: Başlık (Text) widget'ı Expanded ile sarmalandı ***
         title: const Row(

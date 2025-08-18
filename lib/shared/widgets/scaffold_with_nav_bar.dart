@@ -140,7 +140,7 @@ class ScaffoldWithNavBar extends ConsumerWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         _buildNavItem(context, icon: Icons.dashboard_rounded, label: 'Panel', index: 0, key: null, ref: ref, steps: tutorialSteps),
-                        _buildNavItem(context, icon: Icons.school_rounded, label: 'Koç', index: 1, key: coachKey, ref: ref, steps: tutorialSteps),
+                        _buildNavItem(context, icon: Icons.school_rounded, label: 'Galaksi', index: 1, key: coachKey, ref: ref, steps: tutorialSteps),
                         const SizedBox(width: 56),
                         _buildNavItem(context, icon: Icons.military_tech_rounded, label: 'Arena', index: 3, key: arenaKey, ref: ref, steps: tutorialSteps),
                         _buildNavItem(context, icon: Icons.person_rounded, label: 'Profil', index: 4, key: profileKey, ref: ref, steps: tutorialSteps),

@@ -9,6 +9,14 @@ import 'quest_completion_notifier.dart';
 import 'package:bilge_ai/features/quests/quest_armory.dart';
 import 'package:flutter/services.dart'; // haptic
 
+// ZİNCİR HARİTASI (Odak + Cevher)
+const Map<String,String> _chainNextMap = {
+  'chain_focus_1': 'chain_focus_2',
+  'chain_focus_2': 'chain_focus_3',
+  'chain_workshop_1': 'chain_workshop_2',
+  'chain_workshop_2': 'chain_workshop_3',
+};
+
 final _sessionCompletedQuestsProvider = StateProvider<Set<String>>((ref) => {});
 
 final questNotifierProvider = StateNotifierProvider.autoDispose<QuestNotifier, bool>((ref) {
@@ -89,12 +97,9 @@ class QuestNotifier extends StateNotifier<bool> {
         }
 
         // 3) Zincir görev otomatik ekleme
-        final chainMap = {
-          'chain_focus_1': 'chain_focus_2',
-          'chain_focus_2': 'chain_focus_3',
-        };
-        if (chainMap.containsKey(quest.id)) {
-          final nextId = chainMap[quest.id]!;
+        // Odak + Cevher zincirleri tek haritadan yönetilir
+        if (_chainNextMap.containsKey(quest.id)) {
+          final nextId = _chainNextMap[quest.id]!;
           final alreadyHasNext = activeQuestsCopy.any((q) => q.id == nextId);
           if (!alreadyHasNext) {
             final template = questArmory.firstWhere((t) => t['id'] == nextId, orElse: () => {});
@@ -112,7 +117,7 @@ class QuestNotifier extends StateNotifier<bool> {
               );
               activeQuestsCopy.add(newQuest);
               chainAdded = true;
-              HapticFeedback.selectionClick(); // zincir yeni adım
+              HapticFeedback.selectionClick();
             }
           }
         }
@@ -176,6 +181,29 @@ class QuestNotifier extends StateNotifier<bool> {
       _ref.read(questCompletionProvider.notifier).show(completedQuest);
       HapticFeedback.mediumImpact();
       await _ref.read(firestoreServiceProvider).updateEngagementScore(user.id, quest.reward);
+
+      // Zincir devamı gerekiyorsa ekle
+      if (_chainNextMap.containsKey(quest.id)) {
+        final nextId = _chainNextMap[quest.id]!;
+        final alreadyHasNext = activeQuestsCopy.any((q) => q.id == nextId);
+        if (!alreadyHasNext) {
+          final template = questArmory.firstWhere((t) => t['id'] == nextId, orElse: () => {});
+          if (template.isNotEmpty) {
+            final newQuest = Quest(
+              id: template['id'],
+              title: template['title'],
+              description: template['description'],
+              type: QuestType.values.byName((template['type'] ?? 'daily')), // default daily
+              category: QuestCategory.values.byName(template['category']),
+              progressType: QuestProgressType.values.byName((template['progressType'] ?? 'increment')),
+              reward: template['reward'] ?? 10,
+              goalValue: template['goalValue'] ?? 1,
+              actionRoute: template['actionRoute'] ?? '/home',
+            );
+            activeQuestsCopy.add(newQuest);
+          }
+        }
+      }
     } else {
       activeQuestsCopy[idx] = quest.copyWith(currentProgress: newProgress);
     }

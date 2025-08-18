@@ -226,9 +226,9 @@ final List<Map<String, dynamic>> questArmory = [
   },
   {
     'id': 'study_02',
-    'title': 'Bilgi Taraması',
-    'description': 'Bilgi Galaksisi\'nde herhangi bir konunun hakimiyetini güncelle.',
-    'category': 'study', 'reward': 25, 'goalValue': 1, 'actionRoute': '/coach',
+    'title': 'Bilgi Taraması Çifti', // güncellendi
+    'description': 'Bilgi Galaksisi\'nde 2 farklı konunun hakimiyetini güncelle.', // güncellendi
+    'category': 'study', 'reward': 35, 'goalValue': 2, 'actionRoute': '/coach', // reward & goalValue güncellendi
     'tags': [QuestTag.quick_win, QuestTag.analysis],
   },
   {
@@ -259,8 +259,8 @@ final List<Map<String, dynamic>> questArmory = [
   {
     'id': 'weekly_01',
     'title': 'Haftalık Sefer: Kale Fethi',
-    'description': 'Bu hafta en zayıf dersin olan {subject} üzerine yoğunlaşarak ortalama netini en az 2 puan artır.',
-    'category': 'practice', 'type': 'weekly', 'reward': 500, 'goalValue': 2, 'actionRoute': '/coach',
+    'description': 'Bu hafta en zayıf dersin olan {subject} üzerine yoğunlaşarak ortalama netini en az 3 puan artır.', // güncellendi
+    'category': 'practice', 'type': 'weekly', 'reward': 550, 'goalValue': 3, 'actionRoute': '/coach', // reward & goalValue güncellendi
     'tags': [QuestTag.high_value, QuestTag.weakness], 'triggerConditions': {'hasWeakSubject': true}
   },
   {
@@ -273,15 +273,15 @@ final List<Map<String, dynamic>> questArmory = [
   {
     'id': 'weekly_03',
     'title': 'Haftalık Sefer: Soru İmparatoru',
-    'description': 'Bu hafta toplam 500 soru çözerek soru çözme limitlerini zorla.',
-    'category': 'practice', 'type': 'weekly', 'reward': 400, 'goalValue': 500, 'actionRoute': '/coach',
+    'description': 'Bu hafta toplam 600 soru çözerek sınırlarını daha da zorla.', // güncellendi
+    'category': 'practice', 'type': 'weekly', 'reward': 450, 'goalValue': 600, 'actionRoute': '/coach', // reward & goalValue güncellendi
     'tags': [QuestTag.high_value],
   },
   {
     'id': 'weekly_04',
     'title': 'Haftalık Sefer: Odaklanma Ustası',
-    'description': 'Bu hafta toplam 5 saat (300 dakika) Pomodoro tekniği ile odaklanarak zihnini eğit.',
-    'category': 'engagement', 'type': 'weekly', 'reward': 350, 'goalValue': 300,
+    'description': 'Bu hafta toplam 6 saat (360 dakika) Pomodoro odak süresi ile zihnini eğit.', // güncellendi
+    'category': 'engagement', 'type': 'weekly', 'reward': 380, 'goalValue': 360, // reward & goalValue güncellendi
     'actionRoute': '/home/pomodoro', 'tags': [QuestTag.high_value, QuestTag.focus],
   },
 
@@ -297,9 +297,9 @@ final List<Map<String, dynamic>> questArmory = [
   },
   {
     'id': 'micro_02',
-    'title': 'Hızlı Isınma Serisi', // güncellendi (tek soru kaldırıldı)
-    'description': 'Seçtiğin dersten 5 soruluk kısa bir ısınma seti çöz ve devamını tetikle.', // güncellendi
-    'category': 'practice', 'reward': 18, 'goalValue': 5, 'actionRoute': '/coach', // reward & goalValue güncellendi
+    'title': 'Isınma Serisi Genişletilmiş', // güncellendi
+    'description': 'Seçtiğin dersten 8 soruluk tempolu bir ısınma seti çöz ve devam ivmesini yakala.', // güncellendi
+    'category': 'practice', 'reward': 24, 'goalValue': 8, 'actionRoute': '/coach', // reward & goalValue güncellendi
     'tags': [QuestTag.micro, QuestTag.quick_win],
   },
   {
@@ -346,6 +346,27 @@ final List<Map<String, dynamic>> questArmory = [
     'description': '3 odak turu ile zihinsel dayanıklılığını mühürle.',
     'category': 'engagement', 'reward': 55, 'goalValue': 3, 'actionRoute': '/home/pomodoro',
     'tags': [QuestTag.chain, QuestTag.focus], 'triggerConditions': {'afterQuest': 'chain_focus_2'}
+  },
+  {
+    'id': 'chain_workshop_1',
+    'title': 'Cevher Zinciri I',
+    'description': 'Bir Cevher Atölyesi seansı tamamla. Zinciri başlat.',
+    'category': 'practice', 'reward': 90, 'goalValue': 1, 'actionRoute': '/ai-hub/weakness-workshop',
+    'tags': [QuestTag.chain, QuestTag.weakness],
+  },
+  {
+    'id': 'chain_workshop_2',
+    'title': 'Cevher Zinciri II',
+    'description': 'Bir seans daha tamamlayarak toplam 2 Cevher seansına ulaş.',
+    'category': 'practice', 'reward': 130, 'goalValue': 1, 'actionRoute': '/ai-hub/weakness-workshop',
+    'tags': [QuestTag.chain, QuestTag.weakness, QuestTag.high_value], 'triggerConditions': {'afterQuest': 'chain_workshop_1'}
+  },
+  {
+    'id': 'chain_workshop_3',
+    'title': 'Cevher Zinciri III',
+    'description': 'Bir seans daha tamamla ve üst üste 3 Cevher seansı ile ivmeyi yakala.',
+    'category': 'practice', 'reward': 180, 'goalValue': 1, 'actionRoute': '/ai-hub/weakness-workshop',
+    'tags': [QuestTag.chain, QuestTag.weakness, QuestTag.high_value], 'triggerConditions': {'afterQuest': 'chain_workshop_2'}
   },
   // =======================================================================
   // PLAN SİNERJİSİ / KOMBİNE GÖREVLER
@@ -414,5 +435,12 @@ final List<Map<String, dynamic>> questArmory = [
     'description': 'En az 20 dk odak seansı tamamla. 40 dk üzerine çıkarsan ekstra ödül (otomatik) alırsın.',
     'category': 'engagement', 'reward': 45, 'goalValue': 20, 'actionRoute': '/home/pomodoro',
     'tags': [QuestTag.adaptive, QuestTag.focus],
+  },
+  {
+    'id': 'workshop_session_01',
+    'title': 'Cevher Seansı Tamamla',
+    'description': 'Cevher Atölyesi\'nde bir zayıf konu seç, rehberi incele ve quiz bölümünü başarıyla tamamla.',
+    'category': 'practice', 'reward': 160, 'goalValue': 1, 'actionRoute': '/ai-hub/weakness-workshop',
+    'tags': [QuestTag.high_value, QuestTag.weakness], 'triggerConditions': {'hasWeakTopic': true},
   },
 ];
