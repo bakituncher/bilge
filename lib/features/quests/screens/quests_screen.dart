@@ -489,8 +489,8 @@ class _SummaryBar extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children:[
-              Expanded(child: _summaryMetric(label: 'Görev', value: '$done/$total')),
-              Expanded(child: _summaryMetric(label: 'Plan %', value: '${(planRatio*100).round()}%')),
+              Expanded(child: _summaryMetric(label: 'Görev', value: '$done/$total')), 
+              Expanded(child: _summaryMetric(label: 'Plan %', value: '${(planRatio*100).round()}%')), 
               Expanded(child: _summaryMetric(label: 'Odak dk', value: focusMinutes.toString())),
               Expanded(child: _summaryMetric(label: 'Soru', value: practiceSolved.toString())),
             ]),
