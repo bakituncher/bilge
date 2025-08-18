@@ -116,16 +116,20 @@ class UserModel {
     final List<Quest> quests = [];
     if (data['activeDailyQuests'] is List) {
       for (var questData in (data['activeDailyQuests'] as List)) {
-        if (questData is Map<String, dynamic> && questData['id'] != null) {
-          quests.add(Quest.fromMap(questData, questData['id']));
+        if (questData is Map<String, dynamic>) {
+          final dynamic rawId = questData['qid'] ?? questData['id'];
+            if (rawId != null) {
+              quests.add(Quest.fromMap(questData, rawId));
+            }
         }
       }
     }
     Quest? weeklyCampaign;
     if (data['activeWeeklyCampaign'] is Map<String, dynamic>) {
       final campaignData = data['activeWeeklyCampaign'] as Map<String, dynamic>;
-      if (campaignData['id'] != null) {
-        weeklyCampaign = Quest.fromMap(campaignData, campaignData['id']);
+      final dynamic rawId = campaignData['qid'] ?? campaignData['id'];
+      if (rawId != null) {
+        weeklyCampaign = Quest.fromMap(campaignData, rawId);
       }
     }
 

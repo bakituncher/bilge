@@ -1,4 +1,5 @@
 // lib/features/quests/screens/quests_screen.dart
+import 'package:bilge_ai/core/analytics/analytics_logger.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/quests/logic/quest_service.dart'; // issue banner provider
@@ -19,6 +20,7 @@ class QuestsScreen extends ConsumerStatefulWidget {
     QuestCategory.engagement: 'Engagement: Uygulama içi etkileşim (istatistik inceleme, pomodoro vb.).',
     QuestCategory.consistency: 'Consistency: Düzen ve süreklilik (gün içi tekrar ziyaret, seri koruma).',
     QuestCategory.test_submission: 'Test: Deneme ekleme ve sonuç raporlama.',
+    QuestCategory.focus: 'Focus: Odak seansı dakikaları biriktirme / zincir ilerletme.', // eklendi
   };
   @override
   ConsumerState<QuestsScreen> createState() => _QuestsScreenState();
@@ -26,6 +28,7 @@ class QuestsScreen extends ConsumerStatefulWidget {
 
 class _QuestsScreenState extends ConsumerState<QuestsScreen> {
   late ConfettiController _confettiController;
+  final Set<String> _loggedViews = {}; // quest_view tekil log
 
   @override
   void initState() {
@@ -103,6 +106,23 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
     final completedQuests = quests.where((q) => q.isCompleted && q.type == QuestType.daily).toList();
     final activeQuests = quests.where((q) => !q.isCompleted && q.type == QuestType.daily).toList();
 
+    final completedIds = quests.where((q)=>q.isCompleted).map((q)=>q.id).toSet();
+    final allMap = { for (final q in quests) q.id : q }; // prerequisite başlıklarına hızlı erişim
+    // quest_view log (ilk kez görünen)
+    final analytics = ref.read(analyticsLoggerProvider);
+    for(final q in quests){
+      if(!_loggedViews.contains(q.id)){
+        _loggedViews.add(q.id);
+        if(user!=null){
+          analytics.logQuestEvent(userId: user.id, event: 'quest_view', data: {
+            'questId': q.id,
+            'category': q.category.name,
+            'difficulty': q.difficulty.name,
+          });
+        }
+      }
+    }
+
     final listChild = ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 120),
       children: [
@@ -111,16 +131,16 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
         _buildBannerIfNeeded(context, activeQuests, completedQuests),
         if (weeklyCampaigns.isNotEmpty) ...[
           const _SectionHeader(title: "Haftalık Sefer"),
-          ...weeklyCampaigns.map((quest) => QuestCard(quest: quest)),
+          ...weeklyCampaigns.map((quest) => QuestCard(quest: quest, completedIds: completedIds, userId: user?.id, allQuestsMap: allMap, ref: ref)),
           const SizedBox(height: 16),
         ],
         if (activeQuests.isNotEmpty) ...[
           const _SectionHeader(title: "Günlük Emirler"),
-          ...activeQuests.map((quest) => QuestCard(quest: quest)),
+          ...activeQuests.map((quest) => QuestCard(quest: quest, completedIds: completedIds, userId: user?.id, allQuestsMap: allMap, ref: ref)),
         ],
         if (completedQuests.isNotEmpty) ...[
           _SectionHeader(title: "Fethedilenler (${completedQuests.length})"),
-          ...completedQuests.map((quest) => QuestCard(quest: quest)),
+          ...completedQuests.map((quest) => QuestCard(quest: quest, completedIds: completedIds, userId: user?.id, allQuestsMap: allMap, ref: ref)),
         ],
         const SizedBox(height: 24),
       ],
@@ -167,7 +187,7 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
     final categories = active.map((e) => e.category).toSet();
     if (categories.length < 2) return const SizedBox.shrink();
     return Card(
-      color: AppTheme.primaryColor.withOpacity(0.35),
+      color: AppTheme.primaryColor.withValues(alpha:0.35),
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Row(
@@ -262,7 +282,11 @@ class _QuestsScreenState extends ConsumerState<QuestsScreen> {
 
 class QuestCard extends StatelessWidget {
   final Quest quest;
-  const QuestCard({super.key, required this.quest});
+  final Set<String> completedIds;
+  final String? userId;
+  final Map<String,Quest> allQuestsMap;
+  final WidgetRef ref; // eklendi
+  const QuestCard({super.key, required this.quest, required this.completedIds, this.userId, required this.allQuestsMap, required this.ref});
 
   IconData _getIconForCategory(QuestCategory category) {
     switch (category) {
@@ -271,12 +295,16 @@ class QuestCard extends StatelessWidget {
       case QuestCategory.engagement: return Icons.auto_awesome;
       case QuestCategory.consistency: return Icons.event_repeat_rounded;
       case QuestCategory.test_submission: return Icons.add_chart_rounded;
-      default: return Icons.shield_moon_rounded; // Beklenmedik durumlara karşı
+      case QuestCategory.focus: return Icons.center_focus_strong; // yeni
     }
   }
 
-  List<Widget> _buildPriorityBadges(Quest quest) {
+  List<Widget> _buildPriorityBadges(Quest quest, {bool locked=false, List<String> prereqNames = const []}) {
     final List<Widget> chips = [];
+    if (locked) {
+      final label = prereqNames.isEmpty ? 'Önkoşul' : 'Önkoşul: ' + prereqNames.take(2).join(', ');
+      chips.add(_badge(label, Icons.lock_clock, Colors.deepPurpleAccent));
+    }
     bool isHighValue = quest.reward >= 90 || quest.tags.contains('high_value');
     if (isHighValue) chips.add(_badge('Öncelik', Icons.flash_on, Colors.amber));
     if (quest.tags.contains('weakness')) chips.add(_badge('Zayıf Nokta', Icons.warning_amber, Colors.redAccent));
@@ -284,6 +312,7 @@ class QuestCard extends StatelessWidget {
     if (quest.tags.contains('chain')) chips.add(_badge('Zincir', Icons.link, Colors.tealAccent));
     if (quest.tags.contains('retention')) chips.add(_badge('Geri Dönüş', Icons.refresh, Colors.orangeAccent));
     if (quest.tags.contains('focus')) chips.add(_badge('Odak', Icons.center_focus_strong, Colors.cyanAccent));
+    if (quest.tags.contains('plan')) chips.add(_badge('Plan', Icons.schedule, Colors.blueGrey));
     return chips;
   }
 
@@ -291,7 +320,7 @@ class QuestCard extends StatelessWidget {
     return Chip(
       label: Text(text),
       avatar: Icon(icon, size: 16, color: AppTheme.primaryColor),
-      backgroundColor: color.withOpacity(0.85),
+      backgroundColor: color.withValues(alpha:0.85),
       labelStyle: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryColor),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       visualDensity: VisualDensity.compact,
@@ -299,21 +328,21 @@ class QuestCard extends StatelessWidget {
   }
 
   Widget _buildChainSegments(Quest quest) {
-    if (!quest.id.startsWith('chain_focus_')) return const SizedBox.shrink();
-    final steps = ['chain_focus_1','chain_focus_2','chain_focus_3'];
-    int currentIndex = steps.indexOf(quest.id);
+    // Yeni zincir meta desteği: chainId & chainStep & chainLength
+    final chainId = quest.chainId;
+    if (chainId == null || quest.chainStep == null || quest.chainLength == null) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top:6.0),
       child: Row(
-        children: List.generate(steps.length, (i) {
-          final active = i <= currentIndex && quest.isCompleted ? true : i < currentIndex;
+        children: List.generate(quest.chainLength!, (i) {
+          final active = (quest.chainStep != null && i < (quest.chainStep!));
           return Expanded(
             child: AnimatedContainer(
               duration: 300.ms,
               margin: EdgeInsets.symmetric(horizontal: i==1?4:2),
               height: 6,
               decoration: BoxDecoration(
-                color: active ? AppTheme.secondaryColor : AppTheme.lightSurfaceColor.withOpacity(0.3),
+                color: active ? AppTheme.secondaryColor : AppTheme.lightSurfaceColor.withValues(alpha:0.3),
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -327,108 +356,131 @@ class QuestCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isCompleted = quest.isCompleted;
     final progress = quest.goalValue > 0 ? (quest.currentProgress / quest.goalValue).clamp(0.0, 1.0) : 1.0;
+    final locked = !isCompleted && quest.prerequisiteIds.isNotEmpty && !quest.prerequisiteIds.every((id)=>completedIds.contains(id));
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       clipBehavior: Clip.antiAlias,
-      color: isCompleted ? AppTheme.cardColor.withOpacity(0.5) : AppTheme.cardColor,
+      color: isCompleted ? AppTheme.cardColor.withValues(alpha: 0.5) : AppTheme.cardColor,
       child: InkWell(
-        // Kullanıcıyı görevi tamamlayabileceği ekrana yönlendir.
-        onTap: isCompleted ? null : () => context.go(quest.actionRoute),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        onTap: (isCompleted || locked) ? (){
+          if(locked){
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Önce önkoşul görev(ler)ini tamamla')));
+          }
+        } : () {
+          if(userId!=null){
+            final logger = ref.read(analyticsLoggerProvider);
+            logger.logQuestEvent(userId: userId!, event: 'quest_tap', data: {
+              'questId': quest.id,
+              'category': quest.category.name,
+            });
+          }
+          context.go(quest.actionRoute);
+        },
+        child: Stack(
+          children:[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    backgroundColor: isCompleted ? AppTheme.successColor.withOpacity(0.2) : AppTheme.secondaryColor.withOpacity(0.2),
-                    child: Icon(
-                      _getIconForCategory(quest.category),
-                      color: isCompleted ? AppTheme.successColor : AppTheme.secondaryColor,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(quest.title, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: isCompleted ? AppTheme.secondaryTextColor : Colors.white)),
-                        const SizedBox(height: 4),
-                        Text(quest.description, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: [
-                  ..._buildPriorityBadges(quest),
-                  if (quest.id.startsWith('schedule_')) Chip(
-                    label: const Text('Plan'),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: Colors.blueGrey.withOpacity(0.3),
-                    labelStyle: const TextStyle(fontSize: 12),
-                  ),
-                  Chip(
-                    avatar: const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
-                    label: Text('+${quest.reward} BP'),
-                    visualDensity: VisualDensity.compact,
-                    backgroundColor: AppTheme.primaryColor.withOpacity(0.4),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              if (!isCompleted)
-                Row(
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: LinearProgressIndicator(
-                          value: progress,
-                          minHeight: 8,
-                          backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.3),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondaryColor),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CircleAvatar(
+                        backgroundColor: isCompleted ? AppTheme.successColor.withValues(alpha:0.2) : AppTheme.secondaryColor.withValues(alpha:0.2),
+                        child: Icon(
+                          _getIconForCategory(quest.category),
+                          color: isCompleted ? AppTheme.successColor : AppTheme.secondaryColor,
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text("${quest.currentProgress} / ${quest.goalValue}", style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  if (isCompleted)
-                    Row(
-                      children: const [
-                        Text("Fethedildi!", style: TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.bold)),
-                        SizedBox(width: 4),
-                        Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 20)
-                      ],
-                    ).animate().fadeIn().scale(delay: 150.ms, curve: Curves.easeOutBack),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(quest.title, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: isCompleted ? AppTheme.secondaryTextColor : Colors.white)),
+                            const SizedBox(height: 4),
+                            Text(quest.description, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      ..._buildPriorityBadges(quest, locked: locked, prereqNames: quest.prerequisiteIds.map((id)=> allQuestsMap[id]?.title ?? id).toList()),
+                      if (quest.id.startsWith('schedule_')) Chip(
+                        label: const Text('Plan'),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: Colors.blueGrey.withValues(alpha:0.3),
+                        labelStyle: const TextStyle(fontSize: 12),
+                      ),
+                      Chip(
+                        avatar: const Icon(Icons.star_rounded, color: Colors.amber, size: 16),
+                        label: Text('+${quest.reward} BP'),
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: AppTheme.primaryColor.withValues(alpha:0.4),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   if (!isCompleted)
-                    const Row(
+                    Row(
                       children: [
-                        Text("Yola Koyul", style: TextStyle(color: AppTheme.secondaryTextColor)),
-                        SizedBox(width: 4),
-                        Icon(Icons.arrow_forward, color: AppTheme.secondaryTextColor, size: 16),
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: progress,
+                              minHeight: 8,
+                              backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha:0.3),
+                              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondaryColor),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text("${quest.currentProgress} / ${quest.goalValue}", style: const TextStyle(fontWeight: FontWeight.bold)),
                       ],
-                    )
+                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (isCompleted)
+                        Row(
+                          children: const [
+                            Text("Fethedildi!", style: TextStyle(color: AppTheme.successColor, fontWeight: FontWeight.bold)),
+                            SizedBox(width: 4),
+                            Icon(Icons.check_circle_rounded, color: AppTheme.successColor, size: 20)
+                          ],
+                        ).animate().fadeIn().scale(delay: 150.ms, curve: Curves.easeOutBack),
+                      if (!isCompleted)
+                        const Row(
+                          children: [
+                            Text("Yola Koyul", style: TextStyle(color: AppTheme.secondaryTextColor)),
+                            SizedBox(width: 4),
+                            Icon(Icons.arrow_forward, color: AppTheme.secondaryTextColor, size: 16),
+                          ],
+                        )
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  _QuestHintLine(quest: quest),
+                  _buildChainSegments(quest),
                 ],
               ),
-              const SizedBox(height: 4),
-              _QuestHintLine(quest: quest),
-              _buildChainSegments(quest),
-            ],
-          ),
+            ),
+            if(locked) Positioned.fill(
+              child: Container(
+                color: Colors.black.withValues(alpha:0.45),
+                child: const Center(child: Icon(Icons.lock, color: Colors.white70, size: 40)),
+              ),
+            )
+          ],
         ),
       ),
     );
@@ -441,7 +493,7 @@ class _IssueBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: AppTheme.accentColor.withOpacity(0.15),
+      color: AppTheme.accentColor.withValues(alpha:0.15),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Row(
@@ -498,7 +550,7 @@ class _SummaryBar extends ConsumerWidget {
             LinearProgressIndicator(
               value: total==0?0: done/total,
               minHeight: 6,
-              backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.25),
+              backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha:0.25),
               valueColor: const AlwaysStoppedAnimation(AppTheme.secondaryColor),
             ),
           ],

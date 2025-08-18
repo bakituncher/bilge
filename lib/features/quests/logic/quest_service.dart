@@ -125,7 +125,7 @@ class QuestService {
       if (triggers.containsKey('highYesterdayPlanRatio') && triggers['highYesterdayPlanRatio']==true && !(yesterdayRatio >= 0.85)) { score = 0; }
       if (triggers.containsKey('afterQuest')) {
         final prevId = triggers['afterQuest'];
-        final prevQuest = user.activeDailyQuests.firstWhere((q)=>q.id==prevId, orElse: ()=>Quest(id:'',title:'',description:'',type:QuestType.daily,category:QuestCategory.engagement,progressType:QuestProgressType.increment,reward:0,goalValue:1,actionRoute:'/'));
+        final prevQuest = user.activeDailyQuests.firstWhere((q)=>q.id==prevId, orElse: ()=>Quest(id:'',title:'',description:'',type:QuestType.daily,category:QuestCategory.engagement,progressType:QuestProgressType.increment,reward:0,goalValue:1,actionRoute:'/', route: QuestRoute.unknown));
         if (prevQuest.id.isEmpty || !prevQuest.isCompleted) { score = 0; }
       }
       if (triggers.containsKey('comboEligible') && triggers['comboEligible']==true && !(todayCompletedPlanTasks >= 2)) { score = 0; }
@@ -203,7 +203,7 @@ class QuestService {
       // Dinlenme günü ise kullanıcıyı yine de etkileşime sokacak hafif bir görev enjekte et
       if (todayPlan.schedule.isEmpty) {
         if (!quests.any((q) => q.id == 'schedule_${dateKey}_rest')) {
-          quests.add(Quest(
+          quests.add(_autoTagQuest(Quest(
             id: 'schedule_${dateKey}_rest',
             title: 'Zihinsel Bakım Ritüeli',
             description: 'Dinlenme gününde 10 dakikalık kısa bir odak/plan gözden geçirme seansı yap.',
@@ -213,7 +213,8 @@ class QuestService {
             reward: 35,
             goalValue: 1,
             actionRoute: '/home/pomodoro',
-          ));
+            route: questRouteFromPath('/home/pomodoro'),
+          )));
         }
         return; // Dinlenme gününde ekstra program görevi yok.
       }
@@ -229,7 +230,7 @@ class QuestService {
         bool isTestLike = lower.contains('deneme') || lower.contains('test') || lower.contains('sim��lasyon');
 
         if (isTestLike && !hasTestQuestAlready) {
-          quests.add(Quest(
+          quests.add(_autoTagQuest(Quest(
             id: questId,
             title: 'Fetih: Günün Denemesi',
             description: 'Programındaki denemeyi çöz ve sonucunu ekleyerek kaleyi raporla.',
@@ -239,14 +240,16 @@ class QuestService {
             reward: 160,
             goalValue: 1,
             actionRoute: '/home/add-test',
-          ));
+            route: questRouteFromPath('/home/add-test'),
+          )));
           hasTestQuestAlready = true;
           continue;
         }
 
         final category = _mapScheduleTypeToCategory(item.type);
         final reward = _estimateReward(item, category);
-        quests.add(Quest(
+        final inferred = _inferRoute(item, isTestLike: isTestLike);
+        quests.add(_autoTagQuest(Quest(
           id: questId,
           title: _buildDynamicTitle(item),
           description: 'Bugünkü planındaki "${item.activity}" görevini tamamla.',
@@ -255,8 +258,9 @@ class QuestService {
           progressType: QuestProgressType.increment,
           reward: reward,
           goalValue: 1,
-          actionRoute: _inferRoute(item, isTestLike: isTestLike),
-        ));
+          actionRoute: inferred,
+          route: questRouteFromPath(inferred),
+        )));
       }
     } catch (e, st) {
       if (kDebugMode) {
@@ -292,7 +296,17 @@ class QuestService {
           currentProgress: q.currentProgress,
           isCompleted: q.isCompleted,
           actionRoute: q.actionRoute,
+          route: q.route,
           completionDate: q.completionDate,
+          tags: q.tags,
+          difficulty: q.difficulty,
+          estimatedMinutes: q.estimatedMinutes,
+          prerequisiteIds: q.prerequisiteIds,
+          conceptTags: q.conceptTags,
+          learningObjectiveId: q.learningObjectiveId,
+          chainId: q.chainId,
+          chainStep: q.chainStep,
+          chainLength: q.chainLength,
         );
       }
     }
@@ -320,7 +334,17 @@ class QuestService {
           currentProgress: q.currentProgress,
           isCompleted: q.isCompleted,
           actionRoute: q.actionRoute,
+          route: q.route,
           completionDate: q.completionDate,
+          tags: q.tags,
+          difficulty: q.difficulty,
+          estimatedMinutes: q.estimatedMinutes,
+          prerequisiteIds: q.prerequisiteIds,
+          conceptTags: q.conceptTags,
+          learningObjectiveId: q.learningObjectiveId,
+          chainId: q.chainId,
+          chainStep: q.chainStep,
+          chainLength: q.chainLength,
         );
       }
     }
@@ -344,7 +368,7 @@ class QuestService {
         ? rawTags.map((e) => e.toString().split('.').last).toList()
         : const [];
 
-    return Quest(
+    final quest = Quest(
       id: template['id'] ?? const Uuid().v4(),
       title: title,
       description: description,
@@ -354,8 +378,10 @@ class QuestService {
       reward: template['reward'] ?? 10,
       goalValue: template['goalValue'] ?? 1,
       actionRoute: actionRoute,
+      route: questRouteFromPath(actionRoute),
       tags: tagList,
     );
+    return _autoTagQuest(quest);
   }
 
   QuestCategory _mapScheduleTypeToCategory(String type) {
@@ -503,6 +529,19 @@ class QuestService {
       };
       await _ref.read(firestoreServiceProvider).usersCollection.doc(user.id).update({'lastWeeklyReport': report});
     } catch(_) {}
+  }
+
+  Quest _autoTagQuest(Quest q) {
+    final newTags = Set<String>.from(q.tags);
+    if (q.reward >= 120) newTags.add('high_value');
+    if (q.difficulty == QuestDifficulty.hard || q.difficulty == QuestDifficulty.epic) newTags.add('high_value');
+    if (q.reward < 30 && q.goalValue <= 2) newTags.add('quick_win');
+    if ((q.estimatedMinutes != null && q.estimatedMinutes! <= 5) || (q.goalValue == 1 && q.reward <= 25)) newTags.add('micro');
+    if (q.category == QuestCategory.focus) newTags.add('focus');
+    // plan programı görevleri
+    if (q.id.startsWith('schedule_')) newTags.add('plan');
+    if (newTags.difference(q.tags.toSet()).isEmpty) return q; // değişiklik yok
+    return q.copyWith(tags: newTags.toList());
   }
 }
 
