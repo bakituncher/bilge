@@ -24,6 +24,7 @@ class Quest {
   final bool isCompleted;
   final String actionRoute;
   final Timestamp? completionDate;
+  final List<String> tags; // yeni: öncelik/etiket göstergeleri
 
   Quest({
     required this.id,
@@ -38,6 +39,7 @@ class Quest {
     this.isCompleted = false,
     required this.actionRoute,
     this.completionDate,
+    this.tags = const [],
   });
 
   factory Quest.fromMap(Map<String, dynamic> map, String id) {
@@ -54,6 +56,7 @@ class Quest {
       isCompleted: map['isCompleted'] ?? false,
       actionRoute: map['actionRoute'] ?? '/home',
       completionDate: map['completionDate'] as Timestamp?,
+      tags: (map['tags'] is List) ? List<String>.from(map['tags']) : const [],
     );
   }
 
@@ -71,6 +74,7 @@ class Quest {
       'isCompleted': isCompleted,
       'actionRoute': actionRoute,
       'completionDate': completionDate,
+      'tags': tags,
     };
   }
 
@@ -78,6 +82,7 @@ class Quest {
     int? currentProgress,
     bool? isCompleted,
     Timestamp? completionDate,
+    List<String>? tags,
   }) {
     return Quest(
       id: id,
@@ -92,6 +97,7 @@ class Quest {
       isCompleted: isCompleted ?? this.isCompleted,
       actionRoute: actionRoute,
       completionDate: completionDate ?? this.completionDate,
+      tags: tags ?? this.tags,
     );
   }
 }

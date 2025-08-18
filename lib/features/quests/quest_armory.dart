@@ -16,6 +16,12 @@ enum QuestTag {
   variety, // Çeşitlilik sunan
   focus, // Odaklanma gerektiren
   analysis, // Analiz ve raporlama odaklı
+  // YENİ ETİKETLER
+  adaptive, // Kullanıcı performansına göre ölçeklenen
+  chain,    // Zincir / ardışık görev seti
+  retention, // Uygulamaya geri dönüş / alışkanlık
+  celebration, // Kutlama / ödül anı
+  micro, // Çok küçük çaba (1-2 dk)
 }
 
 final List<Map<String, dynamic>> questArmory = [
@@ -277,5 +283,136 @@ final List<Map<String, dynamic>> questArmory = [
     'description': 'Bu hafta toplam 5 saat (300 dakika) Pomodoro tekniği ile odaklanarak zihnini eğit.',
     'category': 'engagement', 'type': 'weekly', 'reward': 350, 'goalValue': 300,
     'actionRoute': '/home/pomodoro', 'tags': [QuestTag.high_value, QuestTag.focus],
+  },
+
+  // =======================================================================
+  // MOTİVASYON / ADAPTİF EKSTRA GÖREVLER (YENİ EKLENDİ)
+  // =======================================================================
+  {
+    'id': 'micro_01',
+    'title': 'Odak Ateşlemesi', // güncellendi (daha büyük görev)
+    'description': 'Arka arkaya 2 kısa odak turu tamamla (her biri en az 5 dk). Başlangıç kıvılcımını kalıcı odağa çevir.', // güncellendi
+    'category': 'engagement', 'reward': 22, 'goalValue': 2, 'actionRoute': '/home/pomodoro', // reward & goalValue büyütüldü
+    'tags': [QuestTag.micro, QuestTag.quick_win],
+  },
+  {
+    'id': 'micro_02',
+    'title': 'Hızlı Isınma Serisi', // güncellendi (tek soru kaldırıldı)
+    'description': 'Seçtiğin dersten 5 soruluk kısa bir ısınma seti çöz ve devamını tetikle.', // güncellendi
+    'category': 'practice', 'reward': 18, 'goalValue': 5, 'actionRoute': '/coach', // reward & goalValue güncellendi
+    'tags': [QuestTag.micro, QuestTag.quick_win],
+  },
+  {
+    'id': 'retention_01',
+    'title': 'Geri Dönüş Alevi',
+    'description': 'Dünde hiç giriş yapmadıysan bugün ilk görevi tamamlayarak dönüşünü taçlandır.',
+    'category': 'consistency', 'reward': 40, 'goalValue': 1, 'actionRoute': '/home',
+    'tags': [QuestTag.retention], 'triggerConditions': {'wasInactiveYesterday': true}
+  },
+  {
+    'id': 'adaptive_01',
+    'title': 'Momentum Koruması',
+    'description': 'Dünkü plan ilerlemen düşüktü. Bugün planındaki ilk 2 görevi tamamla ve ivmeyi yakala.',
+    'category': 'study', 'reward': 70, 'goalValue': 2, 'actionRoute': '/home/weekly-plan',
+    'tags': [QuestTag.adaptive, QuestTag.core], 'triggerConditions': {'lowYesterdayPlanRatio': true}
+  },
+  {
+    'id': 'adaptive_02',
+    'title': 'Zirve Güçlendirmesi',
+    'description': 'Dün yüksek plan uyumu yakaladın. Farklı 2 dersten toplam 30 soru çözerek ivmeyi kalıcılaştır.',
+    'category': 'practice', 'reward': 90, 'goalValue': 30, 'actionRoute': '/coach',
+    'tags': [QuestTag.adaptive, QuestTag.variety], 'triggerConditions': {'highYesterdayPlanRatio': true}
+  },
+  // =======================================================================
+  // ZİNCİR (CHAIN) MİNİ SERİ GÖREVLERİ (GÜNLÜK PROGRESSION)
+  // =======================================================================
+  {
+    'id': 'chain_focus_1',
+    'title': 'Odak Zinciri I',
+    'description': 'Aralıksız 1 pomodoro odak turu tamamla. Zinciri başlat.',
+    'category': 'engagement', 'reward': 25, 'goalValue': 1, 'actionRoute': '/home/pomodoro',
+    'tags': [QuestTag.chain, QuestTag.focus],
+  },
+  {
+    'id': 'chain_focus_2',
+    'title': 'Odak Zinciri II',
+    'description': 'Bugün toplam 2 odak turuna ulaş. Disiplini artır.',
+    'category': 'engagement', 'reward': 35, 'goalValue': 2, 'actionRoute': '/home/pomodoro',
+    'tags': [QuestTag.chain, QuestTag.focus], 'triggerConditions': {'afterQuest': 'chain_focus_1'}
+  },
+  {
+    'id': 'chain_focus_3',
+    'title': 'Odak Zinciri III',
+    'description': '3 odak turu ile zihinsel dayanıklılığını mühürle.',
+    'category': 'engagement', 'reward': 55, 'goalValue': 3, 'actionRoute': '/home/pomodoro',
+    'tags': [QuestTag.chain, QuestTag.focus], 'triggerConditions': {'afterQuest': 'chain_focus_2'}
+  },
+  // =======================================================================
+  // PLAN SİNERJİSİ / KOMBİNE GÖREVLER
+  // =======================================================================
+  {
+    'id': 'combo_01',
+    'title': 'Çift Darbe',
+    'description': 'Arka arkaya (30 dk içinde) iki farklı plan görevini tamamla.',
+    'category': 'study', 'reward': 65, 'goalValue': 2, 'actionRoute': '/home/weekly-plan',
+    'tags': [QuestTag.high_value, QuestTag.core], 'triggerConditions': {'hasWeeklyPlan': true}
+  },
+  {
+    'id': 'combo_02',
+    'title': 'Üçlü Kombo',
+    'description': '30 dk içinde üç farklı plan görevini zincirle ve hızını göster.',
+    'category': 'study', 'reward': 120, 'goalValue': 3, 'actionRoute': '/home/weekly-plan',
+    'tags': [QuestTag.high_value, QuestTag.core], 'triggerConditions': {'comboEligible': true}
+  },
+  // =======================================================================
+  // YANSITMA / FARKINDALIK GÖREVLERİ
+  // =======================================================================
+  {
+    'id': 'reflection_01',
+    'title': 'Mini Öz Değerlendirme',
+    'description': 'Bugünkü çalışmanda seni en çok yavaşlatan şeyi not et (AI not ekranı).',
+    'category': 'engagement', 'reward': 20, 'goalValue': 1, 'actionRoute': '/ai-hub/motivation-chat',
+    'tags': [QuestTag.analysis, QuestTag.micro], 'triggerConditions': {'reflectionNotDone': true}
+  },
+  {
+    'id': 'reflection_02',
+    'title': 'Güç Noktası Güncellemesi',
+    'description': 'Güçlü olduğun bir konuyu seç ve neden güçlü olduğunu 1 cümle ile kaydet.',
+    'category': 'engagement', 'reward': 25, 'goalValue': 1, 'actionRoute': '/coach',
+    'tags': [QuestTag.strength, QuestTag.analysis],
+  },
+  // =======================================================================
+  // KUTLAMA / SÜRPRİZ
+  // =======================================================================
+  {
+    'id': 'celebration_01',
+    'title': 'Gizli Sandık',
+    'description': 'Bugün 4 farklı kategori görevi tamamlarsan ek ödül kazan (otomatik açılır).',
+    'category': 'engagement', 'reward': 90, 'goalValue': 4, 'actionRoute': '/home/quests',
+    'tags': [QuestTag.celebration, QuestTag.variety], 'triggerConditions': {'multiCategoryDay': true}
+  },
+  {
+    'id': 'celebration_02',
+    'title': 'Seri Koruyucu',
+    'description': 'Serin tehlikede! Gün bitmeden 1 plan görevi daha tamamla ve seriyi kurtar.',
+    'category': 'consistency', 'reward': 55, 'goalValue': 1, 'actionRoute': '/home/weekly-plan',
+    'tags': [QuestTag.retention, QuestTag.special], 'triggerConditions': {'streakAtRisk': true}
+  },
+  // =======================================================================
+  // ESNEK / ADAPTİF SORU HACMİ (örn. zorluk ölçekli)
+  // =======================================================================
+  {
+    'id': 'adaptive_practice_01',
+    'title': 'Akış Modu: Esnek Soru Seti',
+    'description': 'Zayıf dersinde ( {subject} ) en az 15 soru çöz. İyi hissediyorsan 30+ yap ve gizli bonusu tetikle.',
+    'category': 'practice', 'reward': 55, 'goalValue': 15, 'actionRoute': '/coach',
+    'tags': [QuestTag.adaptive, QuestTag.weakness], 'triggerConditions': {'hasWeakSubject': true}
+  },
+  {
+    'id': 'adaptive_focus_01',
+    'title': 'Esnek Odak Kalkanı',
+    'description': 'En az 20 dk odak seansı tamamla. 40 dk üzerine çıkarsan ekstra ödül (otomatik) alırsın.',
+    'category': 'engagement', 'reward': 45, 'goalValue': 20, 'actionRoute': '/home/pomodoro',
+    'tags': [QuestTag.adaptive, QuestTag.focus],
   },
 ];

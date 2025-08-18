@@ -7,6 +7,7 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
+import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
 
 final _selectedDayProvider = StateProvider.autoDispose<int>((ref) {
   int todayIndex = DateTime.now().weekday - 1;
@@ -164,13 +165,23 @@ class _TaskListView extends ConsumerWidget {
           isCompleted: isCompleted,
           isFirst: index == 0,
           isLast: index == dailyPlan.schedule.length - 1,
-          onToggle: () {
+          dateKey: dateKey,
+          onToggle: () async {
             ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
               userId: userId,
               dateKey: dateKey,
               task: taskIdentifier,
               isCompleted: !isCompleted,
             );
+            if(!isCompleted) {
+              final questId = 'schedule_${dateKey}_${taskIdentifier.hashCode}';
+              await ref.read(questNotifierProvider.notifier).updateQuestProgressById(questId);
+              if(context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Plan görevi fethedildi: ${item.activity}')),
+                );
+              }
+            }
           },
         ).animate().fadeIn(delay: (100 * index).ms).slideX(begin: 0.5, curve: Curves.easeOutCubic);
       },
@@ -184,6 +195,7 @@ class _TaskTimelineTile extends StatelessWidget {
   final bool isFirst;
   final bool isLast;
   final VoidCallback onToggle;
+  final String dateKey; // yeni
 
   const _TaskTimelineTile({
     required this.item,
@@ -191,6 +203,7 @@ class _TaskTimelineTile extends StatelessWidget {
     required this.isFirst,
     required this.isLast,
     required this.onToggle,
+    required this.dateKey,
   });
 
   IconData _getIconForTaskType(String type) {

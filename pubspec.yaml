@@ -43,6 +43,7 @@ dependencies:
 
   # BENZERSİZ ID İÇİN EKLENDİ
   uuid: ^4.4.0
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

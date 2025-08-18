@@ -34,6 +34,13 @@ class UserModel {
   final List<Timestamp> dailyVisits;
   final String? avatarStyle;
   final String? avatarSeed;
+  final String? dailyQuestPlanSignature; // YENİ: bugünkü plan imzası
+  final double? lastScheduleCompletionRatio; // YENİ: dünkü program tamamlama oranı
+  final Map<String, List<int>> dailyPlanBonuses; // YENİ: tarih -> verilen bonus eşikleri
+  final int dailyScheduleStreak; // YENİ: art arda tamamlanan plan görevi sayısı (bugün)
+  final Map<String,dynamic>? lastWeeklyReport; // YENİ: geçen hafta raporu
+  final double? dynamicDifficultyFactorToday; // YENİ: bugünkü dinamik zorluk çarpanı
+  final Timestamp? weeklyPlanCompletedAt; // YENİ: haftalık plan tamamlanma anı
 
   UserModel({
     required this.id,
@@ -65,6 +72,13 @@ class UserModel {
     this.dailyVisits = const [], // YENİ
     this.avatarStyle, // YENİ
     this.avatarSeed, // YENİ
+    this.dailyQuestPlanSignature,
+    this.lastScheduleCompletionRatio,
+    this.dailyPlanBonuses = const {},
+    this.dailyScheduleStreak = 0,
+    this.lastWeeklyReport,
+    this.dynamicDifficultyFactorToday,
+    this.weeklyPlanCompletedAt,
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -145,6 +159,15 @@ class UserModel {
       dailyVisits: List<Timestamp>.from(data['dailyVisits'] ?? []), // YENİ
       avatarStyle: data['avatarStyle'],
       avatarSeed: data['avatarSeed'],
+      dailyQuestPlanSignature: data['dailyQuestPlanSignature'],
+      lastScheduleCompletionRatio: (data['lastScheduleCompletionRatio'] as num?)?.toDouble(),
+      dailyPlanBonuses: Map<String, List<int>>.from(
+        (data['dailyPlanBonuses'] ?? {}).map((k, v) => MapEntry(k, List<int>.from(v))),
+      ),
+      dailyScheduleStreak: data['dailyScheduleStreak'] ?? 0,
+      lastWeeklyReport: data['lastWeeklyReport'] as Map<String,dynamic>?,
+      dynamicDifficultyFactorToday: (data['dynamicDifficultyFactorToday'] as num?)?.toDouble(),
+      weeklyPlanCompletedAt: data['weeklyPlanCompletedAt'] as Timestamp?,
     );
   }
 
@@ -176,9 +199,16 @@ class UserModel {
       'activeWeeklyCampaign': activeWeeklyCampaign?.toMap(),
       'lastQuestRefreshDate': lastQuestRefreshDate,
       'unlockedAchievements': unlockedAchievements,
-      'dailyVisits': dailyVisits, // YENİ
+      'dailyVisits': dailyVisits, // YEN��
       'avatarStyle': avatarStyle,
       'avatarSeed': avatarSeed,
+      'dailyQuestPlanSignature': dailyQuestPlanSignature,
+      'lastScheduleCompletionRatio': lastScheduleCompletionRatio,
+      'dailyPlanBonuses': dailyPlanBonuses,
+      'dailyScheduleStreak': dailyScheduleStreak,
+      'lastWeeklyReport': lastWeeklyReport,
+      'dynamicDifficultyFactorToday': dynamicDifficultyFactorToday,
+      'weeklyPlanCompletedAt': weeklyPlanCompletedAt,
     };
   }
 }

@@ -99,5 +99,14 @@ class AppTheme {
       color: cardColor,
       elevation: 0,
     ),
+    snackBarTheme: SnackBarThemeData(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: cardColor.withOpacity(0.95),
+      contentTextStyle: GoogleFonts.montserrat(color: textColor, fontWeight: FontWeight.w600),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18), side: BorderSide(color: lightSurfaceColor.withOpacity(0.4))),
+      elevation: 6,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      actionTextColor: secondaryColor,
+    ),
   );
 }

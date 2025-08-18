@@ -7,6 +7,7 @@ import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/features/weakness_workshop/models/saved_workshop_model.dart';
+import 'package:bilge_ai/data/models/plan_model.dart'; // WeeklyPlan & DailyPlan için eklendi
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
@@ -169,12 +170,96 @@ class FirestoreService {
     final userDocRef = usersCollection.doc(userId);
     final fieldPath = 'completedDailyTasks.$dateKey';
 
-    final batch = _firestore.batch();
-    batch.update(userDocRef, {
-      fieldPath: isCompleted ? FieldValue.arrayUnion([task]) : FieldValue.arrayRemove([task]),
+    await _firestore.runTransaction((txn) async {
+      final snap = await txn.get(userDocRef);
+      if(!snap.exists) return;
+      final user = UserModel.fromSnapshot(snap as DocumentSnapshot<Map<String,dynamic>>);
+
+      // Temel tamamlama / geri alma
+      final updates = <String,dynamic>{};
+      if(isCompleted) {
+        updates[fieldPath] = FieldValue.arrayUnion([task]);
+        updates['engagementScore'] = FieldValue.increment(10);
+      } else {
+        updates[fieldPath] = FieldValue.arrayRemove([task]);
+        updates['engagementScore'] = FieldValue.increment(-10);
+      }
+
+      // Tarih hesapları
+      final today = DateTime.now();
+      final todayKey = '${today.year.toString().padLeft(4,'0')}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
+      // Gün değiştiyse momentum sıfırla
+      if(dateKey != todayKey && isCompleted) {
+        updates['dailyScheduleStreak'] = 0;
+      }
+
+      // Momentum ve bonuslar sadece tamamlanırken
+      if(isCompleted) {
+        // Günlük momentum
+        int currentStreak = user.dailyScheduleStreak;
+        currentStreak += 1;
+        updates['dailyScheduleStreak'] = currentStreak;
+
+        // Momentum eşikleri (3,6,9)
+        const momentumThresholds = [3,6,9];
+        if(momentumThresholds.contains(currentStreak)) {
+          final bonus = 15; // sabit mini bonus
+          updates['engagementScore'] = FieldValue.increment(bonus);
+        }
+
+        // Gün içi plan görevi sayıları
+        final completedList = List<String>.from(user.completedDailyTasks[dateKey] ?? []);
+        final projectedCompleted = {...completedList}.length + 1; // bu görev ekleniyor
+
+        // Günün toplam plan görevi sayısı -> weeklyPlan üzerinden bulunur
+        int totalForDay = 0;
+        if(user.weeklyPlan != null) {
+          try {
+            final weekly = WeeklyPlan.fromJson(user.weeklyPlan!);
+            final dp = weekly.plan.firstWhere((d) => d.day == _weekdayName(DateTime.parse(dateKey).weekday), orElse: () => DailyPlan(day: '', schedule: []));
+            totalForDay = dp.schedule.length;
+          } catch(_){ totalForDay = 0; }
+        }
+        if(totalForDay > 0) {
+          final ratio = projectedCompleted / totalForDay;
+          // Bonus eşikleri %60 %80 %100
+            final thresholds = [0.6,0.8,1.0];
+            final givenMap = Map<String,List<int>>.from(user.dailyPlanBonuses);
+            final givenList = List<int>.from(givenMap[dateKey] ?? []);
+            for(int i=0;i<thresholds.length;i++) {
+              if(ratio >= thresholds[i] && !givenList.contains(i)) {
+                int extra = (i==0?25:(i==1?35:60));
+                updates['engagementScore'] = FieldValue.increment(extra);
+                givenList.add(i);
+              }
+            }
+            updates['dailyPlanBonuses.$dateKey'] = givenList;
+        }
+      }
+
+      // Önceki gün oranını hesaplarken (günün ilk tamamlamasıysa) dünün durumu finalize et
+      if(isCompleted && dateKey == todayKey) {
+        final yesterday = today.subtract(const Duration(days:1));
+        final yKey = '${yesterday.year.toString().padLeft(4,'0')}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
+        if(user.lastScheduleCompletionRatio == null || (user.completedDailyTasks[yKey]??[]).isNotEmpty) {
+          // hesapla
+          if(user.weeklyPlan != null) {
+            try {
+              final weekly = WeeklyPlan.fromJson(user.weeklyPlan!);
+              final dpY = weekly.plan.firstWhere((d) => d.day == _weekdayName(yesterday.weekday), orElse: () => DailyPlan(day: '', schedule: []));
+              final totalY = dpY.schedule.length;
+              if(totalY>0) {
+                final compY = (user.completedDailyTasks[yKey]??[]).length;
+                final ratioY = compY/totalY;
+                updates['lastScheduleCompletionRatio'] = ratioY;
+              }
+            } catch(_){ }
+          }
+        }
+      }
+
+      txn.update(userDocRef, updates);
     });
-    batch.update(userDocRef, {'engagementScore': FieldValue.increment(isCompleted ? 10 : -10)});
-    await batch.commit();
   }
 
   Future<void> updateWeeklyAvailability({
@@ -249,5 +334,10 @@ class FirestoreService {
     }
 
     await batch.commit();
+  }
+
+  String _weekdayName(int weekday) {
+    const list = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'];
+    return list[(weekday-1).clamp(0,6)];
   }
 }

@@ -12,6 +12,9 @@ import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
 import 'package:bilge_ai/features/quests/logic/quest_completion_notifier.dart';
 import 'package:bilge_ai/shared/widgets/quest_completion_toast.dart';
+import 'package:bilge_ai/data/models/plan_model.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart'; // eklendi
 
 class ScaffoldWithNavBar extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;
@@ -103,8 +106,19 @@ class ScaffoldWithNavBar extends ConsumerWidget {
             return Stack(
               children: [
                 Scaffold(
-                  resizeToAvoidBottomInset: false, // <--- EKlenen SATIR BU
-                  body: navigationShell,
+                  resizeToAvoidBottomInset: false, // <--- EKLENEN SATIR BU
+                  body: Builder(
+                    builder: (ctx){
+                      // Snackbar çakışmasını azalt: Görev tamam toast varsa yeni snackbar önce temizle
+                      final completedQuest = ref.watch(questCompletionProvider);
+                      if(completedQuest != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_){
+                          ScaffoldMessenger.of(ctx).clearSnackBars();
+                        });
+                      }
+                      return navigationShell;
+                    },
+                  ),
                   extendBody: true,
                   floatingActionButton: FloatingActionButton(
                     key: aiHubFabKey,
@@ -121,7 +135,7 @@ class ScaffoldWithNavBar extends ConsumerWidget {
                     notchMargin: 10.0,
                     padding: EdgeInsets.zero,
                     height: 70,
-                    color: AppTheme.cardColor.withOpacity(0.95),
+                    color: AppTheme.cardColor.withValues(alpha: 0.95),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
@@ -136,8 +150,6 @@ class ScaffoldWithNavBar extends ConsumerWidget {
                 ),
                 if (shouldShowTutorial)
                   TutorialOverlay(steps: tutorialSteps),
-
-                // Zafer Sancağı Widget'ı
                 if (completedQuest != null && !shouldShowTutorial)
                   Align(
                     alignment: Alignment.bottomCenter,
@@ -146,6 +158,17 @@ class ScaffoldWithNavBar extends ConsumerWidget {
                       child: QuestCompletionToast(completedQuest: completedQuest),
                     ),
                   ),
+                Consumer(builder: (context, r, _) {
+                  final showWeeklyPopup = r.watch(weeklyPlanCompletionProvider);
+                  if(!showWeeklyPopup) return const SizedBox.shrink();
+                  return _WeeklyPlanVictoryOverlay(onDismiss: () async {
+                    r.read(_weeklyPlanPopupShownProvider.notifier).state = true;
+                    final user = r.read(userProfileProvider).value;
+                    if(user!=null) {
+                      await r.read(firestoreServiceProvider).usersCollection.doc(user.id).update({'weeklyPlanCompletedAt': Timestamp.now()});
+                    }
+                  });
+                }),
               ],
             );
           }
@@ -160,8 +183,8 @@ class ScaffoldWithNavBar extends ConsumerWidget {
       icon: Icon(icon, color: isSelected ? AppTheme.secondaryColor : AppTheme.secondaryTextColor, size: 28),
       onPressed: () => _onTap(index, ref, steps),
       tooltip: label,
-      splashColor: AppTheme.secondaryColor.withOpacity(0.2),
-      highlightColor: AppTheme.secondaryColor.withOpacity(0.1),
+      splashColor: AppTheme.secondaryColor.withValues(alpha: 0.2),
+      highlightColor: AppTheme.secondaryColor.withValues(alpha: 0.1),
     );
   }
 
@@ -185,6 +208,104 @@ class ScaffoldWithNavBar extends ConsumerWidget {
     navigationShell.goBranch(
       index,
       initialLocation: index == navigationShell.currentIndex,
+    );
+  }
+}
+
+final _weeklyPlanPopupShownProvider = StateProvider<bool>((_) => false);
+final weeklyPlanCompletionProvider = Provider<bool>((ref){
+  final user = ref.watch(userProfileProvider).value;
+  if(user == null || user.weeklyPlan == null) return false;
+  final alreadyShown = ref.watch(_weeklyPlanPopupShownProvider);
+  if(alreadyShown) return false;
+  try {
+    final weekly = WeeklyPlan.fromJson(user.weeklyPlan!);
+    // Haftanın başlangıcı
+    DateTime startOfWeek(DateTime d)=> d.subtract(Duration(days: d.weekday-1));
+    final now = DateTime.now();
+    final thisWeekStart = startOfWeek(now);
+    final dateKeys = List.generate(7, (i){ final d = thisWeekStart.add(Duration(days:i)); return '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';});
+    int planned = 0; int completed = 0;
+    for(int i=0;i<weekly.plan.length;i++){
+      final dp = weekly.plan[i];
+      planned += dp.schedule.length;
+      final dk = dateKeys[i];
+      completed += (user.completedDailyTasks[dk]??[]).length;
+    }
+    if(planned>0 && completed>=planned) {
+      if(user.weeklyPlanCompletedAt == null) return true; // hiç kaydedilmemiş
+      // Eğer kaydedilen tarih bu haftadan değilse yine göster
+      final saved = user.weeklyPlanCompletedAt!.toDate();
+      if(startOfWeek(saved).isBefore(thisWeekStart)) return true;
+    }
+    return false;
+  } catch(_){ return false; }
+});
+
+class _WeeklyPlanVictoryOverlay extends StatelessWidget {
+  final VoidCallback onDismiss;
+  const _WeeklyPlanVictoryOverlay({required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: IgnorePointer(
+        ignoring: false,
+        child: AnimatedOpacity(
+          opacity: 1,
+            duration: const Duration(milliseconds: 300),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.black.withValues(alpha: 0.6), Colors.black.withValues(alpha: 0.85)],
+              ),
+            ),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28.0),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Material(
+                    color: AppTheme.cardColor.withValues(alpha: 0.95),
+                    elevation: 12,
+                    borderRadius: BorderRadius.circular(28),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.emoji_events_rounded, size: 72, color: AppTheme.secondaryColor)
+                              .animate().scale(duration: 600.ms, curve: Curves.elasticOut),
+                          const SizedBox(height: 16),
+                          Text('Haftalık Plan Tamamlandı!', textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),),
+                          const SizedBox(height: 12),
+                          Text('Planındaki tüm görevleri bitirdin. Stratejik disiplinin mükemmel! Yeni haftada sınırları daha da zorla.',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),),
+                          const SizedBox(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: onDismiss,
+                                icon: const Icon(Icons.check_circle_outline),
+                                label: const Text('Harika!'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

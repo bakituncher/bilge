@@ -8,6 +8,7 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
+import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
 
 // Bu kartın kendi içindeki günü yönetmesi için özel provider
 final _selectedDayProvider = StateProvider.autoDispose<int>((ref) {
@@ -26,7 +27,7 @@ class WeeklyPlanCard extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       elevation: 4,
-      shadowColor: AppTheme.primaryColor.withOpacity(0.2),
+      shadowColor: AppTheme.primaryColor.withValues(alpha: AppTheme.primaryColor.opacity * 0.2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: userId == null
@@ -64,15 +65,21 @@ class _PlanView extends ConsumerWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Column(
             children: [
-              Text('Haftalık Harekât', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              Text(
-                DateFormat.yMMMMd('tr').format(dateForTab),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Haftalık Harekât', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(
+                    DateFormat.yMMMMd('tr').format(dateForTab),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
+                  ),
+                ],
               ),
+              const SizedBox(height: 8),
+              _WeeklyProgressSummary(weeklyPlan: weeklyPlan!, userId: userId),
             ],
           ),
         ),
@@ -106,6 +113,60 @@ class _PlanView extends ConsumerWidget {
               },
             ),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WeeklyProgressSummary extends ConsumerWidget {
+  final WeeklyPlan weeklyPlan;
+  final String userId;
+  const _WeeklyProgressSummary({required this.weeklyPlan, required this.userId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProfileProvider).value;
+    if (user == null) return const SizedBox.shrink();
+
+    // Haftanın başlangıcı
+    final now = DateTime.now();
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
+
+    int total = 0; int done = 0;
+    for (int i=0;i<weeklyPlan.plan.length;i++) {
+      final dp = weeklyPlan.plan[i];
+      total += dp.schedule.length;
+      final date = startOfWeek.add(Duration(days: i));
+      final key = DateFormat('yyyy-MM-dd').format(date);
+      done += (user.completedDailyTasks[key] ?? []).length;
+    }
+    if (total == 0) return const SizedBox.shrink();
+    final ratio = done/total;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: ratio.clamp(0,1),
+                  minHeight: 8,
+                  backgroundColor: AppTheme.lightSurfaceColor,
+                  valueColor: AlwaysStoppedAnimation<Color>(ratio >= .75 ? AppTheme.successColor : AppTheme.secondaryColor),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text('${(ratio*100).round()}%', style: const TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text('Haftalık ilerleme: $done / $total görev', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
         ),
       ],
     );
@@ -188,7 +249,7 @@ class _TaskTile extends ConsumerWidget {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isCompleted ? AppTheme.successColor.withOpacity(0.15) : AppTheme.secondaryColor.withOpacity(0.15),
+              color: isCompleted ? AppTheme.successColor.withValues(alpha: AppTheme.successColor.opacity * 0.15) : AppTheme.secondaryColor.withValues(alpha: AppTheme.secondaryColor.opacity * 0.15),
             ),
             child: Animate(
               target: isCompleted ? 1 : 0,
@@ -225,13 +286,22 @@ class _TaskTile extends ConsumerWidget {
                 color: isCompleted ? AppTheme.successColor : AppTheme.lightSurfaceColor,
               ),
             ),
-            onPressed: () {
+            onPressed: () async {
               ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
                 userId: userId,
                 dateKey: dateKey,
                 task: taskIdentifier,
                 isCompleted: !isCompleted,
               );
+              if(!isCompleted) {
+                final questId = 'schedule_${dateKey}_${taskIdentifier.hashCode}';
+                await ref.read(questNotifierProvider.notifier).updateQuestProgressById(questId);
+                if(context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Plan görevi fethedildi: ${item.activity}')),
+                  );
+                }
+              }
             },
           )
         ],
