@@ -27,7 +27,7 @@ class WeeklyPlanCard extends ConsumerWidget {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8),
       elevation: 4,
-      shadowColor: AppTheme.primaryColor.withValues(alpha: AppTheme.primaryColor.opacity * 0.2),
+      shadowColor: AppTheme.primaryColor.withValues(alpha: AppTheme.primaryColor.a * 0.2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: userId == null
@@ -71,7 +71,11 @@ class _PlanView extends ConsumerWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Haftalık Harekât', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  Expanded(
+                    child: Text('Haftalık Harekât',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis),
+                  ),
                   Text(
                     DateFormat.yMMMMd('tr').format(dateForTab),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
@@ -249,7 +253,7 @@ class _TaskTile extends ConsumerWidget {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: isCompleted ? AppTheme.successColor.withValues(alpha: AppTheme.successColor.opacity * 0.15) : AppTheme.secondaryColor.withValues(alpha: AppTheme.secondaryColor.opacity * 0.15),
+              color: isCompleted ? AppTheme.successColor.withValues(alpha: AppTheme.successColor.a * 0.15) : AppTheme.secondaryColor.withValues(alpha: AppTheme.secondaryColor.a * 0.15),
             ),
             child: Animate(
               target: isCompleted ? 1 : 0,

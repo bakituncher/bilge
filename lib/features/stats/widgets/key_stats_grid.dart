@@ -61,29 +61,31 @@ class _StatCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(label, style: const TextStyle(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.bold)),
-                InkWell(
-                  onTap: () => _showInfoDialog(context),
-                  child: const Icon(Icons.info_outline, color: AppTheme.secondaryTextColor, size: 20),
-                ),
-              ],
-            ),
-            Row(
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-                  Icon(icon, color: color, size: 24),
-                ]
-            )
-          ],
+                  Text(label, style: const TextStyle(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.bold)),
+                  InkWell(
+                    onTap: () => _showInfoDialog(context),
+                    child: const Icon(Icons.info_outline, color: AppTheme.secondaryTextColor, size: 20),
+                  ),
+                ],
+              ),
+              Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
+                    Icon(icon, color: color, size: 24),
+                  ]
+              )
+            ],
+          ),
         ),
       ),
     );

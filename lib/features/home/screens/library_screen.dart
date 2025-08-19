@@ -170,92 +170,95 @@ class _TriumphPlaqueCardState extends State<_TriumphPlaqueCard> {
               ),
               border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(0.3)),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        widget.test.testName,
-                        style: textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Row(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.test.testName,
+                          style: textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            children: [
+                              Text(
+                                widget.test.sectionName,
+                                style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                              ),
+                              Text(
+                                "  |  ${DateFormat.yMd('tr').format(widget.test.date)}",
+                                style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(
+                    height: 160,
+                    child: Center(
+                      child: Animate(
+                        target: _isHovered ? 1 : 0,
+                        effects: [
+                          ScaleEffect(duration: 300.ms, curve: Curves.easeOutBack, begin: const Offset(1,1), end: const Offset(1.05, 1.05))
+                        ],
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              widget.test.sectionName,
-                              style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
+                              widget.test.totalNet.toStringAsFixed(2),
+                              style: textTheme.displaySmall?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                height: 1.1,
+                              ),
                             ),
+                            Text("NET", style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                            const SizedBox(height: 12),
                             Text(
-                              "  |  ${DateFormat.yMd('tr').format(widget.test.date)}",
-                              style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor),
+                              "${wisdomScore.toInt()} BP",
+                              style: textTheme.titleLarge?.copyWith(
+                                color: tierColor,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Animate(
-                      target: _isHovered ? 1 : 0,
-                      effects: [
-                        ScaleEffect(duration: 300.ms, curve: Curves.easeOutBack, begin: const Offset(1,1), end: const Offset(1.05, 1.05))
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryColor.withOpacity(0.5),
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(24),
+                        bottomRight: Radius.circular(24),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text("Doğruluk", style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
+                        Text(
+                          "%${accuracy.toStringAsFixed(1)}",
+                          style: textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
                       ],
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            widget.test.totalNet.toStringAsFixed(2),
-                            style: textTheme.displaySmall?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              height: 1.1,
-                            ),
-                          ),
-                          Text("NET", style: textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
-                          const SizedBox(height: 12),
-                          Text(
-                            "${wisdomScore.toInt()} BP",
-                            style: textTheme.titleLarge?.copyWith(
-                              color: tierColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
                     ),
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.5),
-                    borderRadius: const BorderRadius.only(
-                      bottomLeft: Radius.circular(24),
-                      bottomRight: Radius.circular(24),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text("Doğruluk", style: textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
-                      Text(
-                        "%${accuracy.toStringAsFixed(1)}",
-                        style: textTheme.bodyMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                )
-              ],
+                  )
+                ],
+              ),
             ),
           ),
         ),

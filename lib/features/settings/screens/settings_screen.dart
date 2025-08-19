@@ -26,7 +26,7 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             Icon(Icons.warning_amber_rounded, color: AppTheme.accentColor),
             SizedBox(width: 10),
-            Text("Çok Önemli Uyarı"),
+            Expanded(child: Text("Çok Önemli Uyarı", overflow: TextOverflow.ellipsis)),
           ],
         ),
         content: const Text(

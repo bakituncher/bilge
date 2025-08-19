@@ -196,51 +196,50 @@ class StrategicPlanningScreen extends ConsumerWidget {
           gradient: RadialGradient(
             center: const Alignment(0, -1.2),
             radius: 1.5,
-            colors: [AppTheme.secondaryColor.withOpacity(0.1), AppTheme.primaryColor],
+            colors: [AppTheme.secondaryColor.withValues(alpha: AppTheme.secondaryColor.a * 0.1), AppTheme.primaryColor],
             stops: const [0.0, 0.7],
           ),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox.shrink(), // Üstte boşluk için
-              _buildSealOfCommand(context, weeklyPlan),
-
-              // YENİ EYLEM KARTLARI DÜZENİ
-              Column(
-                children: [
-                  _ActionCard(
-                    title: "Haftalık Cephe Planı",
-                    subtitle: "Günlük görevlerini ve hedeflerini gör.",
-                    icon: Icons.calendar_view_week_rounded,
-                    onTap: () => context.push('/home/weekly-plan'),
-                  ).animate().fadeIn(delay: 200.ms, duration: 400.ms).slideX(begin: -0.2),
-                  const SizedBox(height: 16),
-                  _ActionCard(
-                    title: "Stratejik Komuta Merkezi",
-                    subtitle: "Zaferin uzun vadeli yol haritasını incele.",
-                    icon: Icons.map_rounded,
-                    onTap: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
-                  ).animate().fadeIn(delay: 300.ms, duration: 400.ms).slideX(begin: 0.2),
-                ],
-              ),
-
-              Column(
-                children: [
-                  const SizedBox(height: 24),
-                  OutlinedButton(
-                    onPressed: () {
-                      ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
-                    },
-                    child: const Text("Yeni Strateji Oluştur"),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-              ),
-            ],
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox.shrink(),
+                _buildSealOfCommand(context, weeklyPlan),
+                Column(
+                  children: [
+                    _ActionCard(
+                      title: "Haftalık Cephe Planı",
+                      subtitle: "G��nlük görevlerini ve hedeflerini gör.",
+                      icon: Icons.calendar_view_week_rounded,
+                      onTap: () => context.push('/home/weekly-plan'),
+                    ).animate().fadeIn(delay: 200.ms, duration: 400.ms).slideX(begin: -0.2),
+                    const SizedBox(height: 16),
+                    _ActionCard(
+                      title: "Stratejik Komuta Merkezi",
+                      subtitle: "Zaferin uzun vadeli yol haritasını incele.",
+                      icon: Icons.map_rounded,
+                      onTap: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
+                    ).animate().fadeIn(delay: 300.ms, duration: 400.ms).slideX(begin: 0.2),
+                  ],
+                ),
+                Column(
+                  children: [
+                    const SizedBox(height: 24),
+                    OutlinedButton(
+                      onPressed: () {
+                        ref.read(planningStepProvider.notifier).state = PlanningStep.confirmation;
+                      },
+                      child: const Text("Yeni Strateji Oluştur"),
+                    ),
+                    const SizedBox(height: 20),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -290,7 +289,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
       effects: [
         ShimmerEffect(
           duration: 4000.ms,
-          color: AppTheme.secondaryColor.withAlpha(50),
+          color: AppTheme.secondaryColor.withValues(alpha: AppTheme.secondaryColor.a * 0.1),
         ),
         ScaleEffect(
           curve: Curves.easeInOut,
@@ -302,12 +301,12 @@ class StrategicPlanningScreen extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: AppTheme.cardColor.withOpacity(0.7),
+          color: AppTheme.cardColor.withValues(alpha: AppTheme.cardColor.a * 0.7),
           borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.secondaryColor.withOpacity(0.4)),
+          border: Border.all(color: AppTheme.secondaryColor.withValues(alpha: AppTheme.secondaryColor.a * 0.4)),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.secondaryColor.withOpacity(0.15),
+              color: AppTheme.secondaryColor.withValues(alpha: AppTheme.secondaryColor.a * 0.15),
               blurRadius: 40,
               spreadRadius: 2,
             ),
@@ -607,7 +606,7 @@ class _ChecklistItemCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
-                color: AppTheme.lightSurfaceColor.withOpacity(0.3),
+                color: AppTheme.lightSurfaceColor.withValues(alpha: AppTheme.lightSurfaceColor.a * 0.3),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Row(
@@ -683,7 +682,7 @@ class _PacingCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isSelected ? AppTheme.secondaryColor : AppTheme.lightSurfaceColor.withOpacity(0.5),
+          color: isSelected ? AppTheme.secondaryColor : AppTheme.lightSurfaceColor.withValues(alpha: AppTheme.lightSurfaceColor.a * 0.5),
           width: 2,
         ),
       ),

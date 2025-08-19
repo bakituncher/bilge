@@ -21,7 +21,7 @@ class PerformanceAnalysisCard extends ConsumerWidget {
     return Card(
         margin: const EdgeInsets.symmetric(horizontal: 8),
         elevation: 4,
-        shadowColor: AppTheme.successColor.withOpacity(0.2),
+        shadowColor: AppTheme.successColor.withValues(alpha: AppTheme.successColor.a * 0.2),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         clipBehavior: Clip.antiAlias,
         child: FutureBuilder<Exam?>(
@@ -35,8 +35,6 @@ class PerformanceAnalysisCard extends ConsumerWidget {
                           textAlign: TextAlign.center, style: TextStyle(color: AppTheme.secondaryTextColor, height: 1.5)),
                     ));
               }
-
-              final analysis = StatsAnalysis(tests, user.topicPerformances, examSnapshot.data!, user: user);
 
               // YENİ GÖRSELLEŞTİRME MANTIĞI
               final midPoint = (tests.length / 2).ceil();
@@ -96,7 +94,7 @@ class PerformanceAnalysisCard extends ConsumerWidget {
                           alignment: Alignment.bottomRight,
                           child: ElevatedButton(
                               onPressed: () => context.push('/home/stats'),
-                              style: ElevatedButton.styleFrom(backgroundColor: color.withOpacity(0.8)),
+                              style: ElevatedButton.styleFrom(backgroundColor: color.withValues(alpha: color.a * 0.8)),
                               child: const Text("Detaylı Analiz"))),
                     ],
                   ));
@@ -119,12 +117,14 @@ class _PerformanceComparison extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         _StatColumn(label: "Önceki Ort.", value: firstHalfAvg.toStringAsFixed(1), color: AppTheme.secondaryTextColor),
-        Icon(Icons.arrow_forward_rounded, size: 32, color: color).animate(
-          onPlay: (c) => c.repeat(reverse: true),
-        ).shimmer(delay: 400.ms, duration: 1800.ms, color: color),
+        Flexible(
+          child: Icon(Icons.arrow_forward_rounded, size: 32, color: color).animate(
+            onPlay: (c) => c.repeat(reverse: true),
+          ).shimmer(delay: 400.ms, duration: 1800.ms, color: color),
+        ),
         _StatColumn(label: "Sonraki Ort.", value: secondHalfAvg.toStringAsFixed(1), color: color, isLarge: true),
       ],
     );

@@ -62,14 +62,24 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
               GoRoute(
                 path: AppRoutes.testDetail,
                 parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) =>
-                    TestDetailScreen(test: state.extra as TestModel),
+                builder: (context, state) {
+                  final test = state.extra as TestModel?; // null güvenli
+                  if (test == null) {
+                    return const Scaffold(body: Center(child: Text('Test verisi bulunamadı')));
+                  }
+                  return TestDetailScreen(test: test);
+                },
               ),
               GoRoute(
                 path: AppRoutes.testResultSummary,
                 parentNavigatorKey: rootNavigatorKey,
-                builder: (context, state) =>
-                    TestResultSummaryScreen(test: state.extra as TestModel),
+                builder: (context, state) {
+                  final test = state.extra as TestModel?; // null güvenli
+                  if (test == null) {
+                    return const Scaffold(body: Center(child: Text('Özet verisi yok')));
+                  }
+                  return TestResultSummaryScreen(test: test);
+                },
               ),
               GoRoute(
                 path: AppRoutes.pomodoro,

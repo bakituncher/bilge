@@ -42,7 +42,7 @@ class HonorWallScreen extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: progress,
                         minHeight: 8,
-                        backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.5),
+                        backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: AppTheme.lightSurfaceColor.a * 0.5),
                         valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondaryColor),
                       ),
                     ),
@@ -131,15 +131,18 @@ class BadgeCard extends StatelessWidget {
     Widget cardContent = Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: badge.isUnlocked ? rarityColor.withOpacity(0.1) : AppTheme.cardColor.withOpacity(0.5),
+        color: badge.isUnlocked ? rarityColor.withValues(alpha: rarityColor.a * 0.1) : AppTheme.cardColor.withValues(alpha: AppTheme.cardColor.a * 0.5),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: badge.isUnlocked ? rarityColor : AppTheme.lightSurfaceColor.withOpacity(0.5), width: 2),
+        border: Border.all(color: badge.isUnlocked ? rarityColor : AppTheme.lightSurfaceColor.withValues(alpha: AppTheme.lightSurfaceColor.a * 0.5), width: 2),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           Icon( badge.isUnlocked ? badge.icon : Icons.question_mark_rounded, size: 40, color: badge.isUnlocked ? rarityColor : AppTheme.secondaryTextColor,),
-          Text( badge.name, textAlign: TextAlign.center, style: TextStyle( fontWeight: FontWeight.bold, fontSize: 13, color: badge.isUnlocked ? Colors.white : AppTheme.secondaryTextColor,)),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text( badge.name, textAlign: TextAlign.center, style: TextStyle( fontWeight: FontWeight.bold, fontSize: 13, color: badge.isUnlocked ? Colors.white : AppTheme.secondaryTextColor,)),
+          ),
         ],
       ),
     );
@@ -148,7 +151,7 @@ class BadgeCard extends StatelessWidget {
     if (badge.isUnlocked && (badge.rarity == app_badge.BadgeRarity.epic || badge.rarity == app_badge.BadgeRarity.legendary)) {
       cardContent = Animate(
         onPlay: (c) => c.repeat(),
-        effects: [ShimmerEffect(duration: 3000.ms, color: rarityColor.withOpacity(0.5))],
+        effects: [ShimmerEffect(duration: 3000.ms, color: rarityColor.withValues(alpha: rarityColor.a * 0.5))],
         child: cardContent,
       );
     }
@@ -163,7 +166,7 @@ class BadgeCard extends StatelessWidget {
   void _showBadgeDetails(BuildContext context, Color rarityColor) {
     showDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.5),
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (context) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
@@ -216,7 +219,7 @@ class _BadgeDetailsDialogState extends State<_BadgeDetailsDialog> {
                   color: AppTheme.cardColor.withOpacity(0.95),
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(color: widget.badge.isUnlocked ? widget.rarityColor : AppTheme.secondaryTextColor, width: 2),
-                  boxShadow: [BoxShadow(color: (widget.badge.isUnlocked ? widget.rarityColor : AppTheme.secondaryTextColor).withOpacity(0.3), blurRadius: 20)]
+                  boxShadow: [BoxShadow(color: (widget.badge.isUnlocked ? widget.rarityColor : AppTheme.secondaryTextColor).withValues(alpha: 0.3), blurRadius: 20)]
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
