@@ -29,7 +29,7 @@ class ArenaScreen extends ConsumerWidget {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Zafer Panteonu'),
-          backgroundColor: AppTheme.primaryColor.withOpacity(0.5),
+          backgroundColor: AppTheme.primaryColor.withValues(alpha: AppTheme.primaryColor.a * 0.5),
           bottom: const TabBar(
             indicatorColor: AppTheme.secondaryColor,
             indicatorWeight: 3,
@@ -73,57 +73,54 @@ class _LeaderboardView extends ConsumerWidget {
           end: Alignment.bottomCenter,
           colors: [
             AppTheme.primaryColor,
-            AppTheme.cardColor.withOpacity(0.8),
+            AppTheme.cardColor.withValues(alpha: AppTheme.cardColor.a * 0.8),
           ],
         ),
       ),
-      child: leaderboardAsync.when(
-        data: (entries) {
-          if (entries.isEmpty) {
-            return _buildEmptyState(context);
-          }
+      child: SafeArea(
+        top: false,
+        child: leaderboardAsync.when(
+          data: (entries) {
+            if (entries.isEmpty) {
+              return _buildEmptyState(context);
+            }
 
-          final currentUserIndex = entries.indexWhere((e) => e.userId == currentUserId);
-          final LeaderboardEntry? currentUserEntry = currentUserIndex != -1 ? entries[currentUserIndex] : null;
+            final currentUserIndex = entries.indexWhere((e) => e.userId == currentUserId);
+            final LeaderboardEntry? currentUserEntry = currentUserIndex != -1 ? entries[currentUserIndex] : null;
 
-          return Column(
-            children: [
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
-                  itemCount: entries.length,
-                  separatorBuilder: (context, index) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final entry = entries[index];
-                    int rank = index + 1;
+            // Tüm liste + (gerekirse) kullanıcı kartını TEK scrollable yaparak küçük ekran sorunlarını çözüyoruz
+            final itemCount = entries.length + ((currentUserEntry != null && currentUserIndex >= 15) ? 1 : 0);
 
-                    return GestureDetector(
-                      // GÜNCELLENDİ: Artık diyalog yerine yeni ekrana yönlendiriyor.
-                      onTap: () {
-                        context.push('${AppRoutes.arena}/${entry.userId}');
-                      },
-                      child: _RankCard(
-                        entry: entry,
-                        rank: rank,
-                        isCurrentUser: entry.userId == currentUserId,
-                      )
-                          .animate()
-                          .fadeIn(duration: 400.ms, delay: (60 * (index % 15)).ms)
-                          .slideX(begin: index.isEven ? -0.1 : 0.1, end: 0, duration: 400.ms, curve: Curves.easeOutCubic),
-                    );
-                  },
-                ),
-              ),
-              if (currentUserEntry != null && currentUserIndex >= 15)
-                _CurrentUserCard(
-                  entry: currentUserEntry,
-                  rank: currentUserIndex + 1,
-                ),
-            ],
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-        error: (err, stack) => Center(child: Text('Liderlik tablosu yüklenemedi: $err')),
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+              physics: const AlwaysScrollableScrollPhysics(),
+              itemCount: itemCount,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                // Son eleman özel kullanıcı kartı mı?
+                final bool isCurrentUserCard = (index == itemCount - 1) && (currentUserEntry != null && currentUserIndex >= 15);
+                if (isCurrentUserCard) {
+                  return _CurrentUserCard(entry: currentUserEntry, rank: currentUserIndex + 1);
+                }
+                final entry = entries[index];
+                final rank = index + 1;
+                return GestureDetector(
+                  onTap: () => context.push('${AppRoutes.arena}/${entry.userId}'),
+                  child: _RankCard(
+                    entry: entry,
+                    rank: rank,
+                    isCurrentUser: entry.userId == currentUserId,
+                  )
+                      .animate()
+                      .fadeIn(duration: 400.ms, delay: (60 * (index % 15)).ms)
+                      .slideX(begin: index.isEven ? -0.1 : 0.1, end: 0, duration: 400.ms, curve: Curves.easeOutCubic),
+                );
+              },
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
+          error: (err, stack) => Center(child: Text('Liderlik tablosu yüklenemedi: $err')),
+        ),
       ),
     );
   }
@@ -170,14 +167,13 @@ class _RankCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor.withOpacity(isCurrentUser ? 0.9 : 0.5),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isCurrentUser ? AppTheme.successColor : rankColor.withOpacity(0.5)),
+        color: AppTheme.cardColor.withValues(alpha: AppTheme.cardColor.a * (isCurrentUser ? 0.9 : 0.5)),
+        border: Border.all(color: isCurrentUser ? AppTheme.successColor : rankColor.withValues(alpha: rankColor.a * 0.5)),
         boxShadow: [
           if (isCurrentUser)
-            BoxShadow(color: AppTheme.successColor.withOpacity(0.4), blurRadius: 15, spreadRadius: 2),
+            BoxShadow(color: AppTheme.successColor.withValues(alpha: AppTheme.successColor.a * 0.4), blurRadius: 15, spreadRadius: 2),
           if (rank <= 3 && !isCurrentUser) // Mevcut kullanıcı değilse ve ilk 3'teyse normal gölge
-            BoxShadow(color: rankColor.withOpacity(0.4), blurRadius: 15, spreadRadius: 2),
+            BoxShadow(color: rankColor.withValues(alpha: rankColor.a * 0.4), blurRadius: 15, spreadRadius: 2),
         ],
       ),
       child: Row(
@@ -274,8 +270,8 @@ class _CurrentUserCard extends StatelessWidget {
               borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               boxShadow: [
                 // Vurguyu artırmak için gölgeyi belirginleştirebiliriz
-                BoxShadow(color: AppTheme.successColor.withOpacity(0.6), blurRadius: 25, spreadRadius: 6),
-                BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, spreadRadius: 5),
+                BoxShadow(color: AppTheme.successColor.withValues(alpha: AppTheme.successColor.a * 0.6), blurRadius: 25, spreadRadius: 6),
+                BoxShadow(color: Colors.black.withValues(alpha: Colors.black.a * 0.5), blurRadius: 20, spreadRadius: 5),
               ],
               border: Border.all(color: AppTheme.successColor, width: 2) // Ekstra vurgu için çerçeve
           ),
