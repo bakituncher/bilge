@@ -29,7 +29,7 @@ class ScoreSlider extends StatelessWidget {
           divisions: max.toInt() > 0 ? max.toInt() : 1,
           label: value.toInt().toString(),
           activeColor: color,
-          inactiveColor: color.withOpacity(0.3),
+          inactiveColor: color.withValues(alpha: 0.3),
           onChanged: onChanged,
         ),
       ],

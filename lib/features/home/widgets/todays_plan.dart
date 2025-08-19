@@ -165,7 +165,7 @@ class _NewPlanPromptCard extends StatelessWidget {
       child: Card(
         margin: const EdgeInsets.symmetric(horizontal: 8),
         elevation: 4,
-        shadowColor: AppTheme.secondaryColor.withOpacity(0.3),
+        shadowColor: AppTheme.secondaryColor.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
           height: 400, // Diğer kartlarla aynı boyutta olması için
@@ -183,7 +183,7 @@ class _NewPlanPromptCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Geçen haftanın planı tamamlandı. Performansını güncelleyerek bu hafta için yeni bir zafer yolu çizelim.',
+                'Geçen haftanın planı tamamland��. Performansını güncelleyerek bu hafta için yeni bir zafer yolu çizelim.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
               ),

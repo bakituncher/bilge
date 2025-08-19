@@ -17,16 +17,22 @@ class VerdictCard extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     return Card(
       elevation: 4,
-      shadowColor: AppTheme.secondaryColor.withOpacity(0.2),
+      shadowColor: AppTheme.secondaryColor.withValues(alpha: 0.2),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           children: [
-            Text(verdict['title']!, style: textTheme.headlineSmall?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(verdict['title']!, style: textTheme.headlineSmall?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold)),
+            ),
             const SizedBox(height: 16),
-            Text(
-              "Bilgelik Puanın: ${wisdomScore.toStringAsFixed(1)}",
-              style: textTheme.titleLarge?.copyWith(color: Colors.white),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                "Bilgelik Puanın: ${wisdomScore.toStringAsFixed(1)}",
+                style: textTheme.titleLarge?.copyWith(color: Colors.white),
+              ),
             ),
             const SizedBox(height: 8),
             SizedBox(
@@ -40,10 +46,17 @@ class VerdictCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            Text(
-              "\"${verdict['verdict']}\"",
-              textAlign: TextAlign.center,
-              style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, fontStyle: FontStyle.italic, height: 1.5),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.25,
+              ),
+              child: SingleChildScrollView(
+                child: Text(
+                  "\"${verdict['verdict']}\"",
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor, fontStyle: FontStyle.italic, height: 1.5),
+                ),
+              ),
             ),
           ],
         ),

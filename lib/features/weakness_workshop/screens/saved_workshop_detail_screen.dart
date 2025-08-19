@@ -95,7 +95,7 @@ class _QuizReviewView extends StatelessWidget {
                 const Divider(height: 24),
                 // Açıklama Kartı
                 Card(
-                  color: AppTheme.primaryColor.withOpacity(0.7),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.7),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Row(

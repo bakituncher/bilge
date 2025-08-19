@@ -57,16 +57,16 @@ class _QuestCompletionToastState extends ConsumerState<QuestCompletionToast> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20.0),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppTheme.successColor.withOpacity(0.5), width: 1.5),
+            border: Border.all(color: AppTheme.successColor.withValues(alpha: 0.5), width: 1.5),
             color: const Color(0xFF2A374E), // Daha canlı bir kart rengi
             boxShadow: [
               BoxShadow(
-                color: AppTheme.successColor.withOpacity(0.2),
+                color: AppTheme.successColor.withValues(alpha: 0.2),
                 blurRadius: 20,
                 spreadRadius: 2,
               ),
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 10,
               ),
             ],

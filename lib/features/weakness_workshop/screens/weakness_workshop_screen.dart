@@ -402,7 +402,7 @@ class _TopicCard extends StatelessWidget {
                   Expanded(
                     child: LinearProgressIndicator(
                       value: masteryValue == null || masteryValue < 0 ? null : masteryValue,
-                      backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.3),
+                      backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: 0.3),
                       color: masteryValue == null || masteryValue < 0 ? AppTheme.secondaryTextColor : Color.lerp(AppTheme.accentColor, AppTheme.successColor, masteryValue),
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -501,7 +501,7 @@ class _QuizViewState extends State<_QuizView> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
           child: LinearProgressIndicator(
             value: (_currentPage + 1) / quizLength,
-            backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.3),
+            backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: 0.3),
             color: AppTheme.secondaryColor,
             borderRadius: BorderRadius.circular(8),
           ),
@@ -530,16 +530,19 @@ class _QuizViewState extends State<_QuizView> {
         if (isCurrentPageAnswered)
           Padding(
             padding: const EdgeInsets.all(24.0),
-            child: ElevatedButton.icon(
-              icon: Icon(isQuizFinished ? Icons.assignment_turned_in_rounded : Icons.arrow_forward_ios_rounded),
-              label: Text(isQuizFinished ? "Sonuçları Gör" : "Devam Et"),
-              onPressed: (){
-                if(isQuizFinished){
-                  widget.onSubmit();
-                } else {
-                  _pageController.nextPage(duration: 300.ms, curve: Curves.easeOutCubic);
-                }
-              },
+            child: SafeArea(
+              top: false,
+              child: ElevatedButton.icon(
+                icon: Icon(isQuizFinished ? Icons.assignment_turned_in_rounded : Icons.arrow_forward_ios_rounded),
+                label: Text(isQuizFinished ? "Sonuçları Gör" : "Devam Et"),
+                onPressed: (){
+                  if(isQuizFinished){
+                    widget.onSubmit();
+                  } else {
+                    _pageController.nextPage(duration: 300.ms, curve: Curves.easeOutCubic);
+                  }
+                },
+              ),
             ),
           ).animate().fadeIn().slideY(begin: 0.5),
       ],
@@ -582,11 +585,11 @@ class _QuestionCard extends StatelessWidget {
 
             if (selectedOptionIndex != null) { // Cevap verildiğinde renkleri belirle
               if (isSelected) {
-                tileColor = isCorrect ? AppTheme.successColor.withOpacity(0.2) : AppTheme.accentColor.withOpacity(0.2);
+                tileColor = isCorrect ? AppTheme.successColor.withValues(alpha: 0.2) : AppTheme.accentColor.withValues(alpha: 0.2);
                 borderColor = isCorrect ? AppTheme.successColor : AppTheme.accentColor;
                 trailingIcon = isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded;
               } else if (isCorrect) {
-                tileColor = AppTheme.successColor.withOpacity(0.2);
+                tileColor = AppTheme.successColor.withValues(alpha: 0.2);
                 borderColor = AppTheme.successColor;
                 trailingIcon = Icons.check_circle_outline_rounded;
               }
@@ -621,7 +624,7 @@ class _ExplanationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: AppTheme.primaryColor.withOpacity(0.7),
+      color: AppTheme.primaryColor.withValues(alpha: 0.7),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -904,7 +907,7 @@ class _ResultActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: isPrimary ? AppTheme.secondaryColor.withOpacity(0.2) : AppTheme.cardColor,
+      color: isPrimary ? AppTheme.secondaryColor.withValues(alpha: 0.2) : AppTheme.cardColor,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: overrideColor ?? (isPrimary ? AppTheme.secondaryColor : AppTheme.lightSurfaceColor), width: 1.5)

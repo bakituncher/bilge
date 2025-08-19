@@ -18,7 +18,7 @@ class WorkshopStatsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Simyacının Cevher Ocağı"),
-        backgroundColor: AppTheme.primaryColor.withOpacity(0.5),
+        backgroundColor: AppTheme.primaryColor.withValues(alpha: 0.5),
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -27,7 +27,7 @@ class WorkshopStatsScreen extends ConsumerWidget {
             end: Alignment.bottomCenter,
             colors: [
               AppTheme.primaryColor,
-              AppTheme.cardColor.withOpacity(0.8),
+              AppTheme.cardColor.withValues(alpha: 0.8),
             ],
           ),
         ),
@@ -91,16 +91,16 @@ class WorkshopStatsScreen extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppTheme.cardColor.withOpacity(0.5),
+        color: AppTheme.cardColor.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.lightSurfaceColor.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
           Animate(
             onPlay: (c) => c.repeat(reverse: true),
             effects: [
-              ShimmerEffect(duration: 3000.ms, color: masteryColor.withOpacity(0.5)),
+              ShimmerEffect(duration: 3000.ms, color: masteryColor.withValues(alpha: 0.5)),
             ],
             child: Container(
               width: 120,
@@ -108,7 +108,7 @@ class WorkshopStatsScreen extends ConsumerWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [masteryColor.withOpacity(0.5), Colors.transparent],
+                  colors: [masteryColor.withValues(alpha: 0.5), Colors.transparent],
                   stops: const [0.4, 1.0],
                 ),
               ),
@@ -258,11 +258,10 @@ class _SubjectCrystalBar extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(0.3)),
+        border: Border.all(color: AppTheme.lightSurfaceColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
-          // PİKSEL TAŞMASI SORUNUNU ÇÖZEN KISIM
           Expanded(
             child: Padding(
               padding: const EdgeInsets.only(left: 12.0),
@@ -275,58 +274,67 @@ class _SubjectCrystalBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          Stack(
-            children: [
-              Container(
-                width: 100,
-                height: 25,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: AppTheme.primaryColor.withOpacity(0.5),
-                ),
-              ),
-              Animate(
-                effects: [
-                  ScaleEffect(
-                    duration: 1200.ms,
-                    curve: Curves.easeOutCubic,
-                    alignment: Alignment.centerLeft,
-                    begin: const Offset(0, 1),
-                    end: Offset(progress, 1),
-                  ),
-                ],
-                child: Container(
-                  width: 100,
-                  height: 25,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    gradient: LinearGradient(
-                      colors: [color.withOpacity(0.7), color],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final maxW = constraints.maxWidth;
+              final barWidth = (maxW * 0.38).clamp(80.0, 180.0);
+              return SizedBox(
+                width: barWidth,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: barWidth,
+                      height: 25,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        color: AppTheme.primaryColor.withValues(alpha: 0.5),
+                      ),
                     ),
-                    boxShadow: [
-                      BoxShadow(color: color, blurRadius: 10, spreadRadius: -5),
-                    ],
-                  ),
-                ),
-              ),
-              SizedBox(
-                width: 100,
-                height: 25,
-                child: Center(
-                  child: Text(
-                    "%${data.accuracy.toStringAsFixed(1)}",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      shadows: [Shadow(color: Colors.black, blurRadius: 5)],
+                    Animate(
+                      effects: [
+                        ScaleEffect(
+                          duration: 1200.ms,
+                          curve: Curves.easeOutCubic,
+                          alignment: Alignment.centerLeft,
+                          begin: const Offset(0, 1),
+                          end: Offset(progress, 1),
+                        ),
+                      ],
+                      child: Container(
+                        width: barWidth,
+                        height: 25,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          gradient: LinearGradient(
+                            colors: [color.withValues(alpha: 0.7), color],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(color: color, blurRadius: 10, spreadRadius: -5),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
+                    SizedBox(
+                      width: barWidth,
+                      height: 25,
+                      child: Center(
+                        child: Text(
+                          "%${data.accuracy.toStringAsFixed(1)}",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            shadows: [Shadow(color: Colors.black, blurRadius: 5)],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              );
+            },
           )
         ],
       ),
@@ -344,10 +352,10 @@ class _TopicCard extends StatelessWidget {
     final color = isPolished ? AppTheme.successColor : AppTheme.secondaryColor;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: AppTheme.cardColor.withOpacity(0.8),
+      color: AppTheme.cardColor.withValues(alpha: 0.8),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: color.withOpacity(0.5)),
+        side: BorderSide(color: color.withValues(alpha: 0.5)),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(

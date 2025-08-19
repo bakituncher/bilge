@@ -80,7 +80,7 @@ class _SavedWorkshopCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 4,
-      shadowColor: AppTheme.primaryColor.withOpacity(0.5),
+      shadowColor: AppTheme.primaryColor.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
