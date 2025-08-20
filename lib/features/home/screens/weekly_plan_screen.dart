@@ -8,6 +8,7 @@ import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
+import 'package:flutter/services.dart'; // Haptic için
 
 final _selectedDayProvider = StateProvider.autoDispose<int>((ref) {
   int todayIndex = DateTime.now().weekday - 1;
@@ -23,7 +24,6 @@ class WeeklyPlanScreen extends ConsumerWidget {
     final weeklyPlan = user?.weeklyPlan != null ? WeeklyPlan.fromJson(user!.weeklyPlan!) : null;
 
     if (user == null || weeklyPlan == null) {
-      // Normalde bu ekrana plan olmadan gelinmez ama güvenlik için eklendi.
       return Scaffold(appBar: AppBar(), body: const Center(child: Text("Aktif bir haftalık plan bulunamadı.")));
     }
 
@@ -62,7 +62,12 @@ class WeeklyPlanScreen extends ConsumerWidget {
                   ],
                 ).animate().fadeIn(duration: 500.ms),
               ),
-              const SizedBox(height: 10),
+              // Yeni: Haftalık özet kartı
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+                child: WeeklyOverviewCard(weeklyPlan: weeklyPlan, userId: user.id),
+              ),
+              const SizedBox(height: 4),
               _DaySelector(
                 days: const ['PZT', 'SAL', 'ÇAR', 'PER', 'CUM', 'CMT', 'PAZ'],
               ),
@@ -150,41 +155,125 @@ class _TaskListView extends ConsumerWidget {
     final dateForTab = startOfWeek.add(Duration(days: dayIndex));
     final dateKey = DateFormat('yyyy-MM-dd').format(dateForTab);
 
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-      itemCount: dailyPlan.schedule.length,
-      itemBuilder: (context, index) {
-        final item = dailyPlan.schedule[index];
-        final taskIdentifier = '${item.time}-${item.activity}';
-        final isCompleted = ref.watch(userProfileProvider.select(
-              (user) => user.value?.completedDailyTasks[dateKey]?.contains(taskIdentifier) ?? false,
-        ));
+    final totalTasks = dailyPlan.schedule.length;
+    final completedCount = dailyPlan.schedule.where((item) {
+      final taskIdentifier = '${item.time}-${item.activity}';
+      return ref.watch(userProfileProvider.select((user) => user.value?.completedDailyTasks[dateKey]?.contains(taskIdentifier) ?? false));
+    }).length;
+    final progress = totalTasks == 0 ? 0.0 : completedCount / totalTasks;
 
-        return _TaskTimelineTile(
-          item: item,
-          isCompleted: isCompleted,
-          isFirst: index == 0,
-          isLast: index == dailyPlan.schedule.length - 1,
-          dateKey: dateKey,
-          onToggle: () async {
-            ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
-              userId: userId,
-              dateKey: dateKey,
-              task: taskIdentifier,
-              isCompleted: !isCompleted,
-            );
-            if(!isCompleted) {
-              final questId = 'schedule_${dateKey}_${taskIdentifier.hashCode}';
-              await ref.read(questNotifierProvider.notifier).updateQuestProgressById(questId);
-              if(context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Plan görevi fethedildi: ${item.activity}')),
-                );
-              }
-            }
-          },
-        ).animate().fadeIn(delay: (100 * index).ms).slideX(begin: 0.5, curve: Curves.easeOutCubic);
-      },
+    return Column(
+      key: key,
+      children: [
+        _DaySummaryHeader(
+          dayLabel: dailyPlan.day,
+            date: dateForTab,
+            completed: completedCount,
+            total: totalTasks,
+            progress: progress,
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            itemCount: dailyPlan.schedule.length,
+            itemBuilder: (context, index) {
+              final item = dailyPlan.schedule[index];
+              final taskIdentifier = '${item.time}-${item.activity}';
+              final isCompleted = ref.watch(userProfileProvider.select(
+                    (user) => user.value?.completedDailyTasks[dateKey]?.contains(taskIdentifier) ?? false,
+              ));
+
+              return _TaskTimelineTile(
+                item: item,
+                isCompleted: isCompleted,
+                isFirst: index == 0,
+                isLast: index == dailyPlan.schedule.length - 1,
+                dateKey: dateKey,
+                onToggle: () async {
+                  HapticFeedback.selectionClick();
+                  ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
+                    userId: userId,
+                    dateKey: dateKey,
+                    task: taskIdentifier,
+                    isCompleted: !isCompleted,
+                  );
+                  if(!isCompleted) {
+                    final questId = 'schedule_${dateKey}_${taskIdentifier.hashCode}';
+                    await ref.read(questNotifierProvider.notifier).updateQuestProgressById(questId);
+                    if(context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Plan görevi fethedildi: ${item.activity}')),
+                      );
+                    }
+                  }
+                },
+              ).animate().fadeIn(delay: (60 * index).ms).slideY(begin: .15, curve: Curves.easeOutCubic);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DaySummaryHeader extends StatelessWidget {
+  final String dayLabel; final DateTime date; final int completed; final int total; final double progress;
+  const _DaySummaryHeader({required this.dayLabel, required this.date, required this.completed, required this.total, required this.progress});
+  @override
+  Widget build(BuildContext context) {
+    final dateStr = DateFormat('d MMM', 'tr_TR').format(date);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        gradient: LinearGradient(
+          colors: [AppTheme.cardColor.withOpacity(.85), AppTheme.lightSurfaceColor.withOpacity(.25)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(.4)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(dayLabel, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        color: AppTheme.secondaryColor.withOpacity(.15),
+                        border: Border.all(color: AppTheme.secondaryColor.withOpacity(.5)),
+                      ),
+                      child: Text(dateStr, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.w600)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 8,
+                    backgroundColor: AppTheme.lightSurfaceColor.withOpacity(.25),
+                    valueColor: AlwaysStoppedAnimation(progress >= 1 ? AppTheme.successColor : AppTheme.secondaryColor),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text('$completed / $total görev • %${(progress*100).toStringAsFixed(0)} tamamlandı',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -206,6 +295,17 @@ class _TaskTimelineTile extends StatelessWidget {
     required this.dateKey,
   });
 
+  Color _typeColor(String type){
+    switch(type.toLowerCase()){
+      case 'study': return AppTheme.secondaryColor;
+      case 'practice': return Colors.orangeAccent;
+      case 'test': return Colors.purpleAccent;
+      case 'review': return Colors.tealAccent;
+      case 'break': return Colors.blueGrey;
+      default: return AppTheme.lightSurfaceColor;
+    }
+  }
+
   IconData _getIconForTaskType(String type) {
     // ... (öncekiyle aynı ikon fonksiyonu)
     switch (type.toLowerCase()) {
@@ -220,84 +320,86 @@ class _TaskTimelineTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // ZAMAN TÜNELİ ÇİZGİSİ VE İKONU
-          SizedBox(
-            width: 50,
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+    final accent = _typeColor(item.type);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: onToggle,
+          child: AnimatedContainer(
+            duration: 300.ms,
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              color: isCompleted ? AppTheme.cardColor.withOpacity(.45) : AppTheme.cardColor.withOpacity(.85),
+              border: Border.all(color: accent.withOpacity(.35)),
+              boxShadow: [
+                BoxShadow(color: accent.withOpacity(.10), blurRadius: 12, offset: const Offset(0,4)),
+              ],
+            ),
+            child: Row(
               children: [
-                if (!isFirst) Expanded(child: Container(width: 2, color: AppTheme.lightSurfaceColor)),
-                if (isFirst) const Spacer(),
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 6,
+                  height: 74,
                   decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: AppTheme.secondaryColor, width: 2),
-                    color: AppTheme.cardColor,
+                    color: accent,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      bottomLeft: Radius.circular(20),
+                    ),
                   ),
-                  child: Icon(_getIconForTaskType(item.type), color: AppTheme.secondaryColor, size: 20),
                 ),
-                if (!isLast) Expanded(child: Container(width: 2, color: AppTheme.lightSurfaceColor)),
-                if (isLast) const Spacer(),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16,12,12,12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          item.activity,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                            color: isCompleted ? AppTheme.secondaryTextColor : Colors.white,
+                            decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Icon(Icons.schedule_rounded, size: 14, color: AppTheme.secondaryTextColor.withOpacity(.8)),
+                            const SizedBox(width: 4),
+                            Text(item.time, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor.withOpacity(.8))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: AnimatedContainer(
+                    duration: 300.ms,
+                    height: 40,
+                    width: 40,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isCompleted ? AppTheme.successColor : accent.withOpacity(.25),
+                      border: Border.all(color: accent.withOpacity(.6), width: 1.2),
+                    ),
+                    child: Icon(
+                      isCompleted ? Icons.check_rounded : Icons.circle_outlined,
+                      color: Colors.white,
+                    ).animate(target: isCompleted ? 1 : 0).scale(duration: 300.ms, curve: Curves.easeOutBack),
+                  ),
+                )
               ],
             ),
           ),
-          const SizedBox(width: 10),
-          // GÖREV KARTI VE TAMAMLAMA BUTONU
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 20),
-              child: Card(
-                color: isCompleted ? AppTheme.cardColor.withOpacity(0.5) : AppTheme.cardColor,
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 16.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              item.activity,
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: isCompleted ? AppTheme.secondaryTextColor : Colors.white,
-                                decoration: isCompleted ? TextDecoration.lineThrough : TextDecoration.none,
-                              ),
-                            ),
-                            Text(item.time, style: const TextStyle(color: AppTheme.secondaryTextColor, fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: onToggle,
-                        child: AnimatedContainer(
-                          duration: 300.ms,
-                          width: 50,
-                          decoration: BoxDecoration(
-                              color: isCompleted ? AppTheme.successColor : AppTheme.lightSurfaceColor.withOpacity(0.5),
-                              borderRadius: const BorderRadius.only(
-                                topRight: Radius.circular(16),
-                                bottomRight: Radius.circular(16),
-                              )
-                          ),
-                          child: Center(
-                            child: Icon(isCompleted ? Icons.check : Icons.circle_outlined, color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -327,5 +429,129 @@ class _EmptyDayView extends StatelessWidget {
         ),
       ],
     ).animate().fadeIn();
+  }
+}
+
+class WeeklyOverviewCard extends ConsumerWidget {
+  final WeeklyPlan weeklyPlan; final String userId;
+  const WeeklyOverviewCard({super.key, required this.weeklyPlan, required this.userId});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final today = DateTime.now();
+    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
+    final dates = List.generate(7, (i)=> startOfWeek.add(Duration(days: i)));
+    final dateKeys = dates.map((d)=> DateFormat('yyyy-MM-dd').format(d)).toList();
+
+    // Toplam görev sayısı
+    final allDaily = weeklyPlan.plan;
+    int totalTasks = 0; int completedTasks = 0; Map<String,int> dayTotals = {}; Map<String,int> dayCompleted = {};
+    for (final d in allDaily) {
+      final idx = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'].indexOf(d.day);
+      if (idx < 0) continue;
+      final dk = dateKeys[idx];
+      totalTasks += d.schedule.length;
+      dayTotals[dk] = d.schedule.length;
+      int compForDay = 0;
+      for (final item in d.schedule) {
+        final id = '${item.time}-${item.activity}';
+        final done = ref.watch(userProfileProvider.select((p)=> p.value?.completedDailyTasks[dk]?.contains(id) ?? false));
+        if (done) compForDay++;
+      }
+      completedTasks += compForDay;
+      dayCompleted[dk] = compForDay;
+    }
+    final progress = totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
+    final remaining = totalTasks - completedTasks;
+    final weekRange = '${DateFormat('d MMM', 'tr_TR').format(dates.first)} - ${DateFormat('d MMM', 'tr_TR').format(dates.last)}';
+
+    return AnimatedContainer(
+      duration: 400.ms,
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: LinearGradient(
+          colors: [AppTheme.cardColor.withOpacity(.85), AppTheme.lightSurfaceColor.withOpacity(.25)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(.35)),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.4), blurRadius: 18, offset: const Offset(0,8))],
+      ),
+      child: Row(
+        children: [
+          // Dairesel ilerleme
+          SizedBox(
+            height: 78,
+            width: 78,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 8,
+                  backgroundColor: AppTheme.lightSurfaceColor.withOpacity(.25),
+                  valueColor: AlwaysStoppedAnimation(progress >=1 ? AppTheme.successColor : AppTheme.secondaryColor),
+                ),
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('${(progress*100).toStringAsFixed(0)}%', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Hafta', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
+                  ],
+                )
+              ],
+            ),
+          ).animate().fadeIn().scale(delay: 80.ms, curve: Curves.easeOutBack),
+          const SizedBox(width: 18),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Yeni başlık + tarih ayrı satır
+                Text('Haftalık Harekât', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Icon(Icons.calendar_month_rounded, size: 18, color: AppTheme.secondaryColor),
+                    const SizedBox(width: 8),
+                    Text(weekRange, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text('${completedTasks} / $totalTasks görev tamamlandı', style: Theme.of(context).textTheme.bodySmall),
+                const SizedBox(height: 4),
+                Text(remaining>0 ? 'Kalan: $remaining görev' : 'Hepsi bitti! 🔥', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: remaining>0 ? AppTheme.secondaryTextColor : AppTheme.successColor, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 24,
+                  child: Row(
+                    children: List.generate(7, (i){
+                      final dk = dateKeys[i];
+                      final total = dayTotals[dk] ?? 0; final done = dayCompleted[dk] ?? 0;
+                      final double ratio = total == 0 ? 0.0 : done / total; // tip düzeltildi
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: i==6?0:4),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: ratio,
+                              minHeight: 24,
+                              backgroundColor: AppTheme.lightSurfaceColor.withOpacity(.15),
+                              valueColor: AlwaysStoppedAnimation(ratio>=1? AppTheme.successColor : AppTheme.secondaryColor.withOpacity(.9)),
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ],
+            ),
+          )
+        ],
+      ),
+    );
   }
 }
