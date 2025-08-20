@@ -66,37 +66,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 sliver: const SliverToBoxAdapter(child: ResumeCta()),
               ),
-              // GÜNÜN PLANI / FOCUS TIMELINE
+              // HIZLI EYLEMLER ÜSTE TAŞINDI
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                sliver: SliverToBoxAdapter(child: Container(key: addTestKey, child: const AdaptiveActionCenter())),
+              ),
+              // GÜNÜN PLANI
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: 4),
                   child: Container(key: todaysPlanKey, child: const TodaysPlan()),
                 ),
               ),
-              SliverToBoxAdapter(child: const SizedBox(height: 16)),
+              const SliverToBoxAdapter(child: SizedBox(height: 12)),
               // GÜNLÜK GÖREVLER
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverToBoxAdapter(child: _DailyQuestsCard()),
               ),
-              // PLAN İLERLEME SATIRI
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                sliver: SliverToBoxAdapter(child: _PlanProgressLine()),
-              ),
-              SliverToBoxAdapter(child: const SizedBox(height: 24)),
-              // PERFORMANS KÜMESİ
+              const SliverToBoxAdapter(child: SizedBox(height: 20)),
+              // PERFORMANS KÜMESİ (YENİ TASARIM DOSYASI AYNI İSİM)
               SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 sliver: SliverToBoxAdapter(child: PerformanceCluster(tests: tests, user: user)),
               ),
-              SliverToBoxAdapter(child: const SizedBox(height: 24)),
-              // AKSİYON MERKEZİ
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                sliver: SliverToBoxAdapter(child: Container(key: addTestKey, child: const AdaptiveActionCenter())),
-              ),
-              SliverToBoxAdapter(child: const SizedBox(height: 120)),
+              const SliverToBoxAdapter(child: SizedBox(height: 64)),
             ],
           ),
         );
@@ -146,7 +140,15 @@ class _DailyQuestsCard extends ConsumerWidget {
         WidgetsBinding.instance.addPostFrameCallback((_){
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: const Text('Tüm günlük fetihler tamamlandı! 🔥')),
+              SnackBar(
+                content: Row(
+                  children: const [
+                    Icon(Icons.celebration_rounded, color: Colors.greenAccent),
+                    SizedBox(width: 8),
+                    Expanded(child: Text('Tüm günlük fetihler tamamlandı! 🔥')),
+                  ],
+                ),
+              ),
             );
           }
         });
@@ -243,60 +245,3 @@ class _DailyQuestsCard extends ConsumerWidget {
   }
 }
 // ------------------------------------------
-
-class _PlanProgressLine extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final plan = ref.watch(planProgressProvider);
-    if (plan.total == 0) return const SizedBox.shrink();
-    final ratio = plan.ratio;
-    Color barColor;
-    if (ratio >= .85) { barColor = Colors.greenAccent; }
-    else if (ratio >= .5) { barColor = AppTheme.secondaryColor; }
-    else { barColor = AppTheme.lightSurfaceColor.withValues(alpha: .8); }
-
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Text('Bugün Plan İlerleme', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.secondaryTextColor)),
-                  const SizedBox(width: 6),
-                  Text('%${(ratio*100).toStringAsFixed(0)}', style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: barColor)),
-                ],
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: ratio,
-                  minHeight: 6,
-                  backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: .25),
-                  valueColor: AlwaysStoppedAnimation(barColor),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        InkWell(
-          onTap: () => context.go('/home/weekly-plan'),
-          borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              children: [
-                Icon(Icons.open_in_new_rounded, size: 16, color: AppTheme.secondaryTextColor),
-                const SizedBox(width:4),
-                Text('Plan', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
-              ],
-            ),
-          ),
-        )
-      ],
-    );
-  }
-}

@@ -53,7 +53,6 @@ class _PlanView extends ConsumerWidget {
     if (weeklyPlan == null || weeklyPlan!.plan.isEmpty) {
       return const _EmptyStateCard();
     }
-
     final selectedDayIndex = ref.watch(_selectedDayProvider);
     final dayName = _daysOfWeek[selectedDayIndex];
     final dailyPlan = weeklyPlan!.plan.firstWhere((p) => p.day == dayName, orElse: () => DailyPlan(day: dayName, schedule: []));
@@ -61,6 +60,8 @@ class _PlanView extends ConsumerWidget {
     final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
     final dateForTab = startOfWeek.add(Duration(days: selectedDayIndex));
     final dateKey = DateFormat('yyyy-MM-dd').format(dateForTab);
+
+    final user = ref.watch(userProfileProvider).value; // bugünkü tamamlama için
 
     return Column(
       children: [
@@ -84,6 +85,11 @@ class _PlanView extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               _WeeklyProgressSummary(weeklyPlan: weeklyPlan!, userId: userId),
+              // BUGÜNKÜ PLAN CTA (sadece bugünkü sekilde ve eksik görev varsa)
+              if (user != null && selectedDayIndex == (DateTime.now().weekday - 1)) ...[
+                const SizedBox(height: 12),
+                _TodayInlineCta(dailyPlan: dailyPlan, dateKey: dateKey, user: user),
+              ],
             ],
           ),
         ),
@@ -119,6 +125,100 @@ class _PlanView extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TodayInlineCta extends StatelessWidget {
+  final DailyPlan dailyPlan; final String dateKey; final dynamic user; // user tip: UserModel
+  const _TodayInlineCta({required this.dailyPlan, required this.dateKey, required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    if (dailyPlan.schedule.isEmpty) return const SizedBox.shrink();
+    final completed = (user.completedDailyTasks[dateKey] ?? []) as List;
+    final total = dailyPlan.schedule.length;
+    final done = completed.length;
+    if (done >= total) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppTheme.successColor.withValues(alpha: .6)),
+          color: AppTheme.successColor.withValues(alpha: .12),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.check_circle_rounded, color: AppTheme.successColor),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text('Bugünkü plan tamamlandı! Dinlenebilir veya strateji gözden geçirebilirsin.',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.successColor, fontWeight: FontWeight.w600),),
+            ),
+          ],
+        ),
+      );
+    }
+    final ratio = done/total;
+    Color barColor;
+    if (ratio >= .75) { barColor = Colors.greenAccent; }
+    else if (ratio >= .5) { barColor = AppTheme.secondaryColor; }
+    else { barColor = AppTheme.lightSurfaceColor.withValues(alpha: .9); }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () {
+        // Kart zaten görünür; hafif titreşim / highlight için snackbar ipucu
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Eksik görevleri işaretleyerek tamamla: $done / $total')),
+        );
+      },
+      child: Ink(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: LinearGradient(
+            colors: [barColor.withValues(alpha: .20), AppTheme.cardColor.withValues(alpha: .60)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(color: barColor.withValues(alpha: .7), width: 1.2),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  height: 46,
+                  width: 46,
+                  child: CircularProgressIndicator(
+                    value: ratio.clamp(0,1),
+                    strokeWidth: 6,
+                    backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: .25),
+                    valueColor: AlwaysStoppedAnimation(barColor),
+                  ),
+                ),
+                Icon(Icons.flag_rounded, color: barColor, size: 22),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Bugünkü Planı Tamamla', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text('$done / $total görev tamamlandı', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppTheme.secondaryTextColor),
+          ],
+        ),
+      ),
     );
   }
 }

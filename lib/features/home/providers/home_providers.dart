@@ -78,16 +78,13 @@ final lastActivityProvider = Provider<({String label,String route,IconData icon,
   if (user == null){
     return (label:'Planı Aç', route:'/home', icon: Icons.view_week_rounded, color: Colors.amberAccent);
   }
-  // Öncelik sırası: bitmemiş plan (ratio < .5) -> test ekle (hiç yoksa) -> pomodoro -> workshop streak -> varsayılan
-  final plan = ref.watch(planProgressProvider);
-  if (plan.total>0 && plan.ratio < .5){
-    return (label:'Bugünkü Planı Tamamla', route:'/home/weekly-plan', icon: Icons.event_available_rounded, color: Colors.orangeAccent);
-  }
+  // PLAN CTA KALDIRILDI -> Haftalık kart içinde birleşik gösterilecek.
   if (tests.isEmpty){
     return (label:'İlk Denemeni Ekle', route:'/home/add-test', icon: Icons.add_chart_outlined, color: Colors.amberAccent);
   }
   if (user.workshopStreak>0){
-    return (label:'Atölye Serini Sürdür', route:'/ai-hub/weakness-workshop', icon: Icons.auto_fix_high_rounded, color: Colors.purpleAccent);
+    // Atölye serisi varsa artık kullanıcıyı motivasyon / AI sohbetine yönlendir.
+    return (label:'AI Koç Sohbeti', route:'/ai-hub/motivation-chat', icon: Icons.chat_bubble_outline_rounded, color: Colors.tealAccent);
   }
   return (label:'Odak Seansına Başla', route:'/home/pomodoro', icon: Icons.timer_outlined, color: Colors.lightBlueAccent);
 });
