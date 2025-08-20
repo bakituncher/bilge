@@ -15,6 +15,7 @@ import 'package:bilge_ai/shared/widgets/quest_completion_toast.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart'; // eklendi
+import 'package:bilge_ai/shared/constants/highlight_keys.dart';
 
 class ScaffoldWithNavBar extends ConsumerWidget {
   final StatefulNavigationShell navigationShell;

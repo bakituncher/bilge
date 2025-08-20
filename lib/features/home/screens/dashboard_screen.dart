@@ -1,5 +1,5 @@
 // lib/features/home/screens/dashboard_screen.dart
-import 'dart:math';
+// Gerekli importlar (temizlenmiş)
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,20 +8,17 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
-import 'package:bilge_ai/features/home/widgets/dashboard_header.dart';
 import 'package:bilge_ai/features/home/widgets/todays_plan.dart';
-import 'package:bilge_ai/shared/widgets/stat_card.dart';
-import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:bilge_ai/features/onboarding/providers/tutorial_provider.dart';
-import 'package:bilge_ai/features/profile/logic/rank_service.dart'; // YENİ: Merkezi Rütbe Sistemi import edildi.
+import 'package:bilge_ai/features/home/widgets/hero_header.dart';
+import 'package:bilge_ai/features/home/widgets/performance_cluster.dart';
+import 'package:bilge_ai/features/home/widgets/adaptive_action_center.dart';
+import 'package:bilge_ai/features/home/widgets/resume_cta.dart';
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
+import 'package:bilge_ai/shared/constants/highlight_keys.dart';
+import 'package:bilge_ai/features/home/providers/home_providers.dart';
 
-// Widget'ları vurgulamak için GlobalKey'ler
-final GlobalKey todaysPlanKey = GlobalKey();
-final GlobalKey addTestKey = GlobalKey();
-final GlobalKey coachKey = GlobalKey();
-final GlobalKey arenaKey = GlobalKey();
-final GlobalKey profileKey = GlobalKey();
-final GlobalKey aiHubFabKey = GlobalKey();
+// Widget'ları vurgulamak için GlobalKey'ler artik highlight_keys.dart'tan geliyor, burada TANIM YOK.
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -44,9 +41,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     });
   }
 
-  // KALDIRILDI: Bu eski ve tutarsız unvan sistemi artık kullanılmıyor.
-  // String _getWarriorTitle(int testCount, double avgNet) { ... }
-
   @override
   Widget build(BuildContext context) {
     final userAsync = ref.watch(userProfileProvider);
@@ -58,50 +52,51 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           return const Center(child: Text('Kullanıcı verisi yüklenemedi.'));
         }
         final tests = testsAsync.valueOrNull ?? [];
+        // rankInfo (unvan) artık ekran üstünde HeroHeader içinde hesaplanıyor, burada gerek yok.
 
-        // GÜNCELLENDİ: Rütbe artık merkezi RankService'ten, sadece Bilgelik Puanı'na göre alınıyor.
-        final rankInfo = RankService.getRankInfo(user.engagementScore);
-        final warriorTitle = rankInfo.current.name;
-
-        // SORUN ÇÖZÜMÜ: İçeriği SafeArea ile sarmalayarak bildirim paneliyle çakışmayı önle.
         return SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(top: 16, left: 16, right: 16),
-                child: DashboardHeader(
-                  name: user.name ?? 'Savaşçı',
-                  title: warriorTitle, // GÜNCELLENDİ: Yeni ve doğru unvan kullanılıyor.
+          child: CustomScrollView(
+            slivers: [
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                sliver: SliverToBoxAdapter(child: HeroHeader()),
+              ),
+              // DEVAM ET (RESUME) BÖLÜMÜ
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                sliver: const SliverToBoxAdapter(child: ResumeCta()),
+              ),
+              // GÜNÜN PLANI / FOCUS TIMELINE
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Container(key: todaysPlanKey, child: const TodaysPlan()),
                 ),
               ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.symmetric(vertical: 16.0),
-                  children: [
-                    const SizedBox(height: 8),
-                    Container(key: todaysPlanKey, child: const TodaysPlan()),
-                    const SizedBox(height: 24),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 16.0),
-                      child: _DailyQuestsCard(),
-                    ),
-                    const SizedBox(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: _QuickStats(tests: tests, user: user),
-                    ),
-                    const SizedBox(height: 24),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Container(key: addTestKey, child: _ActionCenter()),
-                    ),
-                    const SizedBox(height: 100),
-                  ]
-                      .animate(interval: 80.ms)
-                      .fadeIn(duration: 400.ms)
-                      .slideY(begin: 0.1),
-                ),
+              SliverToBoxAdapter(child: const SizedBox(height: 16)),
+              // GÜNLÜK GÖREVLER
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverToBoxAdapter(child: _DailyQuestsCard()),
               ),
+              // PLAN İLERLEME SATIRI
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                sliver: SliverToBoxAdapter(child: _PlanProgressLine()),
+              ),
+              SliverToBoxAdapter(child: const SizedBox(height: 24)),
+              // PERFORMANS KÜMESİ
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverToBoxAdapter(child: PerformanceCluster(tests: tests, user: user)),
+              ),
+              SliverToBoxAdapter(child: const SizedBox(height: 24)),
+              // AKSİYON MERKEZİ
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                sliver: SliverToBoxAdapter(child: Container(key: addTestKey, child: const AdaptiveActionCenter())),
+              ),
+              SliverToBoxAdapter(child: const SizedBox(height: 120)),
             ],
           ),
         );
@@ -113,148 +108,195 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 }
 
 // --- YENİ WIDGET: GÜNLÜK GÖREVLER KARTI ---
-class _DailyQuestsCard extends StatelessWidget {
-  const _DailyQuestsCard();
+class _DailyQuestsCard extends ConsumerWidget {
+  _DailyQuestsCard();
+
+  static final Set<String> _celebratedDates = {};
+
+  String _formatRemaining(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    if (h == 0) return '${m}dk';
+    return '${h}sa ${m}dk';
+  }
+
+  Color _progressColor(double p) {
+    if (p >= .999) return Colors.greenAccent;
+    if (p >= .85) return Colors.greenAccent.withValues(alpha: .9);
+    if (p >= .5) return AppTheme.secondaryColor;
+    return AppTheme.lightSurfaceColor.withValues(alpha: .9);
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(userProfileProvider).value;
+    if (user == null) return const SizedBox.shrink();
+
+    final questProg = ref.watch(dailyQuestsProgressProvider);
+    final total = questProg.total;
+    final completed = questProg.completed;
+    final progress = questProg.progress;
+    final remaining = questProg.remaining;
+
+    // Günlük tamamlanma kutlaması (günde bir kez)
+    if (progress >= 1.0) {
+      final todayKey = DateTime.now().toIso8601String().substring(0,10);
+      if (!_celebratedDates.contains(todayKey)) {
+        _celebratedDates.add(todayKey);
+        WidgetsBinding.instance.addPostFrameCallback((_){
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: const Text('Tüm günlük fetihler tamamlandı! 🔥')),
+            );
+          }
+        });
+      }
+    }
+
+    final showShimmer = progress < 1.0;
+
+    final card = Card(
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: _progressColor(progress), width: 2),
+      ),
+      child: InkWell(
+        onTap: () => context.go('/home/quests'),
+        child: Container(
+          padding: const EdgeInsets.all(20.0),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                _progressColor(progress).withValues(alpha: 0.18),
+                AppTheme.cardColor.withValues(alpha: 0.55),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+          child: Row(
+            children: [
+              Stack(
+                alignment: Alignment.center,
+                children: [
+                  SizedBox(
+                    height: 56,
+                    width: 56,
+                    child: CircularProgressIndicator(
+                      value: progress == 0 ? null : progress,
+                      strokeWidth: 6,
+                      backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: .25),
+                      valueColor: AlwaysStoppedAnimation(_progressColor(progress)),
+                    ),
+                  ),
+                  Icon(progress >=1 ? Icons.emoji_events_rounded : Icons.shield_moon_rounded, size: 28, color: _progressColor(progress)),
+                ],
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      progress >=1 ? "Zafer!" : "Günlük Fetihler",
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      total == 0 ? 'Bugün görev yok' : '$completed / $total tamamlandı • Kalan ${_formatRemaining(remaining)}',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor),
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: progress.clamp(0,1),
+                        minHeight: 6,
+                        backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: .25),
+                        valueColor: AlwaysStoppedAnimation(_progressColor(progress)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (!showShimmer) return card;
+
     return Animate(
       onPlay: (controller) => controller.repeat(reverse: true),
       effects: [
         ShimmerEffect(
           duration: 2500.ms,
-          color: AppTheme.secondaryColor.withOpacity(0.5),
+          color: AppTheme.secondaryColor.withValues(alpha: 0.35),
         ),
       ],
-      child: Card(
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: AppTheme.secondaryColor, width: 2),
-        ),
-        child: InkWell(
-          onTap: () => context.go('/home/quests'),
-          child: Container(
-            padding: const EdgeInsets.all(20.0),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppTheme.secondaryColor.withOpacity(0.2),
-                  AppTheme.cardColor.withOpacity(0.5),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Row(
-              children: [
-                const Icon(Icons.shield_moon_rounded, size: 40, color: AppTheme.secondaryColor),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Günlük Fetihler",
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "Yeni BP ve ödüller için tıkla!",
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: card,
     );
   }
 }
 // ------------------------------------------
 
-class _QuickStats extends StatelessWidget {
-  final List<TestModel> tests;
-  final UserModel user;
-
-  const _QuickStats({required this.tests, required this.user});
-
+class _PlanProgressLine extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
-    final avgNet = tests.isNotEmpty ? (user.totalNetSum / tests.length) : 0.0;
-    final bestNet = tests.isEmpty ? 0.0 : tests.map((t) => t.totalNet).reduce(max);
-    final streak = user.streak;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final plan = ref.watch(planProgressProvider);
+    if (plan.total == 0) return const SizedBox.shrink();
+    final ratio = plan.ratio;
+    Color barColor;
+    if (ratio >= .85) { barColor = Colors.greenAccent; }
+    else if (ratio >= .5) { barColor = AppTheme.secondaryColor; }
+    else { barColor = AppTheme.lightSurfaceColor.withValues(alpha: .8); }
 
-    return IntrinsicHeight(
-      child: Row(
-        children: [
-          Expanded(child: StatCard(icon: Icons.track_changes_rounded, value: avgNet.toStringAsFixed(1), label: 'Ortalama Net', color: Colors.blueAccent, onTap: () => context.push('/home/stats'))),
-          const SizedBox(width: 12),
-          Expanded(child: StatCard(icon: Icons.emoji_events_rounded, value: bestNet.toStringAsFixed(1), label: 'En Yüksek Net', color: Colors.amber, onTap: () => context.push('/home/stats'))),
-          const SizedBox(width: 12),
-          Expanded(child: StatCard(icon: Icons.local_fire_department_rounded, value: streak.toString(), label: 'Günlük Seri', color: Colors.orangeAccent, onTap: () => context.push('/profile'))),
-        ],
-      ),
-    );
-  }
-}
-
-class _ActionCenter extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
-          child: _ActionButton(
-            onTap: () => context.go('/home/add-test'),
-            icon: Icons.add_chart_outlined,
-            label: "Deneme Ekle",
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text('Bugün Plan İlerleme', style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+                  const SizedBox(width: 6),
+                  Text('%${(ratio*100).toStringAsFixed(0)}', style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.bold, color: barColor)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: ratio,
+                  minHeight: 6,
+                  backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: .25),
+                  valueColor: AlwaysStoppedAnimation(barColor),
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: _ActionButton(
-            onTap: () => context.go('/home/pomodoro'),
-            icon: Icons.timer_outlined,
-            label: "Odaklan",
+        const SizedBox(width: 12),
+        InkWell(
+          onTap: () => context.go('/home/weekly-plan'),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              children: [
+                Icon(Icons.open_in_new_rounded, size: 16, color: AppTheme.secondaryTextColor),
+                const SizedBox(width:4),
+                Text('Plan', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
+              ],
+            ),
           ),
-        ),
+        )
       ],
-    );
-  }
-}
-
-class _ActionButton extends StatelessWidget {
-  final VoidCallback onTap;
-  final IconData icon;
-  final String label;
-
-  const _ActionButton({required this.onTap, required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Ink(
-        padding: const EdgeInsets.symmetric(vertical: 20),
-        decoration: BoxDecoration(
-            color: AppTheme.cardColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(0.5))
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 28, color: Colors.white),
-            const SizedBox(height: 8),
-            Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-          ],
-        ),
-      ),
     );
   }
 }
