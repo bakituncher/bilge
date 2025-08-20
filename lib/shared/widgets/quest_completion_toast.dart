@@ -62,111 +62,116 @@ class _QuestCompletionToastState extends ConsumerState<QuestCompletionToast> wit
             borderRadius: BorderRadius.circular(28),
             child: BackdropFilter(
               filter: ui.ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(28),
-                  gradient: LinearGradient(
-                    colors: [
-                      AppTheme.successColor.withValues(alpha: .20),
-                      const Color(0xFF1E2B3D).withValues(alpha: .90),
+              child: Material(
+                type: MaterialType.transparency,
+                child: Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                  constraints: const BoxConstraints(maxWidth: 560), // genişlik sınırı eklendi
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(28),
+                    gradient: LinearGradient(
+                      colors: [
+                        AppTheme.successColor.withValues(alpha: .20),
+                        const Color(0xFF1E2B3D).withValues(alpha: .90),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(color: AppTheme.successColor.withValues(alpha: .55), width: 1.3),
+                    boxShadow: [
+                      BoxShadow(color: AppTheme.successColor.withValues(alpha: .35), blurRadius: 30, spreadRadius: 1, offset: const Offset(0,8)),
+                      BoxShadow(color: Colors.black.withValues(alpha: .45), blurRadius: 18, offset: const Offset(0,6)),
                     ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
                   ),
-                  border: Border.all(color: AppTheme.successColor.withValues(alpha: .55), width: 1.3),
-                  boxShadow: [
-                    BoxShadow(color: AppTheme.successColor.withValues(alpha: .35), blurRadius: 30, spreadRadius: 1, offset: const Offset(0,8)),
-                    BoxShadow(color: Colors.black.withValues(alpha: .45), blurRadius: 18, offset: const Offset(0,6)),
-                  ],
-                ),
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    // Dekoratif yumuşak halkalar
-                    Positioned(
-                      right: -30,
-                      top: -30,
-                      child: AnimatedBuilder(
-                        animation: _spinC,
-                        builder: (_, __) => Transform.rotate(
-                          angle: _spinC.value * math.pi * 2,
-                          child: Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: SweepGradient(
-                                colors: [
-                                  AppTheme.successColor.withValues(alpha: .0),
-                                  AppTheme.successColor.withValues(alpha: .35),
-                                  AppTheme.successColor.withValues(alpha: .0),
-                                ],
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Dekoratif yumuşak halkalar
+                      Positioned(
+                        right: -30,
+                        top: -30,
+                        child: AnimatedBuilder(
+                          animation: _spinC,
+                          builder: (_, __) => Transform.rotate(
+                            angle: _spinC.value * math.pi * 2,
+                            child: Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: SweepGradient(
+                                  colors: [
+                                    AppTheme.successColor.withValues(alpha: .0),
+                                    AppTheme.successColor.withValues(alpha: .35),
+                                    AppTheme.successColor.withValues(alpha: .0),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _QuestBadge(pulse: _pulseC, spin: _spinC),
-                        const SizedBox(width: 18),
-                        Flexible(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Görev Tamamlandı',
-                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                      letterSpacing: 1.1,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppTheme.successColor,
-                                    ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                quest.title,
-                                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      height: 1.15,
-                                    ),
-                              ),
-                              const SizedBox(height: 6),
-                              Row(
-                                children: [
-                                  _RewardChip(label: reward),
-                                  const SizedBox(width: 8),
-                                  if (quest.difficulty != null)
-                                    _DifficultyChip(level: quest.difficulty!.name),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        // Kapat butonu
-                        InkWell(
-                          onTap: _dismiss,
-                          customBorder: const CircleBorder(),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: .06),
-                              border: Border.all(color: Colors.white.withValues(alpha: .14)),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        mainAxisSize: MainAxisSize.max, // shrink-wrap yerine tam genişlik
+                        children: [
+                          _QuestBadge(pulse: _pulseC, spin: _spinC),
+                          const SizedBox(width: 18),
+                          Expanded( // Flexible yerine Expanded
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Görev Tamamlandı',
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                        letterSpacing: 1.1,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.successColor,
+                                      ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  quest.title,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        height: 1.15,
+                                      ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    _RewardChip(label: reward),
+                                    const SizedBox(width: 8),
+                                    if (quest.difficulty != null)
+                                      _DifficultyChip(level: quest.difficulty!.name),
+                                  ],
+                                ),
+                              ],
                             ),
-                            child: const Icon(Icons.close_rounded, size: 18, color: Colors.white70),
                           ),
-                        ),
-                      ],
-                    ),
-                  ],
+                          const SizedBox(width: 12),
+                          // Kapat butonu InkWell -> GestureDetector
+                          GestureDetector(
+                            onTap: _dismiss,
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.white.withValues(alpha: .06),
+                                border: Border.all(color: Colors.white.withValues(alpha: .14)),
+                              ),
+                              child: const Icon(Icons.close_rounded, size: 18, color: Colors.white70),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
