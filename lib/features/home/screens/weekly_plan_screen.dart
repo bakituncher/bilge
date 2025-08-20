@@ -141,20 +141,24 @@ class _DaySelector extends ConsumerWidget {
   }
 }
 
-class _TaskListView extends ConsumerWidget {
-  final DailyPlan dailyPlan;
-  final String userId;
-
+class _TaskListView extends ConsumerStatefulWidget { // ConsumerWidget -> Stateful
+  final DailyPlan dailyPlan; final String userId;
   const _TaskListView({super.key, required this.dailyPlan, required this.userId});
-
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TaskListView> createState() => _TaskListViewState();
+}
+
+class _TaskListViewState extends ConsumerState<_TaskListView> with AutomaticKeepAliveClientMixin<_TaskListView> {
+  @override bool get wantKeepAlive => true;
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final dailyPlan = widget.dailyPlan; final userId = widget.userId;
     final today = DateTime.now();
     final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
     final dayIndex = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'].indexOf(dailyPlan.day);
     final dateForTab = startOfWeek.add(Duration(days: dayIndex));
     final dateKey = DateFormat('yyyy-MM-dd').format(dateForTab);
-
     final totalTasks = dailyPlan.schedule.length;
     final completedCount = dailyPlan.schedule.where((item) {
       final taskIdentifier = '${item.time}-${item.activity}';
@@ -163,15 +167,8 @@ class _TaskListView extends ConsumerWidget {
     final progress = totalTasks == 0 ? 0.0 : completedCount / totalTasks;
 
     return Column(
-      key: key,
       children: [
-        _DaySummaryHeader(
-          dayLabel: dailyPlan.day,
-            date: dateForTab,
-            completed: completedCount,
-            total: totalTasks,
-            progress: progress,
-        ),
+        _DaySummaryHeader(dayLabel: dailyPlan.day, date: dateForTab, completed: completedCount, total: totalTasks, progress: progress),
         const SizedBox(height: 8),
         Expanded(
           child: ListView.builder(
@@ -180,35 +177,32 @@ class _TaskListView extends ConsumerWidget {
             itemBuilder: (context, index) {
               final item = dailyPlan.schedule[index];
               final taskIdentifier = '${item.time}-${item.activity}';
-              final isCompleted = ref.watch(userProfileProvider.select(
-                    (user) => user.value?.completedDailyTasks[dateKey]?.contains(taskIdentifier) ?? false,
-              ));
-
-              return _TaskTimelineTile(
-                item: item,
-                isCompleted: isCompleted,
-                isFirst: index == 0,
-                isLast: index == dailyPlan.schedule.length - 1,
-                dateKey: dateKey,
-                onToggle: () async {
-                  HapticFeedback.selectionClick();
-                  ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
-                    userId: userId,
-                    dateKey: dateKey,
-                    task: taskIdentifier,
-                    isCompleted: !isCompleted,
-                  );
-                  if(!isCompleted) {
-                    final questId = 'schedule_${dateKey}_${taskIdentifier.hashCode}';
-                    await ref.read(questNotifierProvider.notifier).updateQuestProgressById(questId);
-                    if(context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Plan görevi fethedildi: ${item.activity}')),
-                      );
+              final isCompleted = ref.watch(userProfileProvider.select((user) => user.value?.completedDailyTasks[dateKey]?.contains(taskIdentifier) ?? false));
+              return RepaintBoundary(
+                child: _TaskTimelineTile(
+                  item: item,
+                  isCompleted: isCompleted,
+                  isFirst: index == 0,
+                  isLast: index == dailyPlan.schedule.length - 1,
+                  dateKey: dateKey,
+                  onToggle: () async {
+                    HapticFeedback.selectionClick();
+                    ref.read(firestoreServiceProvider).updateDailyTaskCompletion(
+                      userId: userId,
+                      dateKey: dateKey,
+                      task: taskIdentifier,
+                      isCompleted: !isCompleted,
+                    );
+                    if(!isCompleted) {
+                      final questId = 'schedule_${dateKey}_${taskIdentifier.hashCode}';
+                      await ref.read(questNotifierProvider.notifier).updateQuestProgressById(questId);
+                      if(context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Plan görevi fethedildi: ${item.activity}')));
+                      }
                     }
-                  }
-                },
-              ).animate().fadeIn(delay: (60 * index).ms).slideY(begin: .15, curve: Curves.easeOutCubic);
+                  },
+                ).animate().fadeIn(delay: (50 * index).ms).slideY(begin: .12, curve: Curves.easeOutCubic),
+              );
             },
           ),
         ),
@@ -224,56 +218,197 @@ class _DaySummaryHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final dateStr = DateFormat('d MMM', 'tr_TR').format(date);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          colors: [AppTheme.cardColor.withOpacity(.85), AppTheme.lightSurfaceColor.withOpacity(.25)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(.4)),
+        borderRadius: BorderRadius.circular(16),
+        color: AppTheme.cardColor.withOpacity(.55), // nötrleştirildi
+        border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(.20)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(dayLabel, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        color: AppTheme.secondaryColor.withOpacity(.15),
-                        border: Border.all(color: AppTheme.secondaryColor.withOpacity(.5)),
-                      ),
-                      child: Text(dateStr, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.w600)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 8,
-                    backgroundColor: AppTheme.lightSurfaceColor.withOpacity(.25),
-                    valueColor: AlwaysStoppedAnimation(progress >= 1 ? AppTheme.successColor : AppTheme.secondaryColor),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text('$completed / $total görev • %${(progress*100).toStringAsFixed(0)} tamamlandı',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor),
-                ),
-              ],
+          Row(
+            children: [
+              Expanded(
+                child: Text('$dayLabel • $dateStr', maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+              ),
+              Text('${(progress*100).toStringAsFixed(0)}%',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress,
+              minHeight: 5,
+              backgroundColor: AppTheme.lightSurfaceColor.withOpacity(.18),
+              valueColor: AlwaysStoppedAnimation(progress >= 1 ? AppTheme.successColor : AppTheme.secondaryColor),
             ),
           ),
+          const SizedBox(height: 6),
+          Text('$completed / $total görev', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
         ],
       ),
+    );
+  }
+}
+
+class WeeklyOverviewCard extends ConsumerWidget {
+  final WeeklyPlan weeklyPlan; final String userId;
+  const WeeklyOverviewCard({super.key, required this.weeklyPlan, required this.userId});
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final today = DateTime.now();
+    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
+    final dates = List.generate(7, (i)=> startOfWeek.add(Duration(days: i)));
+    final todayIndex = today.weekday - 1;
+    final dateKeys = dates.map((d)=> DateFormat('yyyy-MM-dd').format(d)).toList();
+    final allDaily = weeklyPlan.plan;
+    int totalTasks = 0; int completedTasks = 0; Map<String,int> dayTotals = {}; Map<String,int> dayCompleted = {};
+    for (final d in allDaily) {
+      final idx = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'].indexOf(d.day);
+      if (idx < 0) continue;
+      final dk = dateKeys[idx];
+      totalTasks += d.schedule.length;
+      dayTotals[dk] = d.schedule.length;
+      int compForDay = 0;
+      for (final item in d.schedule) {
+        final id = '${item.time}-${item.activity}';
+        final done = ref.watch(userProfileProvider.select((p)=> p.value?.completedDailyTasks[dk]?.contains(id) ?? false));
+        if (done) compForDay++;
+      }
+      completedTasks += compForDay;
+      dayCompleted[dk] = compForDay;
+    }
+    final progress = totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
+    final weekRange = '${DateFormat('d MMM', 'tr_TR').format(dates.first)} - ${DateFormat('d MMM', 'tr_TR').format(dates.last)}';
+
+    return GestureDetector(
+      onTap: () => _showWeekDetails(context, ref, dates, dateKeys, dayTotals, dayCompleted),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          color: AppTheme.cardColor.withOpacity(.50),
+          border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(.20)),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              height: 54, width: 54,
+              child: Stack(alignment: Alignment.center, children: [
+                CircularProgressIndicator(
+                  value: progress,
+                  strokeWidth: 5,
+                  backgroundColor: AppTheme.lightSurfaceColor.withOpacity(.18),
+                  valueColor: AlwaysStoppedAnimation(progress>=1? AppTheme.successColor : AppTheme.secondaryColor),
+                ),
+                Text('${(progress*100).toStringAsFixed(0)}%', style: Theme.of(context).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600)),
+              ]),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Haftalık Harekât', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(weekRange, style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
+                  const SizedBox(height: 6),
+                  Text('$completedTasks / $totalTasks görev', style: Theme.of(context).textTheme.labelSmall),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: List.generate(7, (i){
+                      final dk = dateKeys[i]; final total = dayTotals[dk] ?? 0; final done = dayCompleted[dk] ?? 0; final ratio = total==0?0.0: done/total;
+                      final isToday = i == todayIndex;
+                      return Expanded(
+                        child: Container(
+                          height: 6,
+                          margin: EdgeInsets.only(right: i==6?0:4),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(3),
+                            gradient: LinearGradient(
+                              colors: [
+                                (ratio>=1? AppTheme.successColor : AppTheme.secondaryColor).withOpacity(ratio==0 ? .15 : .85),
+                                (ratio>=1? AppTheme.successColor : AppTheme.secondaryColor).withOpacity(ratio==0 ? .18 : 1),
+                              ],
+                            ),
+                            border: isToday ? Border.all(color: Colors.white.withOpacity(.6), width: 1) : null,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (totalTasks>0) Text('${remainingLabel(completedTasks,totalTasks)}', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String remainingLabel(int done, int total){
+    if (total==0) return '-';
+    final rem = total-done;
+    if (rem==0) return 'Bitti';
+    return 'Kalan $rem';
+  }
+
+  void _showWeekDetails(BuildContext context, WidgetRef ref, List<DateTime> dates, List<String> dateKeys, Map<String,int> dayTotals, Map<String,int> dayCompleted){
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.cardColor.withOpacity(.9),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20,16,20,32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.insights_rounded, color: AppTheme.secondaryColor),
+                  const SizedBox(width: 8),
+                  Text('Haftalık Detay', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...List.generate(7, (i){
+                final dk = dateKeys[i]; final date = dates[i];
+                final total = dayTotals[dk] ?? 0; final done = dayCompleted[dk] ?? 0; final ratio = total==0?0.0: done/total;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    children: [
+                      SizedBox(width: 84, child: Text(DateFormat('E d MMM','tr_TR').format(date), style: Theme.of(context).textTheme.labelSmall)),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: ratio,
+                            minHeight: 6,
+                            backgroundColor: AppTheme.lightSurfaceColor.withOpacity(.2),
+                            valueColor: AlwaysStoppedAnimation(ratio>=1? AppTheme.successColor : AppTheme.secondaryColor),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text('$done/$total', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -321,40 +456,60 @@ class _TaskTimelineTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final accent = _typeColor(item.type);
+    final icon = _getIconForTaskType(item.type);
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: onToggle,
+            onTap: onToggle,
           child: AnimatedContainer(
             duration: 300.ms,
             curve: Curves.easeOutCubic,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
-              color: isCompleted ? AppTheme.cardColor.withOpacity(.45) : AppTheme.cardColor.withOpacity(.85),
-              border: Border.all(color: accent.withOpacity(.35)),
-              boxShadow: [
-                BoxShadow(color: accent.withOpacity(.10), blurRadius: 12, offset: const Offset(0,4)),
-              ],
+              color: isCompleted ? AppTheme.cardColor.withOpacity(.45) : AppTheme.cardColor.withOpacity(.82),
+              border: Border.all(color: accent.withOpacity(.30)),
             ),
             child: Row(
               children: [
+                // Sol şerit + ikon rozeti birlikte
                 Container(
-                  width: 6,
-                  height: 74,
+                  width: 50,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   decoration: BoxDecoration(
-                    color: accent,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(20),
-                      bottomLeft: Radius.circular(20),
-                    ),
+                    color: accent.withOpacity(.12),
+                    borderRadius: const BorderRadius.only(topLeft: Radius.circular(20), bottomLeft: Radius.circular(20)),
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 30,
+                        height: 30,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: accent.withOpacity(.25),
+                          border: Border.all(color: accent.withOpacity(.55), width: 1),
+                        ),
+                        child: Icon(icon, size: 16, color: Colors.white),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        height: 4,
+                        width: 24,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2),
+                          color: isCompleted ? AppTheme.successColor : accent.withOpacity(.55),
+                        ),
+                      )
+                    ],
                   ),
                 ),
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16,12,12,12),
+                    padding: const EdgeInsets.fromLTRB(14,12,12,12),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -387,13 +542,12 @@ class _TaskTimelineTile extends StatelessWidget {
                     width: 40,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: isCompleted ? AppTheme.successColor : accent.withOpacity(.25),
-                      border: Border.all(color: accent.withOpacity(.6), width: 1.2),
+                      color: isCompleted ? AppTheme.successColor : accent.withOpacity(.28),
+                      border: Border.all(color: accent.withOpacity(.55), width: 1.1),
                     ),
-                    child: Icon(
-                      isCompleted ? Icons.check_rounded : Icons.circle_outlined,
-                      color: Colors.white,
-                    ).animate(target: isCompleted ? 1 : 0).scale(duration: 300.ms, curve: Curves.easeOutBack),
+                    child: Icon(isCompleted ? Icons.check_rounded : Icons.circle_outlined, color: Colors.white)
+                      .animate(target: isCompleted ? 1 : 0)
+                      .scale(duration: 300.ms, curve: Curves.easeOutBack),
                   ),
                 )
               ],
@@ -429,129 +583,5 @@ class _EmptyDayView extends StatelessWidget {
         ),
       ],
     ).animate().fadeIn();
-  }
-}
-
-class WeeklyOverviewCard extends ConsumerWidget {
-  final WeeklyPlan weeklyPlan; final String userId;
-  const WeeklyOverviewCard({super.key, required this.weeklyPlan, required this.userId});
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final today = DateTime.now();
-    final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
-    final dates = List.generate(7, (i)=> startOfWeek.add(Duration(days: i)));
-    final dateKeys = dates.map((d)=> DateFormat('yyyy-MM-dd').format(d)).toList();
-
-    // Toplam görev sayısı
-    final allDaily = weeklyPlan.plan;
-    int totalTasks = 0; int completedTasks = 0; Map<String,int> dayTotals = {}; Map<String,int> dayCompleted = {};
-    for (final d in allDaily) {
-      final idx = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'].indexOf(d.day);
-      if (idx < 0) continue;
-      final dk = dateKeys[idx];
-      totalTasks += d.schedule.length;
-      dayTotals[dk] = d.schedule.length;
-      int compForDay = 0;
-      for (final item in d.schedule) {
-        final id = '${item.time}-${item.activity}';
-        final done = ref.watch(userProfileProvider.select((p)=> p.value?.completedDailyTasks[dk]?.contains(id) ?? false));
-        if (done) compForDay++;
-      }
-      completedTasks += compForDay;
-      dayCompleted[dk] = compForDay;
-    }
-    final progress = totalTasks == 0 ? 0.0 : completedTasks / totalTasks;
-    final remaining = totalTasks - completedTasks;
-    final weekRange = '${DateFormat('d MMM', 'tr_TR').format(dates.first)} - ${DateFormat('d MMM', 'tr_TR').format(dates.last)}';
-
-    return AnimatedContainer(
-      duration: 400.ms,
-      curve: Curves.easeOutCubic,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          colors: [AppTheme.cardColor.withOpacity(.85), AppTheme.lightSurfaceColor.withOpacity(.25)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(.35)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(.4), blurRadius: 18, offset: const Offset(0,8))],
-      ),
-      child: Row(
-        children: [
-          // Dairesel ilerleme
-          SizedBox(
-            height: 78,
-            width: 78,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircularProgressIndicator(
-                  value: progress,
-                  strokeWidth: 8,
-                  backgroundColor: AppTheme.lightSurfaceColor.withOpacity(.25),
-                  valueColor: AlwaysStoppedAnimation(progress >=1 ? AppTheme.successColor : AppTheme.secondaryColor),
-                ),
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('${(progress*100).toStringAsFixed(0)}%', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('Hafta', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
-                  ],
-                )
-              ],
-            ),
-          ).animate().fadeIn().scale(delay: 80.ms, curve: Curves.easeOutBack),
-          const SizedBox(width: 18),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Yeni başlık + tarih ayrı satır
-                Text('Haftalık Harekât', style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(Icons.calendar_month_rounded, size: 18, color: AppTheme.secondaryColor),
-                    const SizedBox(width: 8),
-                    Text(weekRange, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.w600)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text('${completedTasks} / $totalTasks görev tamamlandı', style: Theme.of(context).textTheme.bodySmall),
-                const SizedBox(height: 4),
-                Text(remaining>0 ? 'Kalan: $remaining görev' : 'Hepsi bitti! 🔥', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: remaining>0 ? AppTheme.secondaryTextColor : AppTheme.successColor, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 24,
-                  child: Row(
-                    children: List.generate(7, (i){
-                      final dk = dateKeys[i];
-                      final total = dayTotals[dk] ?? 0; final done = dayCompleted[dk] ?? 0;
-                      final double ratio = total == 0 ? 0.0 : done / total; // tip düzeltildi
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(right: i==6?0:4),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(
-                              value: ratio,
-                              minHeight: 24,
-                              backgroundColor: AppTheme.lightSurfaceColor.withOpacity(.15),
-                              valueColor: AlwaysStoppedAnimation(ratio>=1? AppTheme.successColor : AppTheme.secondaryColor.withOpacity(.9)),
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-              ],
-            ),
-          )
-        ],
-      ),
-    );
   }
 }

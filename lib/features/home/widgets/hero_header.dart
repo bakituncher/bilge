@@ -88,9 +88,14 @@ class HeroHeader extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('${_greeting()}, ${user.name ?? 'Bilge'}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
                         const SizedBox(height: 2),
-                        Row(
+                        // Row -> Wrap (overflow fix)
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -108,7 +113,6 @@ class HeroHeader extends ConsumerWidget {
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
                             if (plan.total>0)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
