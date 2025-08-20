@@ -16,9 +16,9 @@ import 'package:bilge_ai/features/coach/widgets/topic_stats_dialog.dart';
 final coachScreenTabProvider = StateProvider<int>((ref) => 0);
 
 // YENI: Görünüm modu enum ve provider'lar
-enum GalaxyViewMode { free, grid, list }
+enum GalaxyViewMode { grid, list }
 final subjectFilterProvider = StateProvider.family<String, String>((ref, subject) => '');
-final subjectViewModeProvider = StateProvider.family<GalaxyViewMode, String>((ref, subject) => GalaxyViewMode.free);
+final subjectViewModeProvider = StateProvider.family<GalaxyViewMode, String>((ref, subject) => GalaxyViewMode.grid);
 
 class CoachScreen extends ConsumerStatefulWidget {
   final String? initialSubject; // yeni: açılışta doğrudan ders sekmesi
@@ -262,27 +262,25 @@ class _SubjectGalaxyViewState extends ConsumerState<_SubjectGalaxyView> {
     }).where((e)=> filter.isEmpty || e.topic.name.toLowerCase().contains(filter.toLowerCase())).toList()
       ..sort((a,b)=> (a.mastery<0?2:a.mastery).compareTo(b.mastery<0?2:b.mastery));
 
-    Widget buildFree()=> Wrap(
-      spacing: 16, runSpacing: 20, alignment: WrapAlignment.center,
-      children: processed.map((e)=> MasteryTopicBubble(
-        topic: e.topic,
-        performance: e.performance,
-        penaltyCoefficient: penaltyCoefficient,
-        onTap: () => context.go('/coach/update-topic-performance', extra: {'subject': subjectName,'topic': e.topic.name,'performance': e.performance}),
-        onLongPress: ()=> _showTopicStats(e),
-      )).toList(),
-    );
     Widget buildGrid()=> LayoutBuilder(builder:(c,constraints){
       final crossAxisCount = (constraints.maxWidth/170).floor().clamp(1,6);
       return GridView.builder(
         physics: const NeverScrollableScrollPhysics(),
         shrinkWrap: true,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: crossAxisCount, mainAxisSpacing: 14, crossAxisSpacing: 14, childAspectRatio: 2.8),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          mainAxisSpacing: 16,
+          crossAxisSpacing: 16,
+          childAspectRatio: 2.6,
+        ),
         itemCount: processed.length,
         itemBuilder:(c,i){ final e=processed[i]; return MasteryTopicBubble(
-          topic:e.topic, performance:e.performance, penaltyCoefficient: penaltyCoefficient,
+          topic:e.topic,
+          performance:e.performance,
+          penaltyCoefficient: penaltyCoefficient,
           onTap: ()=> context.go('/coach/update-topic-performance', extra:{'subject': subjectName,'topic': e.topic.name,'performance': e.performance}),
           onLongPress: ()=> _showTopicStats(e),
+          compact: true,
         );},
       );
     });
@@ -306,7 +304,7 @@ class _SubjectGalaxyViewState extends ConsumerState<_SubjectGalaxyView> {
         ),
       );},
     );
-    final content = switch(viewMode){ GalaxyViewMode.free=>buildFree(), GalaxyViewMode.grid=>buildGrid(), GalaxyViewMode.list=>buildList() };
+    final content = switch(viewMode){ GalaxyViewMode.grid=>buildGrid(), GalaxyViewMode.list=>buildList() };
     return Container(
       decoration: BoxDecoration(
         gradient: RadialGradient(center: Alignment.center, radius: 1, colors: [auraColor, Colors.transparent], stops: const [0,1]),
@@ -392,8 +390,55 @@ class _GalaxyToolbar extends StatelessWidget { // Arama + görünüm
   final TextEditingController controller; final ValueChanged<String> onChanged; final GalaxyViewMode currentMode; final ValueChanged<GalaxyViewMode> onModeChanged; const _GalaxyToolbar({super.key, required this.controller, required this.onChanged, required this.currentMode, required this.onModeChanged});
   @override
   Widget build(BuildContext context) {
-    Widget mode(GalaxyViewMode m, IconData icon, String tip)=> Tooltip(message: tip, child: InkWell(onTap: ()=> onModeChanged(m), borderRadius: BorderRadius.circular(12), child: Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: currentMode==m? AppTheme.secondaryColor.withValues(alpha:0.25): AppTheme.lightSurfaceColor.withValues(alpha:0.30), border: Border.all(color: currentMode==m? AppTheme.secondaryColor: AppTheme.lightSurfaceColor.withValues(alpha:0.55), width:1)), child: Icon(icon, size:20, color: currentMode==m? AppTheme.secondaryColor: AppTheme.secondaryTextColor))));
-    return Row(children:[ Expanded(child: TextField(controller: controller, onChanged: onChanged, decoration: InputDecoration(isDense:true, hintText:'Konu ara...', filled:true, fillColor: AppTheme.lightSurfaceColor.withValues(alpha:0.35), prefixIcon: const Icon(Icons.search,size:20), contentPadding: const EdgeInsets.symmetric(horizontal:14, vertical:10), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none))),), const SizedBox(width:12), mode(GalaxyViewMode.free, Icons.scatter_plot_rounded,'Serbest'), const SizedBox(width:8), mode(GalaxyViewMode.grid, Icons.grid_view_rounded,'Izgara'), const SizedBox(width:8), mode(GalaxyViewMode.list, Icons.list_rounded,'Liste') ]);
+    Widget modeChip(GalaxyViewMode m, IconData icon, String label){
+      final active = currentMode==m;
+      return InkWell(
+        onTap: ()=> onModeChanged(m),
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds:180),
+          padding: const EdgeInsets.symmetric(horizontal:14, vertical:8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: active? AppTheme.secondaryColor.withValues(alpha:0.25): AppTheme.lightSurfaceColor.withValues(alpha:0.20),
+              border: Border.all(color: active? AppTheme.secondaryColor: AppTheme.lightSurfaceColor.withValues(alpha:0.55), width:1),
+              boxShadow: active? [BoxShadow(color: AppTheme.secondaryColor.withValues(alpha:0.25), blurRadius:8, offset: const Offset(0,2))]:[],
+            ),
+          child: Row(mainAxisSize: MainAxisSize.min, children:[ Icon(icon, size:18, color: active? AppTheme.secondaryColor: AppTheme.secondaryTextColor), const SizedBox(width:6), Text(label, style: TextStyle(fontSize:12, fontWeight: FontWeight.w600, color: active? AppTheme.secondaryColor: AppTheme.secondaryTextColor)) ]),
+        ),
+      );
+    }
+    return Row(children:[
+      Expanded(
+        child: TextField(
+          controller: controller,
+          onChanged: onChanged,
+          decoration: InputDecoration(
+            isDense:true,
+            hintText:'Konu ara...',
+            filled:true,
+            fillColor: AppTheme.lightSurfaceColor.withValues(alpha:0.35),
+            prefixIcon: const Icon(Icons.search,size:20),
+            contentPadding: const EdgeInsets.symmetric(horizontal:14, vertical:10),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          ),
+        ),
+      ),
+      const SizedBox(width:14),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal:10, vertical:6),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: AppTheme.lightSurfaceColor.withValues(alpha:0.30),
+          border: Border.all(color: AppTheme.lightSurfaceColor.withValues(alpha:0.50), width:1),
+        ),
+        child: Row(children:[
+          modeChip(GalaxyViewMode.grid, Icons.grid_view_rounded, 'Izgara'),
+          const SizedBox(width:8),
+          modeChip(GalaxyViewMode.list, Icons.view_list_rounded, 'Liste'),
+        ]),
+      )
+    ]);
   }
 }
 

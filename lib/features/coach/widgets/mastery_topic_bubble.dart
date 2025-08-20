@@ -11,6 +11,7 @@ class MasteryTopicBubble extends StatefulWidget {
   final double penaltyCoefficient;
   final VoidCallback onTap;
   final VoidCallback onLongPress; // YENİ: Uzun basma callback'i
+  final bool compact; // GRID icin daha dar mod
 
   const MasteryTopicBubble({
     super.key,
@@ -18,7 +19,8 @@ class MasteryTopicBubble extends StatefulWidget {
     required this.performance,
     required this.penaltyCoefficient,
     required this.onTap,
-    required this.onLongPress, // YENİ
+    required this.onLongPress,
+    this.compact = false,
   });
 
   @override
@@ -86,11 +88,14 @@ class _MasteryTopicBubbleState extends State<MasteryTopicBubble>
             scale: _scaleAnimation,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 300),
-              padding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: EdgeInsets.symmetric(
+                horizontal: widget.compact ? 12 : 16,
+                vertical: widget.compact ? 8 : 10,
+              ),
+              constraints: widget.compact ? const BoxConstraints(minHeight: 48) : null,
               decoration: BoxDecoration(
                 color: color.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(widget.compact ? 18 : 30),
                 border: Border.all(color: color, width: 1.5),
                 boxShadow: [
                   BoxShadow(
@@ -100,20 +105,34 @@ class _MasteryTopicBubbleState extends State<MasteryTopicBubble>
                   ),
                 ],
               ),
-              child: Text(
-                widget.topic.name,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
+              child: Builder(builder: (context){
+                final name = widget.topic.name;
+                final len = name.length;
+                final baseSize = widget.compact ? 13.0 : 14.0;
+                double fontSize = baseSize;
+                if (widget.compact) {
+                  if (len > 30) fontSize = 10.5; else if (len > 26) fontSize = 11.0; else if (len > 22) fontSize = 12.0; else if (len > 18) fontSize = 12.5;
+                }
+                return Text(
+                  name,
+                  maxLines: widget.compact ? 1 : 2,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: true,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: fontSize,
                     color: Colors.white,
                     fontWeight: FontWeight.w600,
-                    shadows: [
+                    shadows: const [
                       Shadow(
                         blurRadius: 10.0,
                         color: Colors.black,
                         offset: Offset(0, 0),
                       ),
-                    ]),
-              ),
+                    ],
+                  ),
+                );
+              }),
             ),
           ),
         ),
