@@ -1,5 +1,6 @@
 // lib/features/quests/models/quest_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:equatable/equatable.dart';
 
 // GÜNCELLENDİ: Yeni 'focus' kategorisi eklendi.
 enum QuestCategory { study, practice, engagement, consistency, test_submission, focus }
@@ -55,7 +56,7 @@ String questRouteToPath(QuestRoute r) {
   }
 }
 
-class Quest {
+class Quest extends Equatable {
   final String id;
   final String title;
   final String description;
@@ -232,4 +233,32 @@ class Quest {
       route: route ?? this.route,
     );
   }
+
+  @override
+  List<Object?> get props => [
+    id,
+    title,
+    description,
+    type,
+    category,
+    progressType,
+    reward,
+    goalValue,
+    currentProgress,
+    isCompleted,
+    actionRoute,
+    completionDate,
+    // List'lerde kapsamlı karşılaştırma ihtiyacı yoksa referans bazlı karşılaştırma yeterlidir.
+    // Eğer derin karşılaştırma gereksinimi oluşursa collection paketinden DeepCollectionEquality kullanılabilir.
+    tags,
+    difficulty,
+    estimatedMinutes,
+    prerequisiteIds,
+    conceptTags,
+    learningObjectiveId,
+    chainId,
+    chainStep,
+    chainLength,
+    route,
+  ];
 }
