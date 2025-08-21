@@ -11,11 +11,15 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/features/profile/models/badge_model.dart' as app_badge;
 import 'package:bilge_ai/core/navigation/app_routes.dart';
-import 'package:rive/rive.dart' hide LinearGradient;
 import 'package:confetti/confetti.dart';
 import 'package:flutter_svg/flutter_svg.dart'; // Avatar için eklendi
-import '../widgets/xp_bar.dart';
+import 'package:flutter/services.dart'; // HapticFeedback
 import '../logic/rank_service.dart';
+
+// ===== NovaPulse / Arena ile tutarlı premium accent renkleri =====
+const _accentProfile1 = Color(0xFF7F5BFF); // elektrik moru
+const _accentProfile2 = Color(0xFF6BFF7A); // neon lime
+const List<Color> _profileBgGradient = [Color(0xFF0B0F14), Color(0xFF2A155A), Color(0xFF061F38)];
 
 final focusSessionsProvider = StreamProvider.autoDispose<List<FocusSessionModel>>((ref) {
   final user = ref.watch(authControllerProvider).value;
@@ -108,7 +112,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     ref.listen<AsyncValue<UserModel?>>(userProfileProvider, (previous, next) {
       final prevUser = previous?.valueOrNull;
       final nextUser = next.valueOrNull;
-
       if (prevUser != null && nextUser != null) {
         final prevRank = RankService.getRankInfo(prevUser.engagementScore).current;
         final nextRank = RankService.getRankInfo(nextUser.engagementScore).current;
@@ -152,124 +155,99 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               final rankInfo = RankService.getRankInfo(user.engagementScore);
               final currentRank = rankInfo.current;
               final nextRank = rankInfo.next;
+              final progressToNext = rankInfo.progress;
 
               return Stack(
                 alignment: Alignment.topCenter,
                 children: [
-                  const RiveAnimation.asset(
-                    'assets/rive/space_background.riv',
-                    fit: BoxFit.cover,
-                  ),
+                  // Arka plan gradient (Rive yerine hafif desen istenirse burada kalabilir)
                   Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.transparent, AppTheme.primaryColor.withOpacity(0.8), AppTheme.primaryColor],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        stops: const [0, 0.6, 1.0],
-                      ),
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: _profileBgGradient),
                     ),
                   ),
+                  // Hafif noise / parıltı ileride eklenebilir
                   SafeArea(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                      child: Column(
-                        children: [
-                          const Spacer(flex: 2),
-
-                          // === GÖRSEL DÜZELTME VE KALEM İKONU EKLEME ===
-                          Stack(
-                            alignment: Alignment.bottomRight,
-                            children: [
-                              GestureDetector(
-                                onTap: () => context.push('/profile/avatar-selection'),
-                                child: Container(
-                                  width: 100,
-                                  height: 100,
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.secondaryColor.withOpacity(0.2),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: ClipOval(
-                                    child: Container(
-                                      color: AppTheme.cardColor,
-                                      child: user.avatarStyle != null && user.avatarSeed != null
-                                          ? SvgPicture.network(
-                                        "https://api.dicebear.com/9.x/${user.avatarStyle}/svg?seed=${user.avatarSeed}",
-                                        fit: BoxFit.cover,
-                                        placeholderBuilder: (context) => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
-                                      )
-                                          : Center(
-                                        child: Text(
-                                          user.name?.substring(0, 1).toUpperCase() ?? 'B',
-                                          style: Theme.of(context).textTheme.displayMedium?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.bold),
-                                        ),
+                    child: CustomScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      slivers: [
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                            child: Column(
+                              children: [
+                                const SizedBox(height: 12),
+                                _ProfileAvatarHalo(user: user, color: currentRank.color),
+                                const SizedBox(height: 14),
+                                Text(
+                                  user.name ?? 'İsimsiz Savaşçı',
+                                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700, letterSpacing: 0.5),
+                                  textAlign: TextAlign.center,
+                                ).animate().fadeIn(duration: 400.ms).slideY(begin: 0.08, end: 0),
+                                const SizedBox(height: 8),
+                                _RankPill(rank: currentRank).animate().fadeIn(duration: 400.ms, delay: 120.ms).slideY(begin: 0.15),
+                                const SizedBox(height: 20),
+                                _NeoXpBar(
+                                  currentXp: user.engagementScore,
+                                  nextLevelXp: nextRank.requiredScore == currentRank.requiredScore ? currentRank.requiredScore : nextRank.requiredScore,
+                                  progress: progressToNext,
+                                ).animate().fadeIn(duration: 450.ms, delay: 200.ms),
+                                const SizedBox(height: 28),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _ProfileStatCard(
+                                        label: 'Deneme',
+                                        value: testCount.toString(),
+                                        icon: Icons.library_books_rounded,
+                                        delay: 260.ms,
                                       ),
                                     ),
-                                  ),
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 0,
-                                right: 0,
-                                child: Material(
-                                  color: AppTheme.secondaryColor,
-                                  borderRadius: BorderRadius.circular(16),
-                                  child: InkWell(
-                                    onTap: () => context.push('/profile/avatar-selection'),
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: const Padding(
-                                      padding: EdgeInsets.all(6.0),
-                                      child: Icon(Icons.edit_rounded, size: 18, color: AppTheme.primaryColor),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: _ProfileStatCard(
+                                        label: 'Ort. Net',
+                                        value: avgNet.toStringAsFixed(1),
+                                        icon: Icons.track_changes_rounded,
+                                        delay: 320.ms,
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ).animate().fadeIn(duration: 500.ms).scale(),
-                          // === GÖRSEL DÜZELTME VE KALEM İKONU EKLEME BİTİŞİ ===
-
-                          const SizedBox(height: 12),
-                          Text(user.name ?? 'İsimsiz Savaşçı', style: Theme.of(context).textTheme.headlineSmall).animate().fadeIn(delay: 200.ms),
-                          const SizedBox(height: 4),
-                          Chip(
-                            avatar: Icon(currentRank.icon, size: 18, color: currentRank.color),
-                            label: Text(currentRank.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                            backgroundColor: currentRank.color.withOpacity(0.2),
-                          ).animate().fadeIn(delay: 300.ms),
-                          const SizedBox(height: 16),
-                          XpBar(
-                            currentXp: user.engagementScore,
-                            nextLevelXp: nextRank.requiredScore,
-                            rankName: "Rütbe Puanı",
-                          ).animate().fadeIn(delay: 400.ms),
-                          const Spacer(flex: 1),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _StatItem(value: testCount.toString(), label: 'Deneme', icon: Icons.library_books_rounded).animate().fadeIn(delay: 500.ms).slideY(begin: 0.5),
-                              _StatItem(value: avgNet.toStringAsFixed(1), label: 'Ort. Net', icon: Icons.track_changes_rounded).animate().fadeIn(delay: 600.ms).slideY(begin: 0.5),
-                              _StatItem(value: user.streak.toString(), label: 'Günlük Seri', icon: Icons.local_fire_department_rounded).animate().fadeIn(delay: 700.ms).slideY(begin: 0.5),
-                            ],
+                                const SizedBox(height: 14),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _ProfileStatCard(
+                                        label: 'Günlük Seri',
+                                        value: user.streak.toString(),
+                                        icon: Icons.local_fire_department_rounded,
+                                        delay: 380.ms,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: _ProfileStatCard(
+                                        label: 'Madalyalar',
+                                        value: '$unlockedCount/${allBadges.length}',
+                                        icon: Icons.military_tech_rounded,
+                                        delay: 440.ms,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 32),
+                                _ProfileQuickActions(
+                                  onHonorWall: () => context.push('/profile/honor-wall', extra: allBadges),
+                                  onStrategy: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
+                                  onAvatar: () => context.push('/profile/avatar-selection'),
+                                ).animate().fadeIn(delay: 520.ms).slideY(begin: 0.12),
+                                const SizedBox(height: 40),
+                              ],
+                            ),
                           ),
-                          const Spacer(flex: 2),
-                          _ActionCard(
-                            title: "Şeref Duvarı",
-                            subtitle: "$unlockedCount / ${allBadges.length} Madalya",
-                            icon: Icons.military_tech_rounded,
-                            onTap: () => context.push('/profile/honor-wall', extra: allBadges),
-                          ).animate().fadeIn(delay: 800.ms).slideX(begin: -0.5),
-                          const SizedBox(height: 16),
-                          _ActionCard(
-                            title: "Stratejik Plan",
-                            subtitle: "Uzun vadeli zafer planını görüntüle.",
-                            icon: Icons.map_rounded,
-                            onTap: () => context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user),
-                          ).animate().fadeIn(delay: 900.ms).slideX(begin: 0.5),
-                          const Spacer(flex: 1),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ),
                   ConfettiWidget(
@@ -294,63 +272,258 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-class _StatItem extends StatelessWidget {
-  final String value;
-  final String label;
-  final IconData icon;
-  const _StatItem({required this.value, required this.label, required this.icon});
-
+// === Yeni premium avatar halo ===
+class _ProfileAvatarHalo extends StatelessWidget {
+  final UserModel user; final Color color;
+  const _ProfileAvatarHalo({required this.user, required this.color});
   @override
   Widget build(BuildContext context) {
+    return SizedBox(
+      width: 150,
+      height: 150,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          _HaloRing(color: _accentProfile1.o(0.22), size: 138, begin: 0.88, end: 1.06, delay: 0.ms),
+          _HaloRing(color: _accentProfile2.o(0.18), size: 110, begin: 0.9, end: 1.08, delay: 380.ms),
+          Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [_accentProfile2, _accentProfile1]),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: _accentProfile2.o(0.4), blurRadius: 20, spreadRadius: 2),
+              ],
+            ),
+            child: CircleAvatar(
+              radius: 56,
+              backgroundColor: Colors.black,
+              child: ClipOval(
+                child: user.avatarStyle != null && user.avatarSeed != null
+                    ? SvgPicture.network(
+                        "https://api.dicebear.com/9.x/${user.avatarStyle}/svg?seed=${user.avatarSeed}",
+                        fit: BoxFit.cover,
+                      )
+                    : Text(
+                        user.name?.substring(0, 1).toUpperCase() ?? 'B',
+                        style: Theme.of(context).textTheme.displayMedium?.copyWith(color: _accentProfile2, fontWeight: FontWeight.bold),
+                      ),
+              ),
+            ),
+          ).animate().fadeIn(duration: 500.ms).scale(curve: Curves.easeOutBack),
+        ],
+      ),
+    );
+  }
+}
+
+class _HaloRing extends StatelessWidget {
+  final Color color; final double size; final double begin; final double end; final Duration delay;
+  const _HaloRing({required this.color, required this.size, required this.begin, required this.end, required this.delay});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: RadialGradient(colors: [color, Colors.transparent]),
+      ),
+    ).animate(onPlay: (c) => c.repeat(reverse: true))
+        .scale(begin: Offset(begin, begin), end: Offset(end, end), duration: 3000.ms, curve: Curves.easeInOut, delay: delay)
+        .fadeIn(duration: 1100.ms, delay: delay);
+  }
+}
+
+class _RankPill extends StatelessWidget {
+  final Rank rank; const _RankPill({required this.rank});
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: 400.ms,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: LinearGradient(colors: [rank.color.o(0.25), rank.color.o(0.06)]),
+        border: Border.all(color: rank.color.o(0.55), width: 1.2),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(rank.icon, size: 18, color: rank.color),
+          const SizedBox(width: 8),
+            Text(rank.name, style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+class _NeoXpBar extends StatelessWidget {
+  final int currentXp; final int nextLevelXp; final double progress;
+  const _NeoXpBar({required this.currentXp, required this.nextLevelXp, required this.progress});
+  @override
+  Widget build(BuildContext context) {
+    final capped = progress.clamp(0.0, 1.0);
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: AppTheme.secondaryTextColor, size: 28),
-        const SizedBox(height: 8),
-        Text(value, style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.white)),
-        Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
+        Row(
+          children: [
+            const Icon(Icons.flash_on_rounded, size: 18, color: _accentProfile2),
+            const SizedBox(width: 6),
+            Text('Rütbe Puanı', style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold)),
+            const Spacer(),
+            Text('$currentXp / $nextLevelXp', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white70)),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: const LinearGradient(colors: [_accentProfile1, _accentProfile2]),
+          ),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final w = constraints.maxWidth;
+              return Stack(
+                children: [
+                  Container(
+                    height: 22,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: Colors.black.o(0.55),
+                    ),
+                  ),
+                  AnimatedContainer(
+                    duration: 700.ms,
+                    curve: Curves.easeOutCubic,
+                    width: (w) * capped,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(begin: Alignment.centerLeft, end: Alignment.centerRight, colors: [_accentProfile2, _accentProfile1]),
+                      boxShadow: [
+                        BoxShadow(color: _accentProfile2.o(0.4), blurRadius: 18, spreadRadius: 1),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
       ],
     );
   }
 }
 
-class _ActionCard extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final VoidCallback onTap;
-  const _ActionCard({required this.title, required this.subtitle, required this.icon, required this.onTap});
-
+class _ProfileStatCard extends StatelessWidget {
+  final String label; final String value; final IconData icon; final Duration delay;
+  const _ProfileStatCard({required this.label, required this.value, required this.icon, required this.delay});
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: AppTheme.cardColor.withOpacity(0.8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppTheme.lightSurfaceColor.withOpacity(0.5)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
+    return Semantics(
+      label: '$label istatistiği: $value',
+      child: Container(
+        height: 110,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(24),
+          gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0x1FFFFFFF), Color(0x0DFFFFFF)]),
+          border: Border.all(color: Colors.white.o(0.12), width: 1),
+        ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Row(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, color: AppTheme.secondaryColor, size: 32),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: Theme.of(context).textTheme.titleLarge),
-                    Text(subtitle, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.arrow_forward_ios_rounded, color: AppTheme.secondaryTextColor),
+              Icon(icon, size: 22, color: _accentProfile2),
+              const Spacer(),
+              Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(color: Colors.white70)),
             ],
           ),
         ),
+      ).animate().fadeIn(duration: 400.ms, delay: delay).slideY(begin: 0.22, end: 0, curve: Curves.easeOutCubic),
+    );
+  }
+}
+
+class _ProfileQuickActions extends StatelessWidget {
+  final VoidCallback onHonorWall; final VoidCallback onStrategy; final VoidCallback onAvatar;
+  const _ProfileQuickActions({required this.onHonorWall, required this.onStrategy, required this.onAvatar});
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Hızlı Eylemler', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(child: _ActionNeo(icon: Icons.military_tech_rounded, label: 'Şeref', onTap: onHonorWall)),
+            const SizedBox(width: 14),
+            Expanded(child: _ActionNeo(icon: Icons.map_rounded, label: 'Strateji', onTap: onStrategy)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _ActionNeo(icon: Icons.person_rounded, label: 'Avatar', onTap: onAvatar)),
+            const SizedBox(width: 14),
+            const Expanded(child: SizedBox()),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _ActionNeo extends StatefulWidget {
+  final IconData icon; final String label; final VoidCallback onTap; const _ActionNeo({required this.icon, required this.label, required this.onTap});
+  @override
+  State<_ActionNeo> createState() => _ActionNeoState();
+}
+
+class _ActionNeoState extends State<_ActionNeo> {
+  bool _pressed = false;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        HapticFeedback.selectionClick();
+        widget.onTap();
+      },
+      child: AnimatedScale(
+        scale: _pressed ? 0.95 : 1,
+        duration: 140.ms,
+        curve: Curves.easeOut,
+        child: Container(
+          height: 64,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(22),
+              gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0x221F1F1F), Color(0x111F1F1F)]),
+              border: Border.all(color: Colors.white.o(0.12), width: 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(widget.icon, color: _accentProfile1, size: 22),
+                const SizedBox(width: 8),
+                Text(widget.label, style: Theme.of(context).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600)),
+              ],
+            ),
+          ),
       ),
     );
   }
+}
+
+// Opaklık helper
+extension _ColorOpacityXProfile on Color {
+  Color o(double factor) => withValues(alpha: (a * factor).toDouble());
 }
