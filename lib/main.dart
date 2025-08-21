@@ -8,6 +8,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'firebase_options.dart';
+import 'package:bilge_ai/core/prompts/strategy_prompts.dart';
+import 'package:bilge_ai/features/quests/quest_armory.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,6 +17,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
   await initializeDateFormatting('tr_TR', null);
+  // Asset tabanlı içerikleri önceden yükle
+  await StrategyPrompts.preload();
+  await QuestArmoryLoader.preload();
   runApp(const ProviderScope(child: BilgeAiApp()));
 }
 
