@@ -33,24 +33,23 @@ final testsProvider = StreamProvider<List<TestModel>>((ref) {
 // Artık 'FutureProvider.family' doğru şekilde tanınıyor.
 final leaderboardProvider = FutureProvider.family.autoDispose<List<LeaderboardEntry>, String>((ref, examType) async {
   final firestoreService = ref.watch(firestoreServiceProvider);
-  final allUsers = await firestoreService.getAllUsers();
+  final users = await firestoreService.getLeaderboardUsers(examType);
 
   final leaderboardEntries = <LeaderboardEntry>[];
 
-  for (final user in allUsers) {
-    if (user.selectedExam == examType && user.name != null && user.name!.isNotEmpty && user.engagementScore > 0) {
-      leaderboardEntries.add(LeaderboardEntry( // Artık 'LeaderboardEntry' doğru şekilde tanınıyor.
+  for (final user in users) {
+    if (user.name != null && user.name!.isNotEmpty) {
+      leaderboardEntries.add(LeaderboardEntry(
         userId: user.id,
         userName: user.name!,
         score: user.engagementScore,
         testCount: user.testCount,
-        avatarStyle: user.avatarStyle, // YENİ: Avatar stili eklendi
-        avatarSeed: user.avatarSeed, // YENİ: Avatar tohumu eklendi
+        avatarStyle: user.avatarStyle,
+        avatarSeed: user.avatarSeed,
       ));
     }
   }
 
-  leaderboardEntries.sort((a, b) => b.score.compareTo(a.score));
 
   return leaderboardEntries;
 });

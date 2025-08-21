@@ -336,6 +336,16 @@ class FirestoreService {
     await batch.commit();
   }
 
+  Future<List<UserModel>> getLeaderboardUsers(String examType) async {
+    final snapshot = await usersCollection
+        .where('selectedExam', isEqualTo: examType)
+        .where('engagementScore', isGreaterThan: 0)
+        .orderBy('engagementScore', descending: true)
+        .limit(100)
+        .get();
+    return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
+  }
+
   String _weekdayName(int weekday) {
     const list = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'];
     return list[(weekday-1).clamp(0,6)];
