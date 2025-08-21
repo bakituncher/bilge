@@ -43,6 +43,7 @@ class UserModel {
   final Timestamp? weeklyPlanCompletedAt; // YENİ: haftalık plan tamamlanma anı
   final int workshopStreak; // YENİ: art arda günlerde Cevher Atölyesi seansı
   final Timestamp? lastWorkshopDate; // YENİ: son Cevher seansı tarihi (UTC gün)
+  final Map<String,int> recentPracticeVolumes; // YENİ: son günlere ait practice soru adetleri
 
   UserModel({
     required this.id,
@@ -83,6 +84,7 @@ class UserModel {
     this.weeklyPlanCompletedAt,
     this.workshopStreak = 0, // yeni
     this.lastWorkshopDate, // yeni
+    this.recentPracticeVolumes = const {}, // yeni
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -178,6 +180,7 @@ class UserModel {
       weeklyPlanCompletedAt: data['weeklyPlanCompletedAt'] as Timestamp?,
       workshopStreak: data['workshopStreak'] ?? 0, // yeni
       lastWorkshopDate: data['lastWorkshopDate'] as Timestamp?, // yeni
+      recentPracticeVolumes: Map<String,int>.from(data['recentPracticeVolumes'] ?? {}), // yeni
     );
   }
 
@@ -221,6 +224,7 @@ class UserModel {
       'weeklyPlanCompletedAt': weeklyPlanCompletedAt,
       'workshopStreak': workshopStreak,
       'lastWorkshopDate': lastWorkshopDate,
+      'recentPracticeVolumes': recentPracticeVolumes, // yeni
     };
   }
 }

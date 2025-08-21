@@ -183,7 +183,234 @@ class QuestService {
     // Günlük ödül dengesini (özellikle programdan gelen görevler) normalize et.
     _normalizeDailyRewards(generatedQuests);
 
+    // 6. KİŞİSELLEŞTİRME Katmanı
+    for (var i=0;i<generatedQuests.length;i++) {
+      generatedQuests[i] = _personalizeQuest(generatedQuests[i], user, analysis);
+    }
+
+    // 7. İHMAL EDİLEN DERS GÖREVİ (Recovery)
+    _maybeInjectNeglectedSubjectQuest(user, generatedQuests, analysis);
+
+    // 8. PLATO KIRICI GÖREV
+    _maybeInjectPlateauBreaker(user, generatedQuests, analysis, tests);
+
+    // 9. MASTERy CHAIN (strong subject)
+    _maybeInjectMasteryChain(user, generatedQuests, analysis);
+
     return generatedQuests;
+  }
+
+  void _maybeInjectPlateauBreaker(UserModel user, List<Quest> quests, StatsAnalysis? analysis, List<TestModel> tests){
+    if (tests.length < 3) return;
+    final last3 = tests.take(3).toList(); // tests zaten tarih sıralı (generate sırasında ilk eleman en yeni test kabul)
+    // Güvenli: en yeni başta değilse sıralayalım (desc)
+    last3.sort((a,b)=> b.date.compareTo(a.date));
+    final nets = last3.map((t)=> t.totalNet).toList();
+    final avg = nets.fold<double>(0,(s,e)=>s+e)/nets.length;
+    final variance = nets.map((n)=> (n-avg)*(n-avg)).fold<double>(0,(s,e)=>s+e)/nets.length;
+    final trendNearbyFlat = (analysis?.trend.abs() ?? 0) < 0.5;
+    if (variance < 2.0 && trendNearbyFlat) {
+      final exists = quests.any((q)=> q.id=='plateau_breaker_1');
+      if(!exists){
+        quests.add(_personalizeQuest(Quest(
+          id: 'plateau_breaker_1',
+          title: 'Net Sıçratma Hamlesi',
+            description: 'Son denemelerde ilerleme plato yaptı. 3 farklı dersten toplam 30 hız odaklı soru çöz (10+10+10).',
+            type: QuestType.daily,
+            category: QuestCategory.practice,
+            progressType: QuestProgressType.increment,
+            reward: 85,
+            goalValue: 30,
+            actionRoute: '/coach',
+            route: questRouteFromPath('/coach'),
+            tags: ['variety','plateau','personal']
+        ), user, analysis));
+      }
+    }
+  }
+
+  void _maybeInjectMasteryChain(UserModel user, List<Quest> quests, StatsAnalysis? analysis){
+    final strong = analysis?.strongestSubjectByNet;
+    if (strong==null || strong=='Belirlenemedi') return;
+    final hasChain = quests.any((q)=> q.id.startsWith('chain_mastery_')); // basit kontrol
+    if (hasChain) return;
+    final idBase = 'chain_mastery_${strong.hashCode}';
+    // İlk adımı ekle
+    quests.add(_personalizeQuest(Quest(
+      id: '${idBase}_1',
+      title: 'Ustalık Zinciri I: $strong Temel Tarama',
+      description: '$strong kalesinde 20 seçilmiş soru ile ritmi kur. Hız değil doğruluk öncelik. ',
+      type: QuestType.daily,
+      category: QuestCategory.practice,
+      progressType: QuestProgressType.increment,
+      reward: 60,
+      goalValue: 20,
+      actionRoute: '/coach',
+      route: questRouteFromPath('/coach'),
+      tags: ['chain','strength','subject:$strong','mastery_chain']
+    ), user, analysis));
+  }
+
+  Quest _personalizeQuest(Quest q, UserModel user, StatsAnalysis? analysis) {
+    String reason = '';
+    int rewardDelta = 0;
+    int? newGoal;
+
+    final weak = analysis?.weakestSubjectByNet;
+    final strong = analysis?.strongestSubjectByNet;
+    final streak = user.streak;
+    final planRatio = user.lastScheduleCompletionRatio ?? 0.0;
+    final recentPracticeAvg = _computeRecentPracticeAverage(user); // günlük ortalama soru hacmi
+
+    // Weakness görevleri – ekstra bağlam
+    if (q.tags.contains('weakness')) {
+      if (weak != null && weak != 'Belirlenemedi' && !q.title.contains(weak)) {
+        q = q.copyWith(title: q.title.replaceAll('{subject}', weak));
+      }
+      reason = 'Zayıf noktanı güçlendirmek için seçildi.';
+      rewardDelta += 10;
+      if (q.category == QuestCategory.practice && q.goalValue >= 40) {
+        newGoal = (q.goalValue * 0.8).round().clamp(1, q.goalValue);
+      }
+    }
+    else if (q.tags.contains('strength')) {
+      if (strong != null && strong != 'Belirlenemedi' && !q.title.contains(strong)) {
+        q = q.copyWith(title: q.title.replaceAll('{subject}', strong));
+      }
+      reason = 'Güçlü yanını hız ve doğrulukla pekiştirmek için.';
+      rewardDelta += 5;
+      if (q.category == QuestCategory.practice && q.goalValue >= 25) {
+        // Güçlü alanda hedefi hafif artır (challenge)
+        newGoal = (q.goalValue * 1.1).round();
+      }
+    }
+    else if (q.tags.contains('neglected')) {
+      reason = 'Uzun süredir ihmal edilen cepheyi yeniden aktive et.';
+      rewardDelta += 12;
+    }
+    else if (q.tags.contains('plateau')) {
+      reason = 'Net eğrisi yatay. Çeşitlilik ile sıçrama hedefleniyor.';
+      rewardDelta += 10;
+    }
+    else if (q.tags.contains('mastery_chain')) {
+      reason = 'Güçlü kalede derinlemesine ustalık inşası.';
+      rewardDelta += 8;
+    }
+    else if (q.id.startsWith('schedule_')) {
+      if (planRatio < 0.5) {
+        reason = 'Program ritmini yeniden ayağa kaldırman için önceliklendirildi.';
+        rewardDelta += 8;
+      } else if (planRatio >= 0.85) {
+        reason = 'Yüksek plan uyumunu sürdürmek için ritmi koru.';
+      }
+    }
+
+    if (reason.isEmpty && streak >= 3) {
+      reason = 'Serini (streak: $streak) canlı tutan yapıtaşı.';
+    }
+    if (reason.isEmpty) {
+      if (q.category == QuestCategory.practice) reason = 'Günlük soru ritmini desteklemek için.'; else if (q.category == QuestCategory.focus) reason = 'Odak kasını sistemli geliştirmek için.'; else reason = 'Gelişim dengesini korumak için.';
+    }
+
+    if (!q.description.contains('Kişisel Not:')) {
+      final personalizedDescription = q.description + '\n---\nKişisel Not: ' + reason;
+      q = q.copyWith(description: personalizedDescription);
+    }
+
+    // Adaptif hedef (genel) – plan oranı düşükse hedefi küçült, yüksekse hafif büyüt
+    if (q.category == QuestCategory.practice && newGoal == null) {
+      if (planRatio < 0.5 && q.goalValue >= 20) newGoal = (q.goalValue * 0.85).round();
+      else if (planRatio >= 0.85 && q.goalValue >= 15) newGoal = (q.goalValue * 1.05).round();
+      // Son 7 gün ortalama soru hacmine göre ince ayar – aşırı yükseltmemek için clamp
+      if (recentPracticeAvg > 0) {
+        final target = (recentPracticeAvg * 1.12).round();
+        // Sadece anlamlı fark varsa (±%10) uygula ve weakness/neglected hedeflerini küçültme kuralına dokunma
+        if (target > 5 && (target - q.goalValue).abs() / q.goalValue > 0.1) {
+          // Önceki newGoal ayarlanmış olabilir – ona göre güncelle
+          final baseGoal = newGoal ?? q.goalValue;
+          int adaptiveGoal;
+          if (target > baseGoal) {
+            adaptiveGoal = min(target, (baseGoal * 1.25).round());
+          } else {
+            adaptiveGoal = max(target, (baseGoal * 0.75).round());
+          }
+          newGoal = adaptiveGoal.clamp(1, 400);
+        }
+      }
+    }
+
+    int newReward = (q.reward + rewardDelta).clamp(1, 999);
+    if (newGoal != null && newGoal != q.goalValue) {
+      q = q.copyWith(goalValue: newGoal);
+    }
+    if (newReward != q.reward) q = q.copyWith(reward: newReward);
+
+    final updatedTags = Set<String>.from(q.tags);
+    if (q.tags.contains('weakness')) updatedTags.add('personal');
+    if (planRatio < 0.5 && q.id.startsWith('schedule_')) updatedTags.add('plan_recovery');
+    if (streak >= 3) updatedTags.add('streak');
+    if (updatedTags.length != q.tags.length) q = q.copyWith(tags: updatedTags.toList());
+
+    return q;
+  }
+
+  void _maybeInjectNeglectedSubjectQuest(UserModel user, List<Quest> quests, StatsAnalysis? analysis) {
+    if (quests.length >= 6) return; // üst sınır
+    final neglected = _detectNeglectedSubjects(user);
+    if (neglected.isEmpty) return;
+    final subject = neglected.first;
+    final exists = quests.any((q)=> q.tags.contains('neglected') && q.tags.any((t)=> t == 'subject:$subject'));
+    if (exists) return;
+    final id = 'reengage_${subject.hashCode}';
+    if (quests.any((q)=> q.id == id)) return;
+    final quest = Quest(
+      id: id,
+      title: 'Geri Dönüş Operasyonu: $subject',
+      description: '$subject cephesini yeniden aktive et. 15 odaklı soru çöz ve temelini tazele.',
+      type: QuestType.daily,
+      category: QuestCategory.practice,
+      progressType: QuestProgressType.increment,
+      reward: 55,
+      goalValue: 15,
+      actionRoute: '/coach',
+      route: questRouteFromPath('/coach'),
+      tags: ['neglected','subject:$subject','weakness','personal'],
+    );
+    quests.add(_personalizeQuest(quest, user, analysis));
+  }
+
+  List<String> _detectNeglectedSubjects(UserModel user) {
+    if (user.topicPerformances.isEmpty) return [];
+    final Map<String,int> totals = {};
+    user.topicPerformances.forEach((subject, topics) {
+      int sum = 0;
+      topics.forEach((_, perf) { sum += (perf.correctCount + perf.wrongCount + perf.blankCount); });
+      totals[subject] = sum;
+    });
+    if (totals.isEmpty) return [];
+    final maxVal = totals.values.fold<int>(0,(m,v)=> v>m? v:m);
+    if (maxVal <= 0) return [];
+    final threshold = (maxVal * 0.3).ceil();
+    final neglected = totals.entries.where((e)=> e.value>0 && e.value < threshold).map((e)=> e.key).toList();
+    neglected.sort((a,b)=> totals[a]!.compareTo(totals[b]!));
+    return neglected;
+  }
+
+  double _computeRecentPracticeAverage(UserModel user,{int days=7}) {
+    if (user.recentPracticeVolumes.isEmpty) return 0;
+    final now = DateTime.now();
+    int sum = 0; int count = 0;
+    user.recentPracticeVolumes.forEach((dateKey, value) {
+      final dt = DateTime.tryParse(dateKey);
+      if (dt != null) {
+        final diff = now.difference(dt).inDays;
+        if (diff >=0 && diff < days) {
+          sum += value; count++;
+        }
+      }
+    });
+    if (sum==0 || count==0) return 0;
+    return sum / count;
   }
 
   // Bugünkü haftalık plan görevlerinden dinamik görev üretici

@@ -189,6 +189,10 @@ class Quest {
   }
 
   Quest copyWith({
+    String? title,
+    String? description,
+    int? reward,
+    int? goalValue,
     int? currentProgress,
     bool? isCompleted,
     Timestamp? completionDate,
@@ -205,13 +209,13 @@ class Quest {
   }) {
     return Quest(
       id: id,
-      title: title,
-      description: description,
+      title: title ?? this.title,
+      description: description ?? this.description,
       type: type,
       category: category,
       progressType: progressType,
-      reward: reward,
-      goalValue: goalValue,
+      reward: reward ?? this.reward,
+      goalValue: goalValue ?? this.goalValue,
       currentProgress: currentProgress ?? this.currentProgress,
       isCompleted: isCompleted ?? this.isCompleted,
       actionRoute: actionRoute,
