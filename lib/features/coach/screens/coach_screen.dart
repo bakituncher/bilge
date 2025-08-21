@@ -11,6 +11,7 @@ import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/features/coach/widgets/mastery_topic_bubble.dart';
 import 'package:bilge_ai/features/coach/widgets/topic_stats_dialog.dart';
+import 'package:bilge_ai/core/utils/exam_utils.dart';
 
 // Bu provider, hangi sekmede olduğumuzun bilgisini uygulama genelinde tutar.
 final coachScreenTabProvider = StateProvider<int>((ref) => 0);
@@ -41,33 +42,13 @@ class _CoachScreenState extends ConsumerState<CoachScreen>
   Map<String, List<SubjectTopic>> _getRelevantSubjects(
       UserModel user, Exam exam) {
     final subjects = <String, List<SubjectTopic>>{};
-    final relevantSections = _getRelevantSectionsForUser(user, exam);
+    final relevantSections = ExamUtils.getRelevantSectionsForUser(user, exam);
     for (var section in relevantSections) {
       section.subjects.forEach((subjectName, subjectDetails) {
         subjects[subjectName] = subjectDetails.topics;
       });
     }
     return subjects;
-  }
-
-  List<ExamSection> _getRelevantSectionsForUser(UserModel user, Exam exam) {
-    if (user.selectedExam == ExamType.lgs.name) {
-      return exam.sections;
-    } else if (user.selectedExam == ExamType.yks.name) {
-      final tytSection = exam.sections.firstWhere((s) => s.name == 'TYT');
-      final userAytSection = exam.sections.firstWhere(
-            (s) => s.name == user.selectedExamSection,
-        orElse: () => exam.sections.first,
-      );
-      if (tytSection.name == userAytSection.name) return [tytSection];
-      return [tytSection, userAytSection];
-    } else {
-      final relevantSection = exam.sections.firstWhere(
-            (s) => s.name == user.selectedExamSection,
-        orElse: () => exam.sections.first,
-      );
-      return [relevantSection];
-    }
   }
 
   void _setupTabController(int length) {
