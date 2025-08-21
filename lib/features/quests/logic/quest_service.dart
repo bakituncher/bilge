@@ -15,6 +15,7 @@ import 'package:flutter/foundation.dart'; // debugPrint
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:bilge_ai/data/models/test_model.dart';
+import 'package:bilge_ai/features/quests/logic/quest_templates.dart';
 
 final questServiceProvider = Provider<QuestService>((ref) {
   return QuestService(ref);
@@ -95,86 +96,59 @@ class QuestService {
       analysis = StatsAnalysis(tests, user.topicPerformances, examData, user: user);
     }
 
-    // 2. ŞABLONLARI HAZIRLA
-    List<Map<String, dynamic>> availableQuestTemplates = List.from(questArmory);
-    availableQuestTemplates.shuffle();
-    availableQuestTemplates.removeWhere((template) => user.activeDailyQuests.any((q) => q.id == template['id']));
+    // 2. ŞABLONLARI HAZIRLA (modüler)
+    List<QuestTemplate> templates = questArmory.map((m) => QuestTemplateFactory.fromMap(m)).toList();
+    templates.shuffle();
+    templates.removeWhere((t) => user.activeDailyQuests.any((q) => q.id == t.id));
 
     // Gün içi plan tamamlama ve kategori bilgisi
     final todayKey = _dateKey(DateTime.now());
     final todayCompletedPlanTasks = user.completedDailyTasks[todayKey]?.length ?? 0;
 
-    // Önceki gün plan oranı
-    final yesterday = DateTime.now().subtract(const Duration(days:1));
+    // Önceki gün plan oranı ve inaktiflik
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
     final yesterdayRatio = user.lastScheduleCompletionRatio ?? 0.0;
-    final wasInactiveYesterday = !(user.dailyVisits.any((ts){ final d=ts.toDate(); return d.year==yesterday.year && d.month==yesterday.month && d.day==yesterday.day; }));
+    final wasInactiveYesterday = !(user.dailyVisits.any((ts) {
+      final d = ts.toDate();
+      return d.year == yesterday.year && d.month == yesterday.month && d.day == yesterday.day;
+    }));
 
-    // Mevcut tamamlanan quest kategorileri (günün)
-    final completedCategories = user.activeDailyQuests.where((q) => q.isCompleted).map((q) => q.category).toSet();
+    // Mevcut tamamlanan quest kategorileri (günün) -> sadece çeşitlilik sayımı için adlar
+    final completedCategoriesNames = user.activeDailyQuests
+        .where((q) => q.isCompleted)
+        .map((q) => q.category.name)
+        .toSet();
 
-    // 3. PUANLAMA
-    final List<({Map<String, dynamic> template, int score, Map<String, String> variables})> scoredQuests = [];
-    for (var template in availableQuestTemplates) {
-      int score = 100;
-      Map<String, String> variables = {};
-      final triggers = (template['triggerConditions'] as Map<String,dynamic>?) ?? {};
+    final ctx = QuestContext(
+      tests: tests,
+      yesterdayPlanRatio: yesterdayRatio,
+      wasInactiveYesterday: wasInactiveYesterday,
+      todayCompletedPlanTasks: todayCompletedPlanTasks,
+      completedCategoriesToday: completedCategoriesNames,
+    );
 
-      // Özel yeni tetikleyiciler
-      if (triggers.containsKey('wasInactiveYesterday') && triggers['wasInactiveYesterday']==true && !wasInactiveYesterday) { score = 0; }
-      if (triggers.containsKey('lowYesterdayPlanRatio') && triggers['lowYesterdayPlanRatio']==true && !(yesterdayRatio < 0.5)) { score = 0; }
-      if (triggers.containsKey('highYesterdayPlanRatio') && triggers['highYesterdayPlanRatio']==true && !(yesterdayRatio >= 0.85)) { score = 0; }
-      if (triggers.containsKey('afterQuest')) {
-        final prevId = triggers['afterQuest'];
-        final prevQuest = user.activeDailyQuests.firstWhere((q)=>q.id==prevId, orElse: ()=>Quest(id:'',title:'',description:'',type:QuestType.daily,category:QuestCategory.engagement,progressType:QuestProgressType.increment,reward:0,goalValue:1,actionRoute:'/', route: QuestRoute.unknown));
-        if (prevQuest.id.isEmpty || !prevQuest.isCompleted) { score = 0; }
-      }
-      if (triggers.containsKey('comboEligible') && triggers['comboEligible']==true && !(todayCompletedPlanTasks >= 2)) { score = 0; }
-      if (triggers.containsKey('multiCategoryDay') && triggers['multiCategoryDay']==true && !(completedCategories.length >=2 && completedCategories.length <4)) { score = 0; }
-      if (triggers.containsKey('streakAtRisk') && triggers['streakAtRisk']==true) {
-        // risk: streak var (>0) ve bugün henüz plan görevi yapılmamış
-        final risk = user.dailyScheduleStreak>0 && todayCompletedPlanTasks==0;
-        if(!risk) score = 0;
-      }
-      if (triggers.containsKey('reflectionNotDone') && triggers['reflectionNotDone']==true) {
-        // Şimdilik her zaman uygun varsay (ileride not kaydı ile değiştirilebilir)
-      }
-
-      // Eski tetikleyiciler (zayıf/güçlü/deneme vb.) zaten önceki mantıkta işleniyor
-      if (template['triggerConditions'] is Map) {
-        final conditions = template['triggerConditions'] as Map<String, dynamic>;
-        if (conditions['hasWeakSubject'] == true) {
-          if (analysis?.weakestSubjectByNet != null && analysis!.weakestSubjectByNet != "Belirlenemedi") {
-            score += 250; variables['{subject}'] = analysis.weakestSubjectByNet;
-          } else { score = 0; }
-        }
-        if (conditions['hasStrongSubject'] == true) {
-          if (analysis?.strongestSubjectByNet != null && analysis!.strongestSubjectByNet != "Belirlenemedi") {
-            score += 100; variables['{subject}'] = analysis.strongestSubjectByNet;
-          } else { score = 0; }
-        }
-        if (conditions['noRecentTest'] == true) {
-          final lastTestDate = tests.isNotEmpty ? tests.first.date : null;
-            if (lastTestDate == null || DateTime.now().difference(lastTestDate).inDays > 3) {
-              score += 200;
-            } else { score = 0; }
-        }
-      }
-
-      if (score > 0) {
-        scoredQuests.add((template: template, score: score, variables: variables));
-      }
+    // 3. PUANLAMA (modüler)
+    final List<({QuestTemplate template, int score, Map<String, String> variables})> scoredQuests = [];
+    for (final t in templates) {
+      if (!t.isEligible(user, analysis, ctx)) continue;
+      final score = t.calculateScore(user, analysis, ctx);
+      if (score <= 0) continue;
+      final vars = t.resolveVariables(user, analysis, ctx);
+      scoredQuests.add((template: t, score: score, variables: vars));
     }
     scoredQuests.sort((a, b) => b.score.compareTo(a.score));
 
-    // 4. SEÇİM
+    // 4. SEÇİM (kategori çeşitliliğini koru)
     final Set<QuestCategory> selectedCategories = {};
     while (generatedQuests.length < 5 && scoredQuests.isNotEmpty) {
       final candidate = scoredQuests.removeAt(0);
-      if (selectedCategories.contains(QuestCategory.values.byName(candidate.template['category']))) {
+      final catName = candidate.template.category;
+      final catEnum = QuestCategory.values.byName(catName);
+      if (selectedCategories.contains(catEnum)) {
         if (random.nextDouble() > 0.6) continue;
       }
-      generatedQuests.add(_createQuestFromTemplate(candidate.template, variables: candidate.variables));
-      selectedCategories.add(QuestCategory.values.byName(candidate.template['category']));
+      generatedQuests.add(_createQuestFromTemplate(candidate.template.data, variables: candidate.variables));
+      selectedCategories.add(catEnum);
     }
 
     // 5. HAFTALIK PLAN ENTEGRASYONU (KALE GÜÇLENDİRME)
@@ -184,7 +158,7 @@ class QuestService {
     _normalizeDailyRewards(generatedQuests);
 
     // 6. KİŞİSELLEŞTİRME Katmanı
-    for (var i=0;i<generatedQuests.length;i++) {
+    for (var i = 0; i < generatedQuests.length; i++) {
       generatedQuests[i] = _personalizeQuest(generatedQuests[i], user, analysis);
     }
 
