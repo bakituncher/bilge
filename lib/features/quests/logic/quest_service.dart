@@ -364,9 +364,18 @@ class QuestService {
     }
 
     final rawTags = template['tags'];
-    final List<String> tagList = rawTags is List
+    // DEĞİŞTİ: final kaldırıldı ki dinamik subject etiketi eklenebilsin
+    List<String> tagList = rawTags is List
         ? rawTags.map((e) => e.toString().split('.').last).toList()
-        : const [];
+        : <String>[];
+
+    // Yeni: subject değişkeni varsa subject:<Ad> etiketi ekle
+    if (variables != null && variables.containsKey('{subject}')) {
+      final subj = variables['{subject}'];
+      if (subj != null && subj.isNotEmpty) {
+        tagList.add('subject:$subj');
+      }
+    }
 
     final quest = Quest(
       id: template['id'] ?? const Uuid().v4(),
