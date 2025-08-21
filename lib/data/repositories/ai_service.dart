@@ -30,6 +30,102 @@ class AiService {
   final String _apiUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"; //kesinlikle flash modelini kullan, pro modelini istemiyorum
 
+  // AI JSON yanıtlarını sağlamlaştırmak için ön-işleme: BOM, görünmez karakterler, dış tırnaklar, kaçışlar
+  String _preprocessAiTextForJson(String input) {
+    String text = input.trim();
+
+    // UTF-8 BOM ve görünmez boşlukları kaldır
+    text = text
+        .replaceAll(RegExp(r"^[\uFEFF\u200B\u200C\u200D\u2060]+"), "")
+        .replaceAll(RegExp(r"[\u200B\u200C\u200D\u2060]"), "");
+
+    // QuizQuestion.cleanText ilhamı: dıştaki tırnak veya köşeli parantez sargısını soy
+    bool changed = true;
+    while (changed && text.isNotEmpty) {
+      changed = false;
+      if ((text.startsWith("\'") && text.endsWith("\'")) ||
+          (text.startsWith('"') && text.endsWith('"'))) {
+        text = text.substring(1, text.length - 1).trim();
+        changed = true;
+      }
+      if ((text.startsWith('[') && text.endsWith(']')) &&
+          text.contains('{') &&
+          text.contains('}')) {
+        // Bazı modeller JSON'u tek elemanlı listeye sarabiliyor
+        text = text.substring(1, text.length - 1).trim();
+        changed = true;
+      }
+    }
+
+    // Genel code-fence temizliği (eğer hala kalmışsa)
+    final genericFence = RegExp(r"```\s*([\s\S]*?)\s*```", multiLine: true).firstMatch(text);
+    if (genericFence != null) {
+      text = genericFence.group(1)!.trim();
+    }
+
+    // Kaçışlı JSON dizesi ise (ör: "{\"a\":1}") önce bir katman çözmeye çalış
+    if (text.contains('\\"') && text.contains('{') && text.contains('}')) {
+      try {
+        final unescaped = jsonDecode('"' + text.replaceAll('"', '\\"') + '"');
+        if (unescaped is String) {
+          text = unescaped;
+        }
+      } catch (_) {
+        // Yoksay: En iyi çabayla devam
+      }
+    }
+
+    // Markdowndan gelebilecek gereksiz vurguları temizle (JSON yapısını bozmayacak minimalist yaklaşım)
+    text = text.replaceAll(RegExp(r"^[\*_\s]+|[\*_\s]+$"), "").trim();
+
+    // Trailing comma düzeltmesi: ,} veya ,] -> } ]
+    text = text.replaceAll(RegExp(r",\s*}"), "}").replaceAll(RegExp(r",\s*]"), "]");
+
+    return text.trim();
+  }
+
+  // Yanıttan ```json ... ``` bloğunu çıkart. Bulunamazsa null döndür.
+  String? _extractJsonFromFencedBlock(String text) {
+    final jsonFence = RegExp(r"```json\s*([\s\S]*?)\s*```", multiLine: true).firstMatch(text);
+    if (jsonFence != null) return jsonFence.group(1)!.trim();
+
+    // Geliştirme: Etiketlenmemiş blok için yedek
+    final anyFence = RegExp(r"```\s*([\s\S]*?)\s*```", multiLine: true).firstMatch(text);
+    if (anyFence != null) return anyFence.group(1)!.trim();
+
+    return null;
+  }
+
+  // { ... } parantez aralığına göre kaba çıkarım (yedek)
+  String? _extractJsonByBracesFallback(String text) {
+    final startIndex = text.indexOf('{');
+    final endIndex = text.lastIndexOf('}');
+    if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
+      return text.substring(startIndex, endIndex + 1);
+    }
+    return null;
+  }
+
+  // Güvenli JSON ayrıştır ve normalize edilmiş String olarak döndür
+  String _parseAndNormalizeJsonOrError(String src) {
+    try {
+      var parsed = jsonDecode(src);
+      // Çift kodlanmış durum: parsed bir String ve içinde JSON olabilir
+      if (parsed is String) {
+        try {
+          parsed = jsonDecode(parsed);
+        } catch (_) {
+          // İçte geçerli JSON yoksa, dıştaki stringi koruyacağız
+        }
+      }
+      return jsonEncode(parsed);
+    } catch (_) {
+      return jsonEncode({
+        'error': 'Yapay zeka yanıtı anlaşılamadı, lütfen tekrar deneyin.'
+      });
+    }
+  }
+
   Future<String> _callGemini(String prompt, {bool expectJson = false}) async {
     if (_apiKey.isEmpty || _apiKey == "YOUR_GEMINI_API_KEY_HERE") {
       final errorJson =
@@ -55,26 +151,38 @@ class AiService {
         ).timeout(const Duration(seconds: 45));
 
         if (response.statusCode == 200) {
-          final data = jsonDecode(utf8.decode(response.bodyBytes));
+          dynamic data;
+          try {
+            data = jsonDecode(utf8.decode(response.bodyBytes));
+          } catch (_) {
+            return expectJson
+                ? jsonEncode({'error': 'Yapay zeka yanıtı anlaşılamadı, lütfen tekrar deneyin.'})
+                : 'Yapay zeka yanıtı anlaşılamadı, lütfen tekrar deneyin.';
+          }
+
           if (data['candidates'] != null && data['candidates'][0]['content'] != null) {
-            String rawResponse = data['candidates'][0]['content']['parts'][0]['text'];
+            String rawResponse = data['candidates'][0]['content']['parts'][0]['text']?.toString() ?? '';
+            rawResponse = rawResponse.trim();
 
-            // YENİ EKLENEN AKILLI TEMİZLEYİCİ
-            // Yanıtın içinde ```json ... ``` bloğu varsa sadece o bloğu al.
-            final jsonMarkdownMatch = RegExp(r'```json\s*([\s\S]*?)\s*```').firstMatch(rawResponse);
-            if (jsonMarkdownMatch != null) {
-              return jsonMarkdownMatch.group(1)!;
+            // Öncelik: ```json ... ``` bloğu
+            String? extracted = _extractJsonFromFencedBlock(rawResponse);
+
+            // Yedek: { ... } aralığı
+            extracted ??= _extractJsonByBracesFallback(rawResponse);
+
+            // Hiçbiri yoksa olduğu gibi kullan
+            String candidate = (extracted ?? rawResponse);
+
+            // Temizleme ve sağlamlaştırma
+            final cleaned = _preprocessAiTextForJson(candidate);
+
+            if (expectJson) {
+              // Ayrıştırmayı doğrula ve normalize edilmiş JSON döndür
+              return _parseAndNormalizeJsonOrError(cleaned);
             }
 
-            // Markdown bloğu yoksa, sadece { ve } arasındaki ilk ve son bloğu bulmayı dene.
-            final startIndex = rawResponse.indexOf('{');
-            final endIndex = rawResponse.lastIndexOf('}');
-            if (startIndex != -1 && endIndex != -1 && endIndex > startIndex) {
-              return rawResponse.substring(startIndex, endIndex + 1);
-            }
-
-            // Hiçbiri eşleşmezse, orijinal yanıtı olduğu gibi döndür.
-            return rawResponse;
+            // Düz metin bekleniyorsa temizlenmiş içeriği döndür
+            return cleaned.isNotEmpty ? cleaned : rawResponse;
           } else {
             throw Exception('Yapay zeka servisinden beklenmedik bir formatta cevap alındı.');
           }
