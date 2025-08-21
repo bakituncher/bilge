@@ -11,6 +11,14 @@ import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
 import 'dart:ui'; // glass effect için eklendi
 
+// Yardımcı: 0-1 aralığına güvenli double sıkıştırma
+double _clamp01(num v) {
+  if (v.isNaN) return 0.0;
+  if (v < 0) return 0.0;
+  if (v > 1) return 1.0;
+  return v.toDouble();
+}
+
 // Bu kartın kendi içindeki günü yönetmesi için özel provider
 final _selectedDayProvider = StateProvider.autoDispose<int>((ref) {
   int todayIndex = DateTime.now().weekday - 1;
@@ -78,10 +86,7 @@ class _PlanView extends ConsumerWidget {
     return Column(children: [
       _HeaderBar(dateForTab: dateForTab, weeklyPlan: weeklyPlan!, userId: userId),
       _DaySelector(days: _daysOfWeekShort),
-      const SizedBox(height: 6),
-      if (user != null && selectedDayIndex == (DateTime.now().weekday - 1))
-        Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: _TodayInlineCta(dailyPlan: dailyPlan, dateKey: dateKey, user: user)),
-      const SizedBox(height: 8),
+      const SizedBox(height: 8), // önce inline CTA vardı; kaldırıldı, boşluk ayarlandı
       Expanded(
         child: AnimatedSwitcher(
           duration: 300.ms,
@@ -115,7 +120,7 @@ class _HeaderBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;
     int total=0; int done=0; if(user!=null){ final now=DateTime.now(); final sow=now.subtract(Duration(days: now.weekday-1)); for(int i=0;i<weeklyPlan.plan.length;i++){ final dp=weeklyPlan.plan[i]; total+=dp.schedule.length; final d=sow.add(Duration(days:i)); final k=DateFormat('yyyy-MM-dd').format(d); done += (user.completedDailyTasks[k]??[]).length; } }
-    final ratio = total==0?0: done/total;
+    final double ratio = total==0?0.0: done/total;
     return Container(
       padding: const EdgeInsets.fromLTRB(20,18,20,16),
       decoration: BoxDecoration(
@@ -124,7 +129,7 @@ class _HeaderBar extends ConsumerWidget {
       ),
       child: Row(crossAxisAlignment: CrossAxisAlignment.center, children:[
         Stack(alignment: Alignment.center, children:[
-          SizedBox(height:58,width:58,child:CircularProgressIndicator(strokeWidth:6,value:ratio.clamp(0,1),backgroundColor:AppTheme.lightSurfaceColor.withOpacity(.35),valueColor:AlwaysStoppedAnimation(ratio>=.75?AppTheme.successColor:AppTheme.secondaryColor))),
+          SizedBox(height:58,width:58,child:CircularProgressIndicator(strokeWidth:6,value:_clamp01(ratio),backgroundColor:AppTheme.lightSurfaceColor.withOpacity(.35),valueColor:AlwaysStoppedAnimation(ratio>=.75?AppTheme.successColor:AppTheme.secondaryColor))),
           Column(mainAxisSize: MainAxisSize.min,children:[Text('${(ratio*100).round()}%',style: const TextStyle(fontWeight: FontWeight.bold,fontSize:14)), const Text('Hafta',style: TextStyle(fontSize:10,color:AppTheme.secondaryTextColor))])
         ]),
         const SizedBox(width:16),
@@ -133,7 +138,7 @@ class _HeaderBar extends ConsumerWidget {
           const SizedBox(height:4),
           Text(DateFormat.yMMMMd('tr').format(dateForTab), style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
           const SizedBox(height:6),
-          ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(minHeight:6,value:ratio.clamp(0,1),backgroundColor:AppTheme.lightSurfaceColor.withOpacity(.25), valueColor:AlwaysStoppedAnimation(ratio>=.75?AppTheme.successColor:AppTheme.secondaryColor)))
+          ClipRRect(borderRadius: BorderRadius.circular(6), child: LinearProgressIndicator(minHeight:6,value:_clamp01(ratio),backgroundColor:AppTheme.lightSurfaceColor.withOpacity(.25), valueColor:AlwaysStoppedAnimation(ratio>=.75?AppTheme.successColor:AppTheme.secondaryColor)))
         ])),
         IconButton(tooltip:'Planı Aç', onPressed: ()=> context.go('/home/weekly-plan'), icon: const Icon(Icons.open_in_new_rounded,color:AppTheme.secondaryColor))
       ]),
@@ -142,100 +147,6 @@ class _HeaderBar extends ConsumerWidget {
 }
 
 class _RestDay extends StatelessWidget { const _RestDay(); @override Widget build(BuildContext context){ return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children:[ const Icon(Icons.self_improvement_rounded,size:48,color:AppTheme.secondaryColor), const SizedBox(height:12), Text('Dinlenme Günü', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)), const SizedBox(height:6), Text('Zihinsel depoları doldur – yarın yeniden hücum.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)) ]).animate().fadeIn(duration: 400.ms)); } }
-
-class _TodayInlineCta extends StatelessWidget {
-  final DailyPlan dailyPlan; final String dateKey; final dynamic user; // user tip: UserModel
-  const _TodayInlineCta({required this.dailyPlan, required this.dateKey, required this.user});
-
-  @override
-  Widget build(BuildContext context) {
-    if (dailyPlan.schedule.isEmpty) return const SizedBox.shrink();
-    final completed = (user.completedDailyTasks[dateKey] ?? []) as List;
-    final total = dailyPlan.schedule.length;
-    final done = completed.length;
-    if (done >= total) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppTheme.successColor.withValues(alpha: .6)),
-          color: AppTheme.successColor.withValues(alpha: .12),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.check_circle_rounded, color: AppTheme.successColor),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text('Bugünkü plan tamamlandı! Dinlenebilir veya strateji gözden geçirebilirsin.',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.successColor, fontWeight: FontWeight.w600),),
-            ),
-          ],
-        ),
-      );
-    }
-    final ratio = done/total;
-    Color barColor;
-    if (ratio >= .75) { barColor = Colors.greenAccent; }
-    else if (ratio >= .5) { barColor = AppTheme.secondaryColor; }
-    else { barColor = AppTheme.lightSurfaceColor.withValues(alpha: .9); }
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        // Kart zaten görünür; hafif titreşim / highlight için snackbar ipucu
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Eksik görevleri işaretleyerek tamamla: $done / $total')),
-        );
-      },
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: LinearGradient(
-            colors: [barColor.withValues(alpha: .20), AppTheme.cardColor.withValues(alpha: .60)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          border: Border.all(color: barColor.withValues(alpha: .7), width: 1.2),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                SizedBox(
-                  height: 46,
-                  width: 46,
-                  child: CircularProgressIndicator(
-                    value: ratio.clamp(0,1),
-                    strokeWidth: 6,
-                    backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: .25),
-                    valueColor: AlwaysStoppedAnimation(barColor),
-                  ),
-                ),
-                Icon(Icons.flag_rounded, color: barColor, size: 22),
-              ],
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Bugünkü Planı Tamamla', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text('$done / $total görev tamamlandı', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryTextColor)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            const Icon(Icons.arrow_forward_ios_rounded, size: 16, color: AppTheme.secondaryTextColor),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class _WeeklyProgressSummary extends ConsumerWidget {
   final WeeklyPlan weeklyPlan;
@@ -260,7 +171,7 @@ class _WeeklyProgressSummary extends ConsumerWidget {
       done += (user.completedDailyTasks[key] ?? []).length;
     }
     if (total == 0) return const SizedBox.shrink();
-    final ratio = done/total;
+    final double ratio = done/total;
 
     return Column(
       children: [
@@ -270,7 +181,7 @@ class _WeeklyProgressSummary extends ConsumerWidget {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: LinearProgressIndicator(
-                  value: ratio.clamp(0,1),
+                  value: _clamp01(ratio),
                   minHeight: 8,
                   backgroundColor: AppTheme.lightSurfaceColor,
                   valueColor: AlwaysStoppedAnimation<Color>(ratio >= .75 ? AppTheme.successColor : AppTheme.secondaryColor),
