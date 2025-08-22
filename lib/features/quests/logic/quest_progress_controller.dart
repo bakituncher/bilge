@@ -78,10 +78,15 @@ class QuestProgressController {
     }
 
     if (questUpdated) {
-      await ref.read(firestoreServiceProvider).usersCollection.doc(user.id).update({
+      // Atomik güncelleme: tek batch ile görev listesi ve skor
+      final firestore = ref.read(firestoreProvider);
+      final userDocRef = ref.read(firestoreServiceProvider).usersCollection.doc(user.id);
+      final batch = firestore.batch();
+      batch.update(userDocRef, {
         'activeDailyQuests': activeQuestsCopy.map((q)=>q.toMap()).toList(),
         if (extraEngagementDelta!=0) 'engagementScore': FieldValue.increment(extraEngagementDelta),
       });
+      await batch.commit();
       ref.invalidate(dailyQuestsProvider);
     }
     if (hiddenBonusAwarded || chainAdded) {
@@ -98,12 +103,15 @@ class QuestProgressController {
     final quest = activeQuestsCopy[idx];
     if (quest.isCompleted) return;
     int newProgress = quest.currentProgress + amount;
+
+    int engagementDelta = 0;
+
     if (newProgress >= quest.goalValue) {
       final completedQuest = quest.copyWith(currentProgress: quest.goalValue,isCompleted: true,completionDate: Timestamp.now());
       activeQuestsCopy[idx] = completedQuest;
       ref.read(questCompletionProvider.notifier).show(completedQuest);
       HapticFeedback.mediumImpact();
-      await ref.read(firestoreServiceProvider).updateEngagementScore(user.id, quest.reward);
+      engagementDelta += quest.reward;
       ref.read(analyticsLoggerProvider).logQuestEvent(userId: user.id, event: 'quest_completed', data: {
         'questId': quest.id,'category': quest.category.name,'reward': quest.reward,'difficulty': quest.difficulty.name,
       });
@@ -114,7 +122,17 @@ class QuestProgressController {
         'questId': quest.id,'progress': newProgress,'goal': quest.goalValue,
       });
     }
-    await ref.read(firestoreServiceProvider).usersCollection.doc(user.id).update({'activeDailyQuests': activeQuestsCopy.map((q)=>q.toMap()).toList()});
+
+    // Atomik güncelleme: tek batch ile görev listesi ve skor
+    final firestore = ref.read(firestoreProvider);
+    final userDocRef = ref.read(firestoreServiceProvider).usersCollection.doc(user.id);
+    final batch = firestore.batch();
+    batch.update(userDocRef, {
+      'activeDailyQuests': activeQuestsCopy.map((q)=>q.toMap()).toList(),
+      if (engagementDelta != 0) 'engagementScore': FieldValue.increment(engagementDelta),
+    });
+    await batch.commit();
+
     ref.invalidate(dailyQuestsProvider);
   }
 
