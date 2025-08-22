@@ -1,4 +1,5 @@
 // lib/features/weakness_workshop/models/study_guide_model.dart
+import 'package:bilge_ai/core/utils/json_text_cleaner.dart';
 
 class StudyGuideAndQuiz {
   final String studyGuide; // Markdown formatında
@@ -42,38 +43,9 @@ class QuizQuestion {
   });
 
   factory QuizQuestion.fromJson(Map<String, dynamic> json) {
-
     // BİLGEAI UYARI: Gelecekteki ben veya başka bir geliştirici için not:
     // Bu fonksiyon, yapay zekanın döndürebileceği beklenmedik metin formatlarını
-    // (fazladan tırnak işaretleri, markdown karakterleri, iç içe listeler vb.)
-    // temizlemek için kritik öneme sahiptir. Bu fonksiyonun kaldırılması,
-    // Cevher Atölyesi'nde öngörülemeyen ve tespiti zor çökme hatalarına
-    // neden olabilir. Bu bir zırhtır, kaldırma!
-    String cleanText(dynamic rawText) {
-      // Önce veriyi en iç katmanına kadar soy
-      var current = rawText;
-      while (current is List && current.isNotEmpty) {
-        current = current.first;
-      }
-      String cleaned = current.toString().trim();
-
-      // Sonra tırnakları ve parantezleri temizle
-      bool changed = true;
-      while (changed) {
-        changed = false;
-        if (cleaned.startsWith('[') && cleaned.endsWith(']')) {
-          cleaned = cleaned.substring(1, cleaned.length - 1).trim();
-          changed = true;
-        }
-        if ((cleaned.startsWith("'") && cleaned.endsWith("'")) ||
-            (cleaned.startsWith('"') && cleaned.endsWith('"'))) {
-          cleaned = cleaned.substring(1, cleaned.length - 1).trim();
-          changed = true;
-        }
-      }
-      // Markdown ve kaçış karakterlerini son olarak temizle.
-      return cleaned.replaceAll(RegExp(r'[\\*_]'), '').trim();
-    }
+    // temizlemek için kritik öneme sahiptir. Zırh merkezileştirildi: JsonTextCleaner kullanılmalıdır.
 
     List<String> parsedOptions = [];
 
@@ -81,17 +53,17 @@ class QuizQuestion {
     // 1. ÖNCELİK: Yeni ve güvenli "optionA, optionB..." formatını dene.
     if (json.containsKey('optionA')) {
       parsedOptions = [
-        cleanText(json['optionA'] ?? ''),
-        cleanText(json['optionB'] ?? ''),
-        cleanText(json['optionC'] ?? ''),
-        cleanText(json['optionD'] ?? ''),
+        JsonTextCleaner.cleanDynamic(json['optionA'] ?? ''),
+        JsonTextCleaner.cleanDynamic(json['optionB'] ?? ''),
+        JsonTextCleaner.cleanDynamic(json['optionC'] ?? ''),
+        JsonTextCleaner.cleanDynamic(json['optionD'] ?? ''),
       ];
     }
     // 2. YEDEK PLAN: Eğer yeni format yoksa, eski "options" listesi formatını
     // zırhlı temizleyici ile işlemeyi dene.
     else if (json['options'] is List) {
       parsedOptions = (json['options'] as List)
-          .map((option) => cleanText(option))
+          .map((option) => JsonTextCleaner.cleanDynamic(option))
           .toList();
     }
 
@@ -109,10 +81,10 @@ class QuizQuestion {
     // --- BİTTİ ---
 
     return QuizQuestion(
-      question: cleanText(json['question'] ?? 'Soru yüklenemedi.'),
+      question: JsonTextCleaner.cleanDynamic(json['question'] ?? 'Soru yüklenemedi.'),
       options: parsedOptions,
       correctOptionIndex: json['correctOptionIndex'] ?? 0,
-      explanation: cleanText(json['explanation'] ?? 'Bu soru için açıklama bulunamadı.'),
+      explanation: JsonTextCleaner.cleanDynamic(json['explanation'] ?? 'Bu soru için açıklama bulunamadı.'),
     );
   }
 }

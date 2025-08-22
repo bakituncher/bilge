@@ -12,6 +12,7 @@ import 'package:bilge_ai/core/prompts/strategy_prompts.dart';
 import 'package:bilge_ai/core/prompts/workshop_prompts.dart';
 import 'package:bilge_ai/core/prompts/motivation_prompts.dart';
 import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
+import 'package:bilge_ai/core/utils/json_text_cleaner.dart';
 
 class ChatMessage {
   final String text;
@@ -30,142 +31,9 @@ class AiService {
   final String _apiUrl =
       "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"; //kesinlikle flash modelini kullan, pro modelini istemiyorum
 
-  // AI JSON yanıtlarını sağlamlaştırmak için ön-işleme: BOM, görünmez karakterler, dış tırnaklar, kaçışlar
+  // AI JSON yanıtlarını sağlamlaştırmak için ön-işleme artık merkezî yardımcıya delege edilir
   String _preprocessAiTextForJson(String input) {
-    String text = input.trim();
-
-    // UTF-8 BOM ve görünmez boşlukları kaldır
-    text = text
-        .replaceAll(RegExp(r"^[\uFEFF\u200B\u200C\u200D\u2060]+"), "")
-        .replaceAll(RegExp(r"[\u200B\u200C\u200D\u2060]"), "");
-
-    // Baş/son code-fence (```json, ``` veya ~~~) temizliği
-    // Başlangıçtaki fence'i soy
-    text = text.replaceFirst(
-      RegExp(r'^\s*(```+|~~~+)\s*(jsonc?|json5|JSONC?|JSON5|json|JSON)?\s*\n?'),
-      '',
-    );
-    // Sondaki fence'i soy
-    text = text.replaceFirst(
-      RegExp(r'\n?\s*(```+|~~~+)\s*$'),
-      '',
-    );
-
-    // Metnin içinde bir fenced blok varsa (preface/epilogue ile), ilk bloğun içini tercih et
-    final fenceMatch = RegExp(
-      r'(```+|~~~+)\s*(jsonc?|json5|json|JSONC?|JSON5|JSON)?\s*([\s\S]*?)\s*(```+|~~~+)',
-      multiLine: true,
-    ).firstMatch(text);
-    if (fenceMatch != null) {
-      text = fenceMatch.group(3)!.trim();
-    }
-
-    // JSON bloğu dışındaki metni tamamen kaldırmak için: ilk iyi oluşmuş JSON nesnesini/dizisini çıkar
-    String? extractFirstJsonBlock(String src) {
-      final s = src.trim();
-      int start = -1;
-      int end = -1;
-      // İlk { veya [ konumunu bul
-      for (int i = 0; i < s.length; i++) {
-        final c = s[i];
-        if (c == '{' || c == '[') {
-          start = i;
-          break;
-        }
-      }
-      if (start == -1) return null;
-
-      final openChar = s[start];
-      final closeChar = openChar == '{' ? '}' : ']';
-      int depth = 0;
-      bool inString = false;
-      String? stringQuote; // ' veya "
-      bool escaped = false;
-
-      for (int i = start; i < s.length; i++) {
-        final ch = s[i];
-        if (inString) {
-          if (escaped) {
-            escaped = false;
-          } else if (ch == '\\') {
-            escaped = true;
-          } else if (ch == stringQuote) {
-            inString = false;
-            stringQuote = null;
-          }
-          continue;
-        } else {
-          if (ch == '"' || ch == '\'') {
-            inString = true;
-            stringQuote = ch;
-            continue;
-          }
-          if (ch == openChar) {
-            depth++;
-          } else if (ch == closeChar) {
-            depth--;
-            if (depth == 0) {
-              end = i;
-              break;
-            }
-          }
-        }
-      }
-
-      if (start != -1 && end != -1 && end > start) {
-        return s.substring(start, end + 1).trim();
-      }
-      return null;
-    }
-
-    final extractedByScan = extractFirstJsonBlock(text);
-    if (extractedByScan != null) {
-      text = extractedByScan;
-    }
-
-    // QuizQuestion.cleanText ilhamı: dıştaki tırnak veya köşeli parantez sargısını soy
-    bool changed = true;
-    while (changed && text.isNotEmpty) {
-      changed = false;
-      if ((text.startsWith("\'") && text.endsWith("\'")) ||
-          (text.startsWith('"') && text.endsWith('"'))) {
-        text = text.substring(1, text.length - 1).trim();
-        changed = true;
-      }
-      if ((text.startsWith('[') && text.endsWith(']')) &&
-          text.contains('{') &&
-          text.contains('}')) {
-        // Bazı modeller JSON'u tek elemanlı listeye sarabiliyor
-        text = text.substring(1, text.length - 1).trim();
-        changed = true;
-      }
-    }
-
-    // Eğer hala fenced kalmışsa genel code-fence temizliği (yedek)
-    final genericFence = RegExp(r"```\s*([\s\S]*?)\s*```", multiLine: true).firstMatch(text);
-    if (genericFence != null) {
-      text = genericFence.group(1)!.trim();
-    }
-
-    // Kaçışlı JSON dizesi ise (ör: "{\"a\":1}") önce bir katman çözmeye çalış
-    if (text.contains('\\"') && text.contains('{') && text.contains('}')) {
-      try {
-        final unescaped = jsonDecode('"' + text.replaceAll('"', '\\"') + '"');
-        if (unescaped is String) {
-          text = unescaped;
-        }
-      } catch (_) {
-        // Yoksay: En iyi çabayla devam
-      }
-    }
-
-    // Markdowndan gelebilecek gereksiz vurguları temizle (JSON yapısını bozmayacak minimalist yaklaşım)
-    text = text.replaceAll(RegExp(r"^[\*_\s]+|[\*_\s]+$"), "").trim();
-
-    // Trailing comma düzeltmesi: ,} veya ,] -> } ]
-    text = text.replaceAll(RegExp(r",\s*}"), "}").replaceAll(RegExp(r",\s*]"), "]");
-
-    return text.trim();
+    return JsonTextCleaner.cleanString(input);
   }
 
   // Yanıttan ```json ... ``` bloğunu çıkart. Bulunamazsa null döndür.
