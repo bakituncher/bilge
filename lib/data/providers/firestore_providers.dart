@@ -36,25 +36,8 @@ final testsProvider = StreamProvider<List<TestModel>>((ref) {
 // Artık 'FutureProvider.family' doğru şekilde tanınıyor.
 final leaderboardProvider = FutureProvider.family.autoDispose<List<LeaderboardEntry>, String>((ref, examType) async {
   final firestoreService = ref.watch(firestoreServiceProvider);
-  final users = await firestoreService.getLeaderboardUsers(examType);
-
-  final leaderboardEntries = <LeaderboardEntry>[];
-
-  for (final user in users) {
-    if (user.name != null && user.name!.isNotEmpty) {
-      leaderboardEntries.add(LeaderboardEntry(
-        userId: user.id,
-        userName: user.name!,
-        score: user.engagementScore,
-        testCount: user.testCount,
-        avatarStyle: user.avatarStyle,
-        avatarSeed: user.avatarSeed,
-      ));
-    }
-  }
-
-
-  return leaderboardEntries;
+  final entries = await firestoreService.getLeaderboardUsers(examType);
+  return entries;
 });
 
 final planProvider = StreamProvider<PlanDocument?>((ref) {

@@ -11,6 +11,7 @@ import 'package:bilge_ai/data/models/plan_model.dart'; // WeeklyPlan & DailyPlan
 import 'package:bilge_ai/data/models/plan_document.dart';
 import 'package:bilge_ai/data/models/performance_summary.dart';
 import 'package:bilge_ai/data/models/app_state.dart';
+import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart'; // YENİ: Leaderboard modeli
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
@@ -28,6 +29,9 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> get usersCollection => _firestore.collection('users');
   // ------------------------------------------------------------------------------------
 
+  // YENİ: Leaderboards kök koleksiyonu
+  CollectionReference<Map<String, dynamic>> get _leaderboardsCollection => _firestore.collection('leaderboards');
+
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
 
@@ -35,6 +39,62 @@ class FirestoreService {
   DocumentReference<Map<String, dynamic>> _planDoc(String userId) => usersCollection.doc(userId).collection('plans').doc('current_plan');
   DocumentReference<Map<String, dynamic>> _performanceDoc(String userId) => usersCollection.doc(userId).collection('performance').doc('summary');
   DocumentReference<Map<String, dynamic>> _appStateDoc(String userId) => usersCollection.doc(userId).collection('state').doc('app_state');
+
+  // Leaderboard belge referansı
+  DocumentReference<Map<String, dynamic>> _leaderboardUserDoc({required String examType, required String userId}) {
+    return _leaderboardsCollection.doc(examType).collection('users').doc(userId);
+  }
+
+  // Kullanıcının mevcut durumunu okuyarak leaderboards/{examType}/users/{userId} dokümanını günceller
+  Future<void> _syncLeaderboardUser(String userId, {String? targetExam}) async {
+    final userSnap = await usersCollection.doc(userId).get();
+    if (!userSnap.exists) return;
+    final data = userSnap.data()!;
+    final String? examType = targetExam ?? data['selectedExam'] as String?;
+    if (examType == null) return; // sınav seçilmemişse leaderboard'a yazma
+
+    final docRef = _leaderboardUserDoc(examType: examType, userId: userId);
+    await docRef.set({
+      'userId': userId,
+      'userName': data['name'],
+      'score': data['engagementScore'] ?? 0,
+      'testCount': data['testCount'] ?? 0,
+      'avatarStyle': data['avatarStyle'],
+      'avatarSeed': data['avatarSeed'],
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  Future<void> updateUserAvatar({
+    required String userId,
+    required String style,
+    required String seed,
+  }) async {
+    final userDocRef = usersCollection.doc(userId);
+    await _firestore.runTransaction((txn) async {
+      // Önce oku
+      final snap = await txn.get(userDocRef);
+      final data = snap.data();
+      final String? examType = data?['selectedExam'];
+      // Sonra yaz
+      txn.update(userDocRef, {
+        'avatarStyle': style,
+        'avatarSeed': seed,
+      });
+      if (examType != null) {
+        final lbRef = _leaderboardUserDoc(examType: examType, userId: userId);
+        txn.set(lbRef, {
+          'avatarStyle': style,
+          'avatarSeed': seed,
+          'userId': userId,
+          'userName': data?['name'],
+          'score': data?['engagementScore'] ?? 0,
+          'testCount': data?['testCount'] ?? 0,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    });
+  }
 
   // YENİ EKLENEN FONKSİYONLAR: CEVHER ATÖLYESİ İÇİN
   Future<void> saveWorkshopForUser(String userId, SavedWorkshopModel workshop) async {
@@ -63,7 +123,27 @@ class FirestoreService {
   }
 
   Future<void> updateUserName({required String userId, required String newName}) async {
-    await usersCollection.doc(userId).update({'name': newName});
+    final userDocRef = usersCollection.doc(userId);
+    await _firestore.runTransaction((txn) async {
+      // Önce oku
+      final snap = await txn.get(userDocRef);
+      final data = snap.data();
+      final String? examType = data?['selectedExam'];
+      // Sonra yaz
+      txn.update(userDocRef, {'name': newName});
+      if (examType != null) {
+        final lbRef = _leaderboardUserDoc(examType: examType, userId: userId);
+        txn.set(lbRef, {
+          'userId': userId,
+          'userName': newName,
+          'score': data?['engagementScore'] ?? 0,
+          'testCount': data?['testCount'] ?? 0,
+          'avatarStyle': data?['avatarStyle'],
+          'avatarSeed': data?['avatarSeed'],
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    });
   }
 
   Future<void> markTutorialAsCompleted(String userId) async {
@@ -110,7 +190,26 @@ class FirestoreService {
 
   Future<void> updateEngagementScore(String userId, int pointsToAdd) async {
     final userDocRef = usersCollection.doc(userId);
-    await userDocRef.update({'engagementScore': FieldValue.increment(pointsToAdd)});
+    await _firestore.runTransaction((transaction) async {
+      // Önce oku
+      final userSnapshot = await transaction.get(userDocRef);
+      final data = userSnapshot.data();
+      final String? examType = data?['selectedExam'];
+      // Sonra yaz
+      transaction.update(userDocRef, {'engagementScore': FieldValue.increment(pointsToAdd)});
+      if (examType != null) {
+        final lbRef = _leaderboardUserDoc(examType: examType, userId: userId);
+        transaction.set(lbRef, {
+          'userId': userId,
+          'userName': data?['name'],
+          'score': FieldValue.increment(pointsToAdd),
+          'testCount': data?['testCount'] ?? 0,
+          'avatarStyle': data?['avatarStyle'],
+          'avatarSeed': data?['avatarSeed'],
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    });
   }
 
   Future<void> addTestResult(TestModel test) async {
@@ -154,9 +253,34 @@ class FirestoreService {
     required ExamType examType,
     required String sectionName,
   }) async {
-    await usersCollection.doc(userId).update({
-      'selectedExam': examType.name,
-      'selectedExamSection': sectionName,
+    final userDocRef = usersCollection.doc(userId);
+    await _firestore.runTransaction((txn) async {
+      final prevSnap = await txn.get(userDocRef);
+      final prevData = prevSnap.data();
+      final String? prevExam = prevData?['selectedExam'];
+
+      txn.update(userDocRef, {
+        'selectedExam': examType.name,
+        'selectedExamSection': sectionName,
+      });
+
+      // Eski sınavın leaderboards kaydını temizle
+      if (prevExam != null && prevExam != examType.name) {
+        final oldLbRef = _leaderboardUserDoc(examType: prevExam, userId: userId);
+        txn.delete(oldLbRef);
+      }
+
+      // Yeni sınav için kayıt/merge
+      final newLbRef = _leaderboardUserDoc(examType: examType.name, userId: userId);
+      txn.set(newLbRef, {
+        'userId': userId,
+        'userName': prevData?['name'],
+        'score': prevData?['engagementScore'] ?? 0,
+        'testCount': prevData?['testCount'] ?? 0,
+        'avatarStyle': prevData?['avatarStyle'],
+        'avatarSeed': prevData?['avatarSeed'],
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     });
   }
 
@@ -292,7 +416,23 @@ class FirestoreService {
       }
 
       txn.update(userDocRef, updates);
+
+      // Leaderboard: puan artışı/azalışı kullanıcı belgesine yazıldıktan sonra mevcut sınav için güncelle
+      final String? examType = user.selectedExam;
+      if (examType != null) {
+        final lbRef = _leaderboardUserDoc(examType: examType, userId: userId);
+        // Tam senkron için mevcut kullanıcı değerleri ile merge et (checksum olarak updatedAt)
+        txn.set(lbRef, {
+          'userId': userId,
+          'userName': user.name,
+          // score için toplam delta bilinmiyor; transaction sonrası tam senkron yapılacak
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
     });
+
+    // Transaction sonrası kesin senkron (score değerini birebir yansıt)
+    await _syncLeaderboardUser(userId);
   }
 
   Future<void> updateWeeklyAvailability({
@@ -378,14 +518,25 @@ class FirestoreService {
     await batch.commit();
   }
 
-  Future<List<UserModel>> getLeaderboardUsers(String examType) async {
-    final snapshot = await usersCollection
-        .where('selectedExam', isEqualTo: examType)
-        .where('engagementScore', isGreaterThan: 0)
-        .orderBy('engagementScore', descending: true)
+  Future<List<LeaderboardEntry>> getLeaderboardUsers(String examType) async {
+    final snapshot = await _leaderboardsCollection
+        .doc(examType)
+        .collection('users')
+        .orderBy('score', descending: true)
         .limit(100)
         .get();
-    return snapshot.docs.map((doc) => UserModel.fromSnapshot(doc)).toList();
+
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+      return LeaderboardEntry(
+        userId: data['userId'] ?? doc.id,
+        userName: (data['userName'] ?? '') as String,
+        score: (data['score'] ?? 0) as int,
+        testCount: (data['testCount'] ?? 0) as int,
+        avatarStyle: data['avatarStyle'] as String?,
+        avatarSeed: data['avatarSeed'] as String?,
+      );
+    }).where((e) => e.userName.isNotEmpty).toList();
   }
 
   String _weekdayName(int weekday) {

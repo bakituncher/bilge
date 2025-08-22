@@ -46,14 +46,11 @@ class AvatarSelectionScreen extends ConsumerWidget {
           TextButton(
             onPressed: () async {
               final userId = ref.read(authControllerProvider).value!.uid;
-              await ref
-                  .read(firestoreServiceProvider)
-                  .usersCollection
-                  .doc(userId)
-                  .update({
-                'avatarStyle': selectedStyle,
-                'avatarSeed': avatarSeed,
-              });
+              await ref.read(firestoreServiceProvider).updateUserAvatar(
+                    userId: userId,
+                    style: selectedStyle,
+                    seed: avatarSeed,
+                  );
               if (context.mounted) {
                 context.pop();
               }
