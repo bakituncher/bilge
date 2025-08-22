@@ -2,19 +2,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
-import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:collection/collection.dart';
 import 'package:go_router/go_router.dart';
-import 'package:bilge_ai/core/navigation/app_routes.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
 
 class WorkshopStatsScreen extends ConsumerWidget {
   const WorkshopStatsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync = ref.watch(userProfileProvider);
+    final perfAsync = ref.watch(performanceProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text("Simyacının Cevher Ocağı"),
@@ -31,10 +30,10 @@ class WorkshopStatsScreen extends ConsumerWidget {
             ],
           ),
         ),
-        child: userAsync.when(
-          data: (user) {
-            if (user == null) return const Center(child: Text("Kullanıcı verisi bulunamadı."));
-            final analysis = WorkshopAnalysis(user);
+        child: perfAsync.when(
+          data: (perf) {
+            final summary = perf ?? const PerformanceSummary();
+            final analysis = WorkshopAnalysis(summary);
 
             if (analysis.totalQuestionsAnswered == 0) {
               return _buildEmptyState(context);
@@ -387,24 +386,24 @@ class _TopicCard extends StatelessWidget {
 
 // GÜNCELLENMİŞ VE YENİ FONKSİYON EKLENMİŞ ANALİZ SINIFI
 class WorkshopAnalysis {
-  final UserModel user;
-  WorkshopAnalysis(this.user);
+  final PerformanceSummary summary;
+  WorkshopAnalysis(this.summary);
 
   String _deSanitizeKey(String key) {
     return key.replaceAll('_', ' ');
   }
 
-  int get totalQuestionsAnswered => user.topicPerformances.values
+  int get totalQuestionsAnswered => summary.topicPerformances.values
       .expand((subject) => subject.values)
       .map((topic) => topic.questionCount)
       .sum;
 
-  int get totalCorrectAnswers => user.topicPerformances.values
+  int get totalCorrectAnswers => summary.topicPerformances.values
       .expand((subject) => subject.values)
       .map((topic) => topic.correctCount)
       .sum;
 
-  int get uniqueTopicsWorkedOn => user.topicPerformances.values
+  int get uniqueTopicsWorkedOn => summary.topicPerformances.values
       .expand((subject) => subject.keys)
       .toSet()
       .length;
@@ -412,8 +411,8 @@ class WorkshopAnalysis {
   double get overallAccuracy => totalQuestionsAnswered > 0 ? (totalCorrectAnswers / totalQuestionsAnswered) * 100 : 0.0;
 
   String get mostWorkedSubject {
-    if (user.topicPerformances.isEmpty) return "Yok";
-    final subjectName = user.topicPerformances.entries
+    if (summary.topicPerformances.isEmpty) return "Yok";
+    final subjectName = summary.topicPerformances.entries
         .map((entry) => MapEntry(
         entry.key,
         entry.value.values.map((e) => e.questionCount).sum))
@@ -424,7 +423,7 @@ class WorkshopAnalysis {
   }
 
   List<({String subject, double accuracy})> get subjectAccuracyList {
-    return user.topicPerformances.entries.map((entry) {
+    return summary.topicPerformances.entries.map((entry) {
       final totalQuestions = entry.value.values.map((e) => e.questionCount).sum;
       final totalCorrect = entry.value.values.map((e) => e.correctCount).sum;
       final accuracy = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0.0;
@@ -433,7 +432,7 @@ class WorkshopAnalysis {
   }
 
   List<Map<String, dynamic>> _getAllTopicsSorted() {
-    final allTopics = user.topicPerformances.entries.expand((subjectEntry) {
+    final allTopics = summary.topicPerformances.entries.expand((subjectEntry) {
       return subjectEntry.value.entries.map((topicEntry) {
         final performance = topicEntry.value;
         final netCorrect = performance.correctCount - (performance.wrongCount * 0.25);

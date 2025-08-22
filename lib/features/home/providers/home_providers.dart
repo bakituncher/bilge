@@ -50,15 +50,21 @@ final dailyQuestsProgressProvider = Provider<({int completed,int total,double pr
 
 final planProgressProvider = Provider<({int done,int total,double ratio})>((ref){
   final user = ref.watch(userProfileProvider).value;
-  if (user == null || user.weeklyPlan == null){
+  // Önce alt koleksiyon plan verisini dene
+  final planDoc = ref.watch(planProvider).valueOrNull;
+  Map<String, dynamic>? planMap = planDoc?.weeklyPlan;
+  if (planMap == null) {
+    // Geri uyumluluk: ana user belgesindeki weeklyPlan
+    planMap = user?.weeklyPlan as Map<String, dynamic>?;
+  }
+  if (user == null || planMap == null){
     return (done:0,total:0,ratio:0.0);
   }
   final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
   final completed = user.completedDailyTasks[todayKey] ?? [];
   int totalToday = 0;
-  final plan = user.weeklyPlan;
-  if (plan != null && plan['plan'] is List){
-    final list = plan['plan'] as List;
+  if (planMap['plan'] is List){
+    final list = planMap['plan'] as List;
     final idx = DateTime.now().weekday -1;
     if (idx>=0 && idx < list.length){
       final day = list[idx];

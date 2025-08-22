@@ -216,11 +216,18 @@ class ScaffoldWithNavBar extends ConsumerWidget {
 final _weeklyPlanPopupShownProvider = StateProvider<bool>((_) => false);
 final weeklyPlanCompletionProvider = Provider<bool>((ref){
   final user = ref.watch(userProfileProvider).value;
-  if(user == null || user.weeklyPlan == null) return false;
+  // Öncelik: alt koleksiyon plan belgesi
+  final planDoc = ref.watch(planProvider).valueOrNull;
+  Map<String, dynamic>? planMap = planDoc?.weeklyPlan;
+  if (planMap == null) {
+    // Geri uyumluluk: ana belge
+    planMap = user?.weeklyPlan as Map<String, dynamic>?;
+  }
+  if(user == null || planMap == null) return false;
   final alreadyShown = ref.watch(_weeklyPlanPopupShownProvider);
   if(alreadyShown) return false;
   try {
-    final weekly = WeeklyPlan.fromJson(user.weeklyPlan!);
+    final weekly = WeeklyPlan.fromJson(planMap);
     // Haftanın başlangıcı
     DateTime startOfWeek(DateTime d)=> d.subtract(Duration(days: d.weekday-1));
     final now = DateTime.now();

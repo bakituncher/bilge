@@ -8,6 +8,9 @@ import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/features/weakness_workshop/models/saved_workshop_model.dart';
 import 'package:bilge_ai/data/models/plan_model.dart'; // WeeklyPlan & DailyPlan için eklendi
+import 'package:bilge_ai/data/models/plan_document.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
+import 'package:bilge_ai/data/models/app_state.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
@@ -27,6 +30,11 @@ class FirestoreService {
 
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
+
+  // Alt koleksiyon referans yardımcıları
+  DocumentReference<Map<String, dynamic>> _planDoc(String userId) => usersCollection.doc(userId).collection('plans').doc('current_plan');
+  DocumentReference<Map<String, dynamic>> _performanceDoc(String userId) => usersCollection.doc(userId).collection('performance').doc('summary');
+  DocumentReference<Map<String, dynamic>> _appStateDoc(String userId) => usersCollection.doc(userId).collection('state').doc('app_state');
 
   // YENİ EKLENEN FONKSİYONLAR: CEVHER ATÖLYESİ İÇİN
   Future<void> saveWorkshopForUser(String userId, SavedWorkshopModel workshop) async {
@@ -48,6 +56,10 @@ class FirestoreService {
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name, tutorialCompleted: false);
     await usersCollection.doc(user.uid).set(userProfile.toJson());
+    // Alt belgeleri başlangıçta oluştur (boş)
+    await _appStateDoc(user.uid).set(const AppState().toMap(), SetOptions(merge: true));
+    await _planDoc(user.uid).set(PlanDocument().toMap(), SetOptions(merge: true));
+    await _performanceDoc(user.uid).set(PerformanceSummary().toMap(), SetOptions(merge: true));
   }
 
   Future<void> updateUserName({required String userId, required String newName}) async {
@@ -55,6 +67,9 @@ class FirestoreService {
   }
 
   Future<void> markTutorialAsCompleted(String userId) async {
+    // Alt koleksiyon: state/app_state
+    await _appStateDoc(userId).set({'tutorialCompleted': true}, SetOptions(merge: true));
+    // Geri uyumluluk: ana belgeyi de güncelle
     await usersCollection.doc(userId).update({'tutorialCompleted': true});
   }
 
@@ -64,12 +79,16 @@ class FirestoreService {
     required List<String> challenges,
     required double weeklyStudyGoal,
   }) async {
+    // Hedef ve ilgili alanlar ana belgede kalabilir
     await usersCollection.doc(userId).update({
       'goal': goal,
       'challenges': challenges,
       'weeklyStudyGoal': weeklyStudyGoal,
-      'onboardingCompleted': true,
     });
+    // Onboarding tamamlandı -> alt state belgesine
+    await _appStateDoc(userId).set({'onboardingCompleted': true}, SetOptions(merge: true));
+    // Geri uyumluluk
+    await usersCollection.doc(userId).update({'onboardingCompleted': true});
   }
 
   Stream<UserModel> getUserProfile(String userId) {
@@ -99,7 +118,7 @@ class FirestoreService {
     await _firestore.runTransaction((transaction) async {
       final userSnapshot = await transaction.get(userDocRef);
       if (!userSnapshot.exists) throw Exception("Kullanıcı bulunamadı!");
-      final user = UserModel.fromSnapshot(userSnapshot as DocumentSnapshot<Map<String, dynamic>>);
+      final user = UserModel.fromSnapshot(userSnapshot);
       final newTestRef = _testsCollection.doc();
       transaction.set(newTestRef, test.toJson());
       transaction.update(userDocRef, {
@@ -141,6 +160,19 @@ class FirestoreService {
     });
   }
 
+  // Yeni Stream'ler
+  Stream<PlanDocument?> getPlansStream(String userId) {
+    return _planDoc(userId).snapshots().map((doc) => doc.exists ? PlanDocument.fromSnapshot(doc) : null);
+  }
+
+  Stream<PerformanceSummary?> getPerformanceStream(String userId) {
+    return _performanceDoc(userId).snapshots().map((doc) => doc.exists ? PerformanceSummary.fromSnapshot(doc) : null);
+  }
+
+  Stream<AppState?> getAppStateStream(String userId) {
+    return _appStateDoc(userId).snapshots().map((doc) => doc.exists ? AppState.fromSnapshot(doc) : null);
+  }
+
   Future<void> updateTopicPerformance({
     required String userId,
     required String subject,
@@ -151,9 +183,10 @@ class FirestoreService {
     final sanitizedSubject = _sanitizeKey(subject);
     final sanitizedTopic = _sanitizeKey(topic);
     final fieldPath = 'topicPerformances.$sanitizedSubject.$sanitizedTopic';
-    await userDocRef.update({
-      fieldPath: performance.toMap(),
-    });
+    // Alt koleksiyon
+    await _performanceDoc(userId).set({fieldPath: performance.toMap()}, SetOptions(merge: true));
+    // Geri uyumluluk
+    await userDocRef.update({fieldPath: performance.toMap()});
   }
 
   Future<void> addFocusSession(FocusSessionModel session) async {
@@ -173,7 +206,7 @@ class FirestoreService {
     await _firestore.runTransaction((txn) async {
       final snap = await txn.get(userDocRef);
       if(!snap.exists) return;
-      final user = UserModel.fromSnapshot(snap as DocumentSnapshot<Map<String,dynamic>>);
+      final user = UserModel.fromSnapshot(snap);
 
       // Temel tamamlama / geri alma
       final updates = <String,dynamic>{};
@@ -277,6 +310,13 @@ class FirestoreService {
     required String longTermStrategy,
     required Map<String, dynamic> weeklyPlan,
   }) async {
+    // Alt koleksiyon: plans/current_plan
+    await _planDoc(userId).set({
+      'studyPacing': pacing,
+      'longTermStrategy': longTermStrategy,
+      'weeklyPlan': weeklyPlan,
+    }, SetOptions(merge: true));
+    // Geri uyumluluk: ana belgeyi de güncelle (geçiş süreci için)
     await usersCollection.doc(userId).update({
       'studyPacing': pacing,
       'longTermStrategy': longTermStrategy,
@@ -285,13 +325,15 @@ class FirestoreService {
     await updateEngagementScore(userId, 100);
   }
 
-  Future<void> markTopicAsMastered(
-      {required String userId,
-        required String subject,
-        required String topic}) async {
+  Future<void> markTopicAsMastered({required String userId, required String subject, required String topic}) async {
     final sanitizedSubject = _sanitizeKey(subject);
     final sanitizedTopic = _sanitizeKey(topic);
     final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
+    // Alt koleksiyon
+    await _performanceDoc(userId).set({
+      'masteredTopics': FieldValue.arrayUnion([uniqueIdentifier])
+    }, SetOptions(merge: true));
+    // Geri uyumluluk
     await usersCollection.doc(userId).update({
       'masteredTopics': FieldValue.arrayUnion([uniqueIdentifier])
     });

@@ -7,6 +7,9 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart'; // EKLENDİ
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import '../repositories/firestore_service.dart';
+import 'package:bilge_ai/data/models/plan_document.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
+import 'package:bilge_ai/data/models/app_state.dart';
 
 final firestoreProvider = Provider<FirebaseFirestore>((ref) => FirebaseFirestore.instance);
 
@@ -52,4 +55,28 @@ final leaderboardProvider = FutureProvider.family.autoDispose<List<LeaderboardEn
 
 
   return leaderboardEntries;
+});
+
+final planProvider = StreamProvider<PlanDocument?>((ref) {
+  final user = ref.watch(authControllerProvider).value;
+  if (user != null) {
+    return ref.watch(firestoreServiceProvider).getPlansStream(user.uid);
+  }
+  return Stream.value(null);
+});
+
+final performanceProvider = StreamProvider<PerformanceSummary?>((ref) {
+  final user = ref.watch(authControllerProvider).value;
+  if (user != null) {
+    return ref.watch(firestoreServiceProvider).getPerformanceStream(user.uid);
+  }
+  return Stream.value(null);
+});
+
+final appStateProvider = StreamProvider<AppState?>((ref) {
+  final user = ref.watch(authControllerProvider).value;
+  if (user != null) {
+    return ref.watch(firestoreServiceProvider).getAppStateStream(user.uid);
+  }
+  return Stream.value(null);
 });
