@@ -50,14 +50,16 @@ class QuizQuestion {
     List<String> parsedOptions = [];
 
     // --- NİHAİ ÇÖZÜM: ÇİFT KATMANLI SAVUNMA MEKANİZMASI ---
-    // 1. ÖNCELİK: Yeni ve güvenli "optionA, optionB..." formatını dene.
+    // 1. ÖNCELİK: Yeni ve güvenli "optionA, optionB..." formatını dene (A-E, 5 şık desteği).
     if (json.containsKey('optionA')) {
       parsedOptions = [
         JsonTextCleaner.cleanDynamic(json['optionA'] ?? ''),
         JsonTextCleaner.cleanDynamic(json['optionB'] ?? ''),
         JsonTextCleaner.cleanDynamic(json['optionC'] ?? ''),
         JsonTextCleaner.cleanDynamic(json['optionD'] ?? ''),
+        if (json.containsKey('optionE')) JsonTextCleaner.cleanDynamic(json['optionE'] ?? ''),
       ];
+      parsedOptions = parsedOptions.where((e) => e != '').toList();
     }
     // 2. YEDEK PLAN: Eğer yeni format yoksa, eski "options" listesi formatını
     // zırhlı temizleyici ile işlemeyi dene.
@@ -67,23 +69,37 @@ class QuizQuestion {
           .toList();
     }
 
-    // 3. GÜVENLİK AĞI: Eğer herhangi bir seçenek temizlendikten sonra boş kalırsa,
-    // görünmez olmasını engellemek için varsayılan bir metin ata.
+    // Boşları doldur
     for (int i = 0; i < parsedOptions.length; i++) {
       if (parsedOptions[i].isEmpty) {
-        parsedOptions[i] = "Seçenek ${String.fromCharCode(65 + i)}"; // A, B, C, D
+        parsedOptions[i] = "Seçenek ${String.fromCharCode(65 + i)}";
       }
     }
-    // Eğer hiç seçenek oluşmadıysa, 4 tane varsayılan seçenek oluştur.
-    if (parsedOptions.isEmpty) {
-      parsedOptions = ["Seçenek A", "Seçenek B", "Seçenek C", "Seçenek D"];
+
+    // Şık sayısını en az 5 olacak şekilde doldur (A-E). 4 gelirse E'yi ekle.
+    while (parsedOptions.length < 5) {
+      final idx = parsedOptions.length;
+      parsedOptions.add("Seçenek ${String.fromCharCode(65 + idx)}");
     }
-    // --- BİTTİ ---
+    // Çok fazlaysa 5'e kısalt
+    if (parsedOptions.length > 5) {
+      parsedOptions = parsedOptions.sublist(0, 5);
+    }
+
+    // Doğru cevap indeksini güvenli aralığa sabitle
+    int idx = 0;
+    try {
+      idx = (json['correctOptionIndex'] as num?)?.toInt() ?? 0;
+    } catch (_) {
+      idx = 0;
+    }
+    if (idx < 0) idx = 0;
+    if (idx >= parsedOptions.length) idx = 0;
 
     return QuizQuestion(
       question: JsonTextCleaner.cleanDynamic(json['question'] ?? 'Soru yüklenemedi.'),
       options: parsedOptions,
-      correctOptionIndex: json['correctOptionIndex'] ?? 0,
+      correctOptionIndex: idx,
       explanation: JsonTextCleaner.cleanDynamic(json['explanation'] ?? 'Bu soru için açıklama bulunamadı.'),
     );
   }

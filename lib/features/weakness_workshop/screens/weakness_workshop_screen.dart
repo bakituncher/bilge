@@ -784,7 +784,7 @@ class _SummaryViewState extends ConsumerState<_SummaryView> {
           const SizedBox(height: 24),
           _ResultActionCard(
               title: "Sonuçları Değerlendir",
-              subtitle: "Başarını veya hataların�� AI koçunla konuş.",
+              subtitle: "Başarını veya hatalarını AI koçunla konuş.",
               icon: Icons.forum_rounded,
               onTap: (){
                 final reviewContext = {
@@ -797,7 +797,7 @@ class _SummaryViewState extends ConsumerState<_SummaryView> {
               }
           ),
           const SizedBox(height: 16),
-          _ResultActionCard(title: "Derinleşmek İstiyorum", subtitle: "Bu konuyla ilgili daha zor sorularla kendini s��na.", icon: Icons.auto_awesome, onTap: widget.onRetryHarder, isPrimary: true),
+          _ResultActionCard(title: "Derinleşmek İstiyorum", subtitle: "Bu konuyla ilgili daha zor sorularla kendini sına.", icon: Icons.auto_awesome, onTap: widget.onRetryHarder, isPrimary: true),
           const SizedBox(height: 16),
           _ResultActionCard(
             title: "Cevheri Kaydet",
