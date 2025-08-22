@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
-import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -111,13 +110,7 @@ class _TriumphPlaqueCardState extends State<_TriumphPlaqueCard> {
   bool _isHovered = false;
 
   double _calculateWisdomScore() {
-    if (widget.test.totalQuestions == 0) return 0;
-    double netContribution = (widget.test.totalNet / widget.test.totalQuestions) * 60;
-    final attemptedQuestions = widget.test.totalCorrect + widget.test.totalWrong;
-    double accuracyContribution = attemptedQuestions > 0 ? (widget.test.totalCorrect / attemptedQuestions) * 25 : 0;
-    double effortContribution = (attemptedQuestions / widget.test.totalQuestions) * 15;
-    double totalScore = netContribution + accuracyContribution + effortContribution;
-    return totalScore.clamp(0, 100);
+    return widget.test.wisdomScore;
   }
 
   double _calculateAccuracy() {
@@ -151,7 +144,9 @@ class _TriumphPlaqueCardState extends State<_TriumphPlaqueCard> {
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: _isHovered ? tierColor.withOpacity(0.5) : Colors.black.withOpacity(0.6),
+                color: _isHovered
+                    ? tierColor.withOpacity(0.5)
+                    : Colors.black.withOpacity(0.6),
                 blurRadius: _isHovered ? 25 : 10,
               )
             ],

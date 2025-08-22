@@ -4,7 +4,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
-import 'package:bilge_ai/features/home/logic/test_summary_logic.dart';
 import 'package:bilge_ai/features/home/widgets/summary_widgets/verdict_card.dart';
 import 'package:bilge_ai/features/home/widgets/summary_widgets/key_stats_row.dart';
 import 'package:bilge_ai/features/home/widgets/summary_widgets/subject_highlights.dart';
@@ -17,10 +16,9 @@ class TestResultSummaryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final summaryLogic = TestSummaryLogic(test);
-    final wisdomScore = summaryLogic.calculateWisdomScore();
-    final verdict = summaryLogic.getExpertVerdict(wisdomScore);
-    final keySubjects = summaryLogic.findKeySubjects();
+    final wisdomScore = test.wisdomScore;
+    final verdict = test.expertVerdict;
+    final keySubjects = test.findKeySubjects();
     final isGoodResult = wisdomScore > 60;
 
     return Scaffold(
