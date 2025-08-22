@@ -25,12 +25,12 @@ final userProfileProvider = StreamProvider<UserModel?>((ref) {
   return Stream.value(null);
 });
 
-final testsProvider = StreamProvider<List<TestModel>>((ref) {
+final testsProvider = FutureProvider<List<TestModel>>((ref) async {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
-    return ref.watch(firestoreServiceProvider).getTestResults(user.uid);
+    return ref.watch(firestoreServiceProvider).getTestResultsOnce(user.uid);
   }
-  return Stream.value([]);
+  return <TestModel>[];
 });
 
 // Artık 'FutureProvider.family' doğru şekilde tanınıyor.

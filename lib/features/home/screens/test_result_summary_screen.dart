@@ -8,6 +8,9 @@ import 'package:bilge_ai/features/home/widgets/summary_widgets/verdict_card.dart
 import 'package:bilge_ai/features/home/widgets/summary_widgets/key_stats_row.dart';
 import 'package:bilge_ai/features/home/widgets/summary_widgets/subject_highlights.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilge_ai/features/auth/application/auth_controller.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 
 class TestResultSummaryScreen extends StatelessWidget {
   final TestModel test;
@@ -58,6 +61,39 @@ class TestResultSummaryScreen extends StatelessWidget {
           onPressed: () => context.go('/home'),
         ),
       ),
+    );
+  }
+}
+
+class TestResultSummaryEntry extends ConsumerWidget {
+  final TestModel? test;
+  const TestResultSummaryEntry({super.key, this.test});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (test != null) return TestResultSummaryScreen(test: test!);
+
+    final user = ref.watch(authControllerProvider).value;
+    if (user == null) {
+      return const Scaffold(body: Center(child: Text('Özet verisi yok')));
+    }
+
+    return FutureBuilder(
+      future: ref.read(firestoreServiceProvider).getTestResultsOnce(user.uid),
+      builder: (context, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        if (snap.hasError) {
+          return Scaffold(body: Center(child: Text('Özet yüklenemedi: ${snap.error}')));
+        }
+        final list = (snap.data ?? <TestModel>[]) as List<TestModel>;
+        if (list.isEmpty) {
+          return const Scaffold(body: Center(child: Text('Özet verisi yok')));
+        }
+        final latest = list.first; // tarihine göre desc okuyoruz
+        return TestResultSummaryScreen(test: latest);
+      },
     );
   }
 }

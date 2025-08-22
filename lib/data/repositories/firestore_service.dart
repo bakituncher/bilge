@@ -248,6 +248,14 @@ class FirestoreService {
     return _testsCollection.where('userId', isEqualTo: userId).orderBy('date', descending: true).snapshots().map((snapshot) => snapshot.docs.map((doc) => TestModel.fromSnapshot(doc)).toList());
   }
 
+  Future<List<TestModel>> getTestResultsOnce(String userId) async {
+    final qs = await _testsCollection
+        .where('userId', isEqualTo: userId)
+        .orderBy('date', descending: true)
+        .get();
+    return qs.docs.map((d) => TestModel.fromSnapshot(d)).toList();
+  }
+
   Future<void> saveExamSelection({
     required String userId,
     required ExamType examType,

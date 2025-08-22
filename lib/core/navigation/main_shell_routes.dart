@@ -75,10 +75,7 @@ StatefulShellRoute mainShellRoutes(GlobalKey<NavigatorState> rootNavigatorKey) {
                 parentNavigatorKey: rootNavigatorKey,
                 builder: (context, state) {
                   final test = state.extra as TestModel?; // null güvenli
-                  if (test == null) {
-                    return const Scaffold(body: Center(child: Text('Özet verisi yok')));
-                  }
-                  return TestResultSummaryScreen(test: test);
+                  return TestResultSummaryEntry(test: test);
                 },
               ),
               GoRoute(
