@@ -18,6 +18,9 @@ import 'package:bilge_ai/features/home/providers/home_providers.dart';
 
 // Widget'ları vurgulamak için GlobalKey'ler artik highlight_keys.dart'tan geliyor, burada TANIM YOK.
 
+// KUTLAMA TARİHLERİ: static yerine Riverpod state
+final celebratedDatesProvider = StateProvider<Set<String>>((ref) => <String>{});
+
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
   @override
@@ -102,7 +105,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 // --- GÜNLÜK GÖREVLER KARTI (dokunulmadı) ---
 class _DailyQuestsCard extends ConsumerWidget {
   _DailyQuestsCard();
-  static final Set<String> _celebratedDates = {};
   String _formatRemaining(Duration d) { final h = d.inHours; final m = d.inMinutes.remainder(60); if (h == 0) return '${m}dk'; return '${h}sa ${m}dk'; }
   Color _progressColor(double p) {
     if (p >= .999) return Colors.greenAccent;
@@ -115,7 +117,19 @@ class _DailyQuestsCard extends ConsumerWidget {
     final user = ref.watch(userProfileProvider).value; if (user == null) return const SizedBox.shrink();
     final questProg = ref.watch(dailyQuestsProgressProvider);
     final total = questProg.total; final completed = questProg.completed; final progress = questProg.progress; final remaining = questProg.remaining;
-    if (progress >= 1.0) { final todayKey = DateTime.now().toIso8601String().substring(0,10); if (!_celebratedDates.contains(todayKey)) { _celebratedDates.add(todayKey); WidgetsBinding.instance.addPostFrameCallback((_){ if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Row(children: const [Icon(Icons.celebration_rounded, color: Colors.greenAccent), SizedBox(width: 8), Expanded(child: Text('Tüm günlük fetihler tamamlandı! 🔥')),],),)); }}); }}
+
+    // Riverpod üzerinden kutlama tarihlerini al
+    final celebratedDates = ref.watch(celebratedDatesProvider);
+
+    if (progress >= 1.0) {
+      final todayKey = DateTime.now().toIso8601String().substring(0,10);
+      if (!celebratedDates.contains(todayKey)) {
+        // Set'i immutably güncelle
+        ref.read(celebratedDatesProvider.notifier).update((s) => {...s, todayKey});
+        WidgetsBinding.instance.addPostFrameCallback((_){ if (context.mounted) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Row(children: const [Icon(Icons.celebration_rounded, color: Colors.greenAccent), SizedBox(width: 8), Expanded(child: Text('Tüm günlük fetihler tamamlandı! 🔥')),],),)); }});
+      }
+    }
+
     final showShimmer = progress < 1.0;
     final card = Card(
       clipBehavior: Clip.antiAlias,
