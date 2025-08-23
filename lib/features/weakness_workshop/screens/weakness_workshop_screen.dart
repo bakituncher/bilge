@@ -303,6 +303,7 @@ class _BriefingView extends ConsumerWidget {
     final user = ref.watch(userProfileProvider).value;
     final tests = ref.watch(testsProvider).value;
     final performance = ref.watch(performanceProvider).value;
+    final firestoreService = ref.watch(firestoreServiceProvider);
 
     if (user == null || tests == null || user.selectedExam == null || performance == null) {
       return const Center(child: CircularProgressIndicator());
@@ -313,7 +314,8 @@ class _BriefingView extends ConsumerWidget {
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-          final analysis = StatsAnalysis(tests, performance, snapshot.data!, user: user);
+          // DÜZELTME: firestoreService eklendi
+          final analysis = StatsAnalysis(tests, performance, snapshot.data!, firestoreService, user: user);
           final suggestions = analysis.getWorkshopSuggestions(count: 3);
 
           return ListView(

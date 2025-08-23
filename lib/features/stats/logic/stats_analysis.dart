@@ -8,6 +8,7 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/performance_summary.dart';
+import 'package:bilge_ai/data/repositories/firestore_service.dart';
 
 class TacticalAdvice {
   final String text;
@@ -44,6 +45,7 @@ class StatsAnalysis {
   final List<TestModel> tests;
   final PerformanceSummary performanceSummary;
   final Exam examData;
+  final FirestoreService firestoreService;
   final UserModel? user;
 
   late List<TestModel> sortedTests;
@@ -59,12 +61,7 @@ class StatsAnalysis {
   late String weakestSubjectByNet;
   late String strongestSubjectByNet;
 
-  // DÜZELTME: Anahtarları güvenli hale getiren merkezi fonksiyon
-  String _sanitizeKey(String key) {
-    return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
-  }
-
-  StatsAnalysis(this.tests, this.performanceSummary, this.examData, {this.user}) {
+  StatsAnalysis(this.tests, this.performanceSummary, this.examData, this.firestoreService, {this.user}) {
     if (tests.isEmpty && performanceSummary.topicPerformances.isEmpty) {
       _initializeEmpty();
       return;
@@ -170,13 +167,12 @@ class StatsAnalysis {
     final relevantSections = examData.sections;
 
     performanceSummary.topicPerformances.forEach((sanitizedSubjectKey, topics) {
-      // Find the original subject name and details
       String originalSubjectName = "";
       SubjectDetails? subjectDetails;
 
       for (var section in relevantSections) {
         for (var entry in section.subjects.entries) {
-          if (_sanitizeKey(entry.key) == sanitizedSubjectKey) {
+          if (firestoreService.sanitizeKey(entry.key) == sanitizedSubjectKey) {
             originalSubjectName = entry.key;
             subjectDetails = entry.value;
             break;
@@ -184,7 +180,7 @@ class StatsAnalysis {
         }
         if (originalSubjectName.isNotEmpty) break;
       }
-      if (originalSubjectName.isEmpty) return; // Skip if no matching subject found
+      if (originalSubjectName.isEmpty) return;
 
       final penalty = relevantSections
           .firstWhere((s) => s.subjects.containsKey(originalSubjectName))
@@ -192,7 +188,7 @@ class StatsAnalysis {
 
       topics.forEach((sanitizedTopicKey, performance) {
         final originalTopicName = subjectDetails?.topics
-            .firstWhere((t) => _sanitizeKey(t.name) == sanitizedTopicKey, orElse: () => SubjectTopic(name: ''))
+            .firstWhere((t) => firestoreService.sanitizeKey(t.name) == sanitizedTopicKey, orElse: () => SubjectTopic(name: ''))
             .name ?? '';
         if (originalTopicName.isEmpty) return;
 
@@ -217,8 +213,8 @@ class StatsAnalysis {
     final rankedTopics = _getRankedTopics();
 
     final unmasteredTopics = rankedTopics.where((topic) {
-      final sanitizedSubject = _sanitizeKey(topic['subject']);
-      final sanitizedTopic = _sanitizeKey(topic['topic']);
+      final sanitizedSubject = firestoreService.sanitizeKey(topic['subject']);
+      final sanitizedTopic = firestoreService.sanitizeKey(topic['topic']);
       final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
       return !(performanceSummary.masteredTopics.contains(uniqueIdentifier));
     }).toList();

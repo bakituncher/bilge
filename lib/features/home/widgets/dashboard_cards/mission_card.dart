@@ -9,6 +9,7 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
 
 class MissionCard extends ConsumerWidget {
   const MissionCard({super.key});
@@ -31,7 +32,7 @@ class MissionCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildMissionContent(BuildContext context, WidgetRef ref, UserModel user, List<TestModel> tests, performance) {
+  Widget _buildMissionContent(BuildContext context, WidgetRef ref, UserModel user, List<TestModel> tests, PerformanceSummary performance) {
     if (user.selectedExam == null) return const SizedBox.shrink();
 
     final examType = ExamType.values.byName(user.selectedExam!);
@@ -58,7 +59,8 @@ class MissionCard extends ConsumerWidget {
           buttonText = 'İlk Denemeni Ekle';
           icon = Icons.add_chart_rounded;
         } else {
-          final analysis = StatsAnalysis(tests, performance, exam, user: user);
+          final firestoreService = ref.read(firestoreServiceProvider);
+          final analysis = StatsAnalysis(tests, performance, exam, firestoreService, user: user);
           final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
           title = 'Günün Önceliği';
           subtitle = weakestTopicInfo != null

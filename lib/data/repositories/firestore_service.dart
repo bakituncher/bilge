@@ -7,11 +7,11 @@ import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/data/models/focus_session_model.dart';
 import 'package:bilge_ai/features/weakness_workshop/models/saved_workshop_model.dart';
-import 'package:bilge_ai/data/models/plan_model.dart'; // WeeklyPlan & DailyPlan için eklendi
+import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/models/plan_document.dart';
 import 'package:bilge_ai/data/models/performance_summary.dart';
 import 'package:bilge_ai/data/models/app_state.dart';
-import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart'; // YENİ: Leaderboard modeli
+import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
@@ -285,8 +285,25 @@ class FirestoreService {
   }) async {
     final sanitizedSubject = sanitizeKey(subject);
     final sanitizedTopic = sanitizeKey(topic);
-    final fieldPath = 'topicPerformances.$sanitizedSubject.$sanitizedTopic';
-    await _performanceDoc(userId).set({fieldPath: performance.toMap()}, SetOptions(merge: true));
+    // Önce update ile iç içe alanı doğrudan güncelle (nokta notasyonu destekli)
+    try {
+      await _performanceDoc(userId).update({
+        'topicPerformances.$sanitizedSubject.$sanitizedTopic': performance.toMap(),
+      });
+    } on FirebaseException catch (e) {
+      // Eğer özet dokümanı yoksa, merge set ile oluşturup ilgili alanı yaz
+      if (e.code == 'not-found') {
+        await _performanceDoc(userId).set({
+          'topicPerformances': {
+            sanitizedSubject: {
+              sanitizedTopic: performance.toMap(),
+            }
+          }
+        }, SetOptions(merge: true));
+      } else {
+        rethrow;
+      }
+    }
   }
 
   Future<void> addFocusSession(FocusSessionModel session) async {
@@ -395,6 +412,7 @@ class FirestoreService {
         }, SetOptions(merge: true));
       }
     });
+
     await _syncLeaderboardUser(userId);
   }
 

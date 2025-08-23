@@ -25,7 +25,9 @@ class AnalysisView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final performance = ref.watch(performanceProvider).value ?? const PerformanceSummary();
-    final analysis = StatsAnalysis(tests, performance, exam, user: user);
+    final firestoreService = ref.watch(firestoreServiceProvider);
+    // DÜZELTME: firestoreService eklendi
+    final analysis = StatsAnalysis(tests, performance, exam, firestoreService, user: user);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

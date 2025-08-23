@@ -15,6 +15,7 @@ import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:bilge_ai/core/utils/json_text_cleaner.dart';
 import 'package:bilge_ai/data/models/performance_summary.dart';
 import 'package:bilge_ai/data/models/plan_document.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 
 class ChatMessage {
   final String text;
@@ -23,15 +24,17 @@ class ChatMessage {
 }
 
 final aiServiceProvider = Provider<AiService>((ref) {
-  return AiService();
+  // DÜZELTME: Artık ref'i alıyor.
+  return AiService(ref);
 });
 
 class AiService {
-  AiService();
+  final Ref _ref;
+  AiService(this._ref);
 
   final String _apiKey = AppConfig.geminiApiKey;
   final String _apiUrl =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"; //kesinlikle flash modelini kullan, pro modelini istemiyorum
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent";
 
   String _preprocessAiTextForJson(String input) {
     return JsonTextCleaner.cleanString(input);
@@ -40,10 +43,8 @@ class AiService {
   String? _extractJsonFromFencedBlock(String text) {
     final jsonFence = RegExp(r"```json\s*([\s\S]*?)\s*```", multiLine: true).firstMatch(text);
     if (jsonFence != null) return jsonFence.group(1)!.trim();
-
     final anyFence = RegExp(r"```\s*([\s\S]*?)\s*```", multiLine: true).firstMatch(text);
     if (anyFence != null) return anyFence.group(1)!.trim();
-
     return null;
   }
 
@@ -62,14 +63,11 @@ class AiService {
       if (parsed is String) {
         try {
           parsed = jsonDecode(parsed);
-        } catch (_) {
-        }
+        } catch (_) {}
       }
       return jsonEncode(parsed);
     } catch (_) {
-      return jsonEncode({
-        'error': 'Yapay zeka yanıtı anlaşılamadı, lütfen tekrar deneyin.'
-      });
+      return jsonEncode({'error': 'Yapay zeka yanıtı anlaşılamadı, lütfen tekrar deneyin.'});
     }
   }
 
@@ -79,7 +77,6 @@ class AiService {
           '{"error": "API Anahtarı bulunamadı. Lütfen `lib/core/config/app_config.dart` dosyasına kendi Gemini API anahtarınızı ekleyin."}';
       return expectJson ? errorJson : "**HATA:** API Anahtarı bulunamadı.";
     }
-
     const maxRetries = 3;
     for (int i = 0; i < maxRetries; i++) {
       try {
@@ -110,19 +107,13 @@ class AiService {
           if (data['candidates'] != null && data['candidates'][0]['content'] != null) {
             String rawResponse = data['candidates'][0]['content']['parts'][0]['text']?.toString() ?? '';
             rawResponse = rawResponse.trim();
-
             String? extracted = _extractJsonFromFencedBlock(rawResponse);
-
             extracted ??= _extractJsonByBracesFallback(rawResponse);
-
             String candidate = (extracted ?? rawResponse);
-
             final cleaned = _preprocessAiTextForJson(candidate);
-
             if (expectJson) {
               return _parseAndNormalizeJsonOrError(cleaned);
             }
-
             return cleaned.isNotEmpty ? cleaned : rawResponse;
           } else {
             throw Exception('Yapay zeka servisinden beklenmedik bir formatta cevap alındı.');
@@ -199,7 +190,8 @@ class AiService {
     final examType = ExamType.values.byName(user.selectedExam!);
     final daysUntilExam = _getDaysUntilExam(examType);
     final examData = await ExamData.getExamByType(examType);
-    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, performance, examData, user: user) : null;
+    // DÜZELTME: firestoreServiceProvider eklendi
+    final analysis = tests.isNotEmpty ? StatsAnalysis(tests, performance, examData, _ref.read(firestoreServiceProvider), user: user) : null;
     final avgNet = analysis?.averageNet.toStringAsFixed(2) ?? 'N/A';
     final subjectAverages = analysis?.subjectAverages ?? {};
     final topicPerformancesJson = _encodeTopicPerformances(performance.topicPerformances);
@@ -262,7 +254,8 @@ class AiService {
     } else {
       final examType = ExamType.values.byName(user.selectedExam!);
       final examData = await ExamData.getExamByType(examType);
-      final analysis = StatsAnalysis(tests, performance, examData, user: user);
+      // DÜZELTME: firestoreServiceProvider eklendi
+      final analysis = StatsAnalysis(tests, performance, examData, _ref.read(firestoreServiceProvider), user: user);
       final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
 
       if (weakestTopicInfo == null) {
@@ -287,7 +280,8 @@ class AiService {
   }) async {
     final examType = user.selectedExam != null ? ExamType.values.byName(user.selectedExam!) : null;
     final examData = examType != null ? await ExamData.getExamByType(examType) : null;
-    final analysis = tests.isNotEmpty && examData != null ? StatsAnalysis(tests, performance, examData, user: user) : null;
+    // DÜZELTME: firestoreServiceProvider eklendi
+    final analysis = tests.isNotEmpty && examData != null ? StatsAnalysis(tests, performance, examData, _ref.read(firestoreServiceProvider), user: user) : null;
 
     final prompt = getMotivationPrompt(
       user: user,

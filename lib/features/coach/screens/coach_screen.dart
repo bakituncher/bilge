@@ -222,7 +222,8 @@ class _SubjectGalaxyViewState extends ConsumerState<_SubjectGalaxyView> {
   @override
   Widget build(BuildContext context) {
     final subjectName = widget.subjectName;
-    final sanitizedSubjectName = ref.read(firestoreServiceProvider).sanitizeKey(subjectName);
+    final firestoreService = ref.read(firestoreServiceProvider);
+    final sanitizedSubjectName = firestoreService.sanitizeKey(subjectName);
     final performances = widget.performanceSummary.topicPerformances[sanitizedSubjectName] ?? {};
     int totalQuestions = 0, totalCorrect = 0, totalWrong = 0;
     final relevantSection = widget.exam.sections.firstWhere((s) => s.subjects.containsKey(subjectName), orElse: () => widget.exam.sections.first);
@@ -234,7 +235,7 @@ class _SubjectGalaxyViewState extends ConsumerState<_SubjectGalaxyView> {
     final viewMode = ref.watch(subjectViewModeProvider(subjectName));
     final filter = ref.watch(subjectFilterProvider(subjectName));
     final processed = widget.topics.map((t){
-      final perf = performances[ref.read(firestoreServiceProvider).sanitizeKey(t.name)] ?? TopicPerformanceModel();
+      final perf = performances[firestoreService.sanitizeKey(t.name)] ?? TopicPerformanceModel();
       final net = perf.correctCount - (perf.wrongCount * penaltyCoefficient);
       final double mastery = perf.questionCount < 5 ? -1.0 : ((net / perf.questionCount).clamp(0.0,1.0));
       return _TopicBundle(topic: t, performance: perf, mastery: mastery);
@@ -263,6 +264,7 @@ class _SubjectGalaxyViewState extends ConsumerState<_SubjectGalaxyView> {
         );},
       );
     });
+
     Widget buildList()=> ListView.separated(
       physics: const NeverScrollableScrollPhysics(),
       shrinkWrap: true,
@@ -283,6 +285,7 @@ class _SubjectGalaxyViewState extends ConsumerState<_SubjectGalaxyView> {
         ),
       );},
     );
+
     final content = switch(viewMode){ GalaxyViewMode.grid=>buildGrid(), GalaxyViewMode.list=>buildList() };
     return Container(
       decoration: BoxDecoration(
@@ -421,7 +424,7 @@ class _GalaxyToolbar extends StatelessWidget {
   }
 }
 
-class _ColorLegend extends StatelessWidget { const _ColorLegend(); Color _c(double v){ if(v<0) return AppTheme.lightSurfaceColor; if(v<0.4) return AppTheme.accentColor; if(v<0.7) return AppTheme.secondaryColor; return AppTheme.successColor; } @override Widget build(BuildContext context){ final items=[{'t':'Yetersiz Veri','v':-1.0},{'t':'Zayıf','v':0.2},{'t':'Gelişiyor','v':0.55},{'t':'Güçlü','v':0.85}]; return Wrap(spacing:12, runSpacing:8, children: items.map((e)=> Container(padding: const EdgeInsets.symmetric(horizontal:10, vertical:6), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: _c(e['v'] as double).withOpacity(0.18), border: Border.all(color: _c(e['v'] as double), width:1)), child: Row(mainAxisSize: MainAxisSize.min, children:[ Container(width:10,height:10, decoration: BoxDecoration(color: _c(e['v'] as double), shape: BoxShape.circle)), const SizedBox(width:6), Text(e['t'] as String, style: const TextStyle(fontSize:12, color: AppTheme.secondaryTextColor)) ]) )).toList()); }}
+class _ColorLegend extends StatelessWidget { const _ColorLegend(); Color _c(double v){ if(v<0) return AppTheme.lightSurfaceColor; if(v<0.4) return AppTheme.accentColor; if(v<0.7) return AppTheme.secondaryColor; return AppTheme.successColor; } @override Widget build(BuildContext context){ final items=[{'t':'Yetersiz Veri','v':-1.0},{'t':'Zayıf','v':0.2},{'t':'Gelişiyor','v':0.55},{'t':'Güçlü','v':0.85}]; return Wrap(spacing:12, runSpacing:8, children: items.map((e)=> Container(padding: const EdgeInsets.symmetric(horizontal:10, vertical:6), decoration: BoxDecoration(borderRadius: BorderRadius.circular(20), color: (_c(e['v'] as double)).withOpacity(0.18), border: Border.all(color: _c(e['v'] as double), width:1)), child: Row(mainAxisSize: MainAxisSize.min, children:[ Container(width:10,height:10, decoration: BoxDecoration(color: _c(e['v'] as double), shape: BoxShape.circle)), const SizedBox(width:6), Text(e['t'] as String, style: const TextStyle(fontSize:12, color: AppTheme.secondaryTextColor)) ]) )).toList()); }}
 
 class _MasteryPill extends StatelessWidget { final double mastery; const _MasteryPill({super.key, required this.mastery}); @override Widget build(BuildContext context){ String txt; Color c; if(mastery<0){ txt='VERİ YOK'; c=AppTheme.lightSurfaceColor; } else if(mastery<0.4){ txt='%${(mastery*100).toStringAsFixed(0)}'; c=AppTheme.accentColor; } else if(mastery<0.7){ txt='%${(mastery*100).toStringAsFixed(0)}'; c=AppTheme.secondaryColor; } else { txt='%${(mastery*100).toStringAsFixed(0)}'; c=AppTheme.successColor; } return Container(padding: const EdgeInsets.symmetric(horizontal:12, vertical:6), decoration: BoxDecoration(borderRadius: BorderRadius.circular(30), color: c.withOpacity(0.22), border: Border.all(color:c,width:1)), child: Text(txt, style: const TextStyle(fontSize:12, fontWeight: FontWeight.bold))); }}
 class _GalaxyGuideDialog extends StatelessWidget {

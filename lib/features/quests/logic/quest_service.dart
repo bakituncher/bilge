@@ -1,6 +1,6 @@
 // lib/features/quests/logic/quest_service.dart
 import 'dart:math';
-import 'dart:async'; // TimeoutException için
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
@@ -86,7 +86,8 @@ class QuestService {
 
     StatsAnalysis? analysis;
     if (tests.isNotEmpty && examData != null) {
-      analysis = StatsAnalysis(tests, performance, examData, user: user);
+      // DÜZELTME: firestoreServiceProvider eklendi
+      analysis = StatsAnalysis(tests, performance, examData, _ref.read(firestoreServiceProvider), user: user);
     }
 
     List<QuestTemplate> templates = questArmory.map((m) => QuestTemplateFactory.fromMap(m)).toList();

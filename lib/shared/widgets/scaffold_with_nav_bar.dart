@@ -131,7 +131,7 @@ class ScaffoldWithNavBar extends ConsumerWidget {
                     notchMargin: 10.0,
                     padding: EdgeInsets.zero,
                     height: 70,
-                    color: AppTheme.cardColor.withValues(alpha: 0.95),
+                    color: AppTheme.cardColor.withOpacity(0.95),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
@@ -179,8 +179,8 @@ class ScaffoldWithNavBar extends ConsumerWidget {
       icon: Icon(icon, color: isSelected ? AppTheme.secondaryColor : AppTheme.secondaryTextColor, size: 28),
       onPressed: () => _onTap(index, ref, steps),
       tooltip: label,
-      splashColor: AppTheme.secondaryColor.withValues(alpha: 0.2),
-      highlightColor: AppTheme.secondaryColor.withValues(alpha: 0.1),
+      splashColor: AppTheme.secondaryColor.withOpacity(0.2),
+      highlightColor: AppTheme.secondaryColor.withOpacity(0.1),
     );
   }
 
@@ -256,7 +256,7 @@ class _WeeklyPlanVictoryOverlay extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Colors.black.withValues(alpha: 0.6), Colors.black.withValues(alpha: 0.85)],
+                colors: [Colors.black.withOpacity(0.6), Colors.black.withOpacity(0.85)],
               ),
             ),
             child: Center(
@@ -265,7 +265,7 @@ class _WeeklyPlanVictoryOverlay extends StatelessWidget {
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: Material(
-                    color: AppTheme.cardColor.withValues(alpha: 0.95),
+                    color: AppTheme.cardColor.withOpacity(0.95),
                     elevation: 12,
                     borderRadius: BorderRadius.circular(28),
                     child: Padding(
