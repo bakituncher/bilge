@@ -2,6 +2,7 @@
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
 /// Görev şablonları için bağlam nesnesi
 class QuestContext {
@@ -10,6 +11,7 @@ class QuestContext {
   final bool wasInactiveYesterday;
   final int todayCompletedPlanTasks;
   final Set<String> completedCategoriesToday; // enum adları string olarak
+  final List<Quest> activeQuests; // yeni
 
   QuestContext({
     required this.tests,
@@ -17,6 +19,7 @@ class QuestContext {
     required this.wasInactiveYesterday,
     required this.todayCompletedPlanTasks,
     required this.completedCategoriesToday,
+    required this.activeQuests,
   });
 }
 
@@ -60,7 +63,7 @@ class GenericQuestTemplate extends QuestTemplate {
     // afterQuest -> aktif günlük görevler içinde önceki görevin tamamlanmış olması gerekir
     if (_triggers.containsKey('afterQuest')) {
       final prevId = _triggers['afterQuest'];
-      final prevList = user.activeDailyQuests.where((q) => q.id == prevId).toList();
+      final prevList = ctx.activeQuests.where((q) => q.id == prevId).toList();
       if (prevList.isEmpty || !prevList.first.isCompleted) return false;
     }
     // comboEligible

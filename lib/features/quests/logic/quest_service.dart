@@ -31,7 +31,8 @@ class QuestService {
 
   Future<List<Quest>> refreshDailyQuestsForUser(UserModel user, {bool force = false}) async {
     if (_inProgress) {
-      return user.activeDailyQuests;
+      // Alt koleksiyondan mevcut görevleri dön
+      return await _ref.read(firestoreServiceProvider).getDailyQuestsOnce(user.id);
     }
     _inProgress = true;
     try {
@@ -40,31 +41,65 @@ class QuestService {
       final lastRefresh = user.lastQuestRefreshDate?.toDate();
       final currentPlanSignature = _computeTodayPlanSignature();
       final planChanged = currentPlanSignature != null && currentPlanSignature != user.dailyQuestPlanSignature;
-      final shouldBypassSameDayCache = planChanged;
-      if (!force && !shouldBypassSameDayCache && lastRefresh != null && lastRefresh.year == today.year && lastRefresh.month == today.month && lastRefresh.day == today.day) {
-        return user.activeDailyQuests;
+      bool shouldBypassSameDayCache = planChanged;
+
+      // Mevcut görevleri alt koleksiyondan al
+      List<Quest> existingQuests = [];
+      try {
+        existingQuests = await _ref.read(firestoreServiceProvider).getDailyQuestsOnce(user.id);
+      } on FirebaseException catch (e) {
+        if (e.code == 'permission-denied') {
+          if (kDebugMode) debugPrint('[QuestService] daily_quests okuma yetki hatası: ${e.code}');
+          _ref.read(questGenerationIssueProvider.notifier).state = true;
+          return [];
+        }
+        rethrow;
       }
+
+      // Eğer subcollection boş ve eski alan doluysa tek seferlik migrate et
+      if (existingQuests.isEmpty) {
+        final userSnap = await _ref.read(firestoreServiceProvider).usersCollection.doc(user.id).get();
+        final data = userSnap.data();
+        if (data != null && data['activeDailyQuests'] is List && (data['activeDailyQuests'] as List).isNotEmpty) {
+          await _ref.read(firestoreServiceProvider).migrateActiveDailyQuestsForUser(user.id);
+          existingQuests = await _ref.read(firestoreServiceProvider).getDailyQuestsOnce(user.id);
+        }
+      }
+
+      // ‘Görevler boş’ ya da ‘hepsi tamam’ ise aynı gün içinde dahi yenilemeye zorla
+      final allCompleted = existingQuests.isNotEmpty && existingQuests.every((q) => q.isCompleted);
+      if (existingQuests.isEmpty || allCompleted) {
+        shouldBypassSameDayCache = true;
+      }
+
+      if (!force && !shouldBypassSameDayCache && lastRefresh != null && lastRefresh.year == today.year && lastRefresh.month == today.month && lastRefresh.day == today.day) {
+        return existingQuests;
+      }
+
       List<Quest> newQuests = [];
       try {
-        newQuests = await _generateQuestsForUser(user).timeout(const Duration(seconds: 8));
+        newQuests = await _generateQuestsForUser(user, existingQuests).timeout(const Duration(seconds: 8));
       } on TimeoutException {
-        if (kDebugMode) debugPrint('[QuestService] Görev üretimi timeout -> eski görevler dönüyor');
+        if (kDebugMode) debugPrint('[QuestService] Görev üretimi timeout -> mevcut görevler dönüyor');
         _ref.read(questGenerationIssueProvider.notifier).state = true;
-        return user.activeDailyQuests;
+        return existingQuests;
       } catch (e, st) {
         if (kDebugMode) {
           debugPrint('[QuestService] Görev üretimi hata: $e');
           debugPrint(st.toString());
         }
         _ref.read(questGenerationIssueProvider.notifier).state = true;
-        return user.activeDailyQuests;
+        return existingQuests;
       }
+
+      // Alt koleksiyonda görevleri tamamen değiştir ve kullanıcı meta alanlarını güncelle
+      await _ref.read(firestoreServiceProvider).replaceAllDailyQuests(user.id, newQuests);
       await _ref.read(firestoreServiceProvider).usersCollection.doc(user.id).update({
-        'activeDailyQuests': newQuests.map((q) => q.toMap()).toList(),
         'lastQuestRefreshDate': Timestamp.now(),
         if (currentPlanSignature != null) 'dailyQuestPlanSignature': currentPlanSignature,
         if (_lastDifficultyFactor != null) 'dynamicDifficultyFactorToday': _lastDifficultyFactor,
       });
+
       _ref.read(questGenerationIssueProvider.notifier).state = false;
       return newQuests;
     } finally {
@@ -74,7 +109,7 @@ class QuestService {
 
   double? _lastDifficultyFactor;
 
-  Future<List<Quest>> _generateQuestsForUser(UserModel user) async {
+  Future<List<Quest>> _generateQuestsForUser(UserModel user, List<Quest> existingQuests) async {
     final List<Quest> generatedQuests = [];
     final random = Random();
 
@@ -92,7 +127,7 @@ class QuestService {
 
     List<QuestTemplate> templates = questArmory.map((m) => QuestTemplateFactory.fromMap(m)).toList();
     templates.shuffle();
-    templates.removeWhere((t) => user.activeDailyQuests.any((q) => q.id == t.id));
+    templates.removeWhere((t) => existingQuests.any((q) => q.id == t.id));
 
     final todayKey = _dateKey(DateTime.now());
     final todayCompletedPlanTasks = user.completedDailyTasks[todayKey]?.length ?? 0;
@@ -104,7 +139,7 @@ class QuestService {
       return d.year == yesterday.year && d.month == yesterday.month && d.day == yesterday.day;
     }));
 
-    final completedCategoriesNames = user.activeDailyQuests
+    final completedCategoriesNames = existingQuests
         .where((q) => q.isCompleted)
         .map((q) => q.category.name)
         .toSet();
@@ -115,6 +150,7 @@ class QuestService {
       wasInactiveYesterday: wasInactiveYesterday,
       todayCompletedPlanTasks: todayCompletedPlanTasks,
       completedCategoriesToday: completedCategoriesNames,
+      activeQuests: existingQuests,
     );
 
     final List<({QuestTemplate template, int score, Map<String, String> variables})> scoredQuests = [];
@@ -658,9 +694,9 @@ final dailyQuestsProvider = FutureProvider.autoDispose<List<Quest>>((ref) async 
   final user = ref.watch(userProfileProvider).value;
   if (user == null) return [];
   final questService = ref.read(questServiceProvider);
-  final result = await questService.refreshDailyQuestsForUser(user).catchError((e){
+  final result = await questService.refreshDailyQuestsForUser(user).catchError((e) async {
     if (kDebugMode) debugPrint('[dailyQuestsProvider] hata: $e');
-    return user.activeDailyQuests;
+    return <Quest>[];
   });
   return result;
 });

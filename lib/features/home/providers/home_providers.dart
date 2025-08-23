@@ -6,6 +6,7 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
+import 'package:bilge_ai/features/quests/logic/optimized_quests_provider.dart';
 
 final avgNetProvider = Provider<double>((ref) {
   final tests = ref.watch(testsProvider).valueOrNull ?? <TestModel>[];
@@ -34,13 +35,12 @@ final lastThreeTrendProvider = Provider<int>((ref) {
 });
 
 final dailyQuestsProgressProvider = Provider<({int completed,int total,double progress,Duration remaining})>((ref){
-  final user = ref.watch(userProfileProvider).value;
-  if (user == null){
+  final quests = ref.watch(optimizedDailyQuestsProvider);
+  if (quests.isEmpty){
     return (completed:0,total:0,progress:0.0,remaining:Duration.zero);
   }
-  final quests = user.activeDailyQuests.where((q)=> q.type==QuestType.daily).toList();
-  final total = quests.length;
-  final completed = quests.where((q)=> q.isCompleted).length;
+  final total = quests.where((q)=> q.type==QuestType.daily).length;
+  final completed = quests.where((q)=> q.type==QuestType.daily && q.isCompleted).length;
   final double progress = total==0?0.0: completed/total.toDouble();
   final now = DateTime.now();
   final endOfDay = DateTime(now.year,now.month,now.day,23,59,59,999);

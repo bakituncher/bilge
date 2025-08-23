@@ -12,6 +12,7 @@ import 'package:bilge_ai/data/models/plan_document.dart';
 import 'package:bilge_ai/data/models/performance_summary.dart';
 import 'package:bilge_ai/data/models/app_state.dart';
 import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
+import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
@@ -501,6 +502,75 @@ class FirestoreService {
         avatarSeed: data['avatarSeed'] as String?,
       );
     }).where((e) => e.userName.isNotEmpty).toList();
+  }
+
+  CollectionReference<Map<String, dynamic>> dailyQuestsCollection(String userId) => usersCollection.doc(userId).collection('daily_quests');
+
+  Stream<List<Quest>> streamDailyQuests(String userId) {
+    return dailyQuestsCollection(userId)
+        .orderBy('qid')
+        .snapshots()
+        .map((qs) => qs.docs.map((d) => Quest.fromMap(d.data(), d.id)).toList());
+  }
+
+  Future<List<Quest>> getDailyQuestsOnce(String userId) async {
+    final qs = await dailyQuestsCollection(userId).orderBy('qid').get();
+    return qs.docs.map((d) => Quest.fromMap(d.data(), d.id)).toList();
+  }
+
+  Future<void> replaceAllDailyQuests(String userId, List<Quest> quests) async {
+    final col = dailyQuestsCollection(userId);
+    final batch = _firestore.batch();
+    final existing = await col.get();
+    for (final doc in existing.docs) {
+      batch.delete(doc.reference);
+    }
+    for (final q in quests) {
+      batch.set(col.doc(q.id), q.toMap(), SetOptions(merge: true));
+    }
+    await batch.commit();
+  }
+
+  Future<void> upsertQuest(String userId, Quest quest) async {
+    await dailyQuestsCollection(userId).doc(quest.id).set(quest.toMap(), SetOptions(merge: true));
+  }
+
+  Future<void> updateQuestFields(String userId, String questId, Map<String, dynamic> fields) async {
+    await dailyQuestsCollection(userId).doc(questId).update(fields);
+  }
+
+  Future<void> batchUpdateQuestFields(String userId, Map<String, Map<String, dynamic>> updates, {int? engagementDelta}) async {
+    final batch = _firestore.batch();
+    final userDocRef = usersCollection.doc(userId);
+    updates.forEach((questId, fields) {
+      batch.update(dailyQuestsCollection(userId).doc(questId), fields);
+    });
+    if (engagementDelta != null && engagementDelta != 0) {
+      batch.update(userDocRef, {'engagementScore': FieldValue.increment(engagementDelta)});
+    }
+    await batch.commit();
+  }
+
+  // ISTEGE BAGLI: Tek kullanımlık migrate yardımcısı. Client tarafında sadece tek kullanıcı için güvenli.
+  Future<void> migrateActiveDailyQuestsForUser(String userId) async {
+    final userDoc = await usersCollection.doc(userId).get();
+    if (!userDoc.exists) return;
+    final data = userDoc.data()!;
+    if (data['activeDailyQuests'] is! List) return;
+    final List active = data['activeDailyQuests'];
+    final List<Quest> quests = [];
+    for (final e in active) {
+      if (e is Map<String, dynamic>) {
+        final dynamic rawId = e['qid'] ?? e['id'];
+        if (rawId != null) {
+          quests.add(Quest.fromMap(e, rawId.toString()));
+        }
+      }
+    }
+    if (quests.isEmpty) return;
+    await replaceAllDailyQuests(userId, quests);
+    // Alanı temizle
+    await usersCollection.doc(userId).update({'activeDailyQuests': FieldValue.delete()});
   }
 
   String _weekdayName(int weekday) {

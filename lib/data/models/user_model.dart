@@ -1,6 +1,5 @@
 // lib/data/models/user_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:bilge_ai/data/models/topic_performance_model.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
 class UserModel {
@@ -26,7 +25,7 @@ class UserModel {
   // ARTIK KULLANILMIYOR: final Map<String, dynamic>? weeklyPlan;
   final Map<String, List<String>> weeklyAvailability;
   // ARTIK KULLANILMIYOR: final List<String> masteredTopics;
-  final List<Quest> activeDailyQuests;
+  // KALDIRILDI: activeDailyQuests
   final Quest? activeWeeklyCampaign;
   final Timestamp? lastQuestRefreshDate;
   final Map<String, Timestamp> unlockedAchievements;
@@ -68,7 +67,7 @@ class UserModel {
     // this.weeklyPlan,
     this.weeklyAvailability = const {},
     // this.masteredTopics = const [],
-    this.activeDailyQuests = const [],
+    // KALDIRILDI: activeDailyQuests
     this.activeWeeklyCampaign,
     this.lastQuestRefreshDate,
     this.unlockedAchievements = const {},
@@ -102,17 +101,7 @@ class UserModel {
       });
     }
 
-    final List<Quest> quests = [];
-    if (data['activeDailyQuests'] is List) {
-      for (var questData in (data['activeDailyQuests'] as List)) {
-        if (questData is Map<String, dynamic>) {
-          final dynamic rawId = questData['qid'] ?? questData['id'];
-          if (rawId != null) {
-            quests.add(Quest.fromMap(questData, rawId.toString()));
-          }
-        }
-      }
-    }
+    // KALDIRILDI: activeDailyQuests parse
     Quest? weeklyCampaign;
     if (data['activeWeeklyCampaign'] is Map<String, dynamic>) {
       final campaignData = data['activeWeeklyCampaign'] as Map<String, dynamic>;
@@ -149,7 +138,7 @@ class UserModel {
         ),
       ),
       // masteredTopics: List<String>.from(data['masteredTopics'] ?? []),
-      activeDailyQuests: quests,
+      // KALDIRILDI: activeDailyQuests
       activeWeeklyCampaign: weeklyCampaign,
       lastQuestRefreshDate: data['lastQuestRefreshDate'] as Timestamp?,
       unlockedAchievements: Map<String, Timestamp>.from(data['unlockedAchievements'] ?? {}),
@@ -195,7 +184,7 @@ class UserModel {
       // 'weeklyPlan': weeklyPlan,
       'weeklyAvailability': weeklyAvailability,
       // 'masteredTopics': masteredTopics,
-      'activeDailyQuests': activeDailyQuests.map((quest) => quest.toMap()).toList(),
+      // KALDIRILDI: activeDailyQuests
       'activeWeeklyCampaign': activeWeeklyCampaign?.toMap(),
       'lastQuestRefreshDate': lastQuestRefreshDate,
       'unlockedAchievements': unlockedAchievements,
