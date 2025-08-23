@@ -7,7 +7,7 @@ import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
-import 'package:bilge_ai/data/models/topic_performance_model.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
 
 class TacticalAdvice {
   final String text;
@@ -42,7 +42,7 @@ class SubjectAnalysis {
 
 class StatsAnalysis {
   final List<TestModel> tests;
-  final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
+  final PerformanceSummary performanceSummary;
   final Exam examData;
   final UserModel? user;
 
@@ -64,8 +64,8 @@ class StatsAnalysis {
     return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
   }
 
-  StatsAnalysis(this.tests, this.topicPerformances, this.examData, {this.user}) {
-    if (tests.isEmpty && topicPerformances.isEmpty) {
+  StatsAnalysis(this.tests, this.performanceSummary, this.examData, {this.user}) {
+    if (tests.isEmpty && performanceSummary.topicPerformances.isEmpty) {
       _initializeEmpty();
       return;
     }
@@ -169,7 +169,7 @@ class StatsAnalysis {
     final List<Map<String, dynamic>> allTopics = [];
     final relevantSections = examData.sections;
 
-    topicPerformances.forEach((sanitizedSubjectKey, topics) {
+    performanceSummary.topicPerformances.forEach((sanitizedSubjectKey, topics) {
       // Find the original subject name and details
       String originalSubjectName = "";
       SubjectDetails? subjectDetails;
@@ -220,7 +220,7 @@ class StatsAnalysis {
       final sanitizedSubject = _sanitizeKey(topic['subject']);
       final sanitizedTopic = _sanitizeKey(topic['topic']);
       final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
-      return !(user?.masteredTopics.contains(uniqueIdentifier) ?? false);
+      return !(performanceSummary.masteredTopics.contains(uniqueIdentifier));
     }).toList();
 
     if (unmasteredTopics.isNotEmpty) {

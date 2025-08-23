@@ -103,17 +103,19 @@ class PomodoroTimerView extends ConsumerWidget {
 
   Future<void> _showTaskSelectionSheet(BuildContext context, WidgetRef ref) async {
     final user = ref.read(userProfileProvider).value;
+    final planDoc = ref.read(planProvider).value;
+    final weeklyPlan = planDoc?.weeklyPlan != null ? WeeklyPlan.fromJson(planDoc!.weeklyPlan!) : null;
+
     final List<({String task, String? identifier})> tasks = [
       (task: "Genel Çalışma", identifier: null),
     ];
 
-    if (user?.weeklyPlan != null) {
-      final plan = WeeklyPlan.fromJson(user!.weeklyPlan!);
+    if (user != null && weeklyPlan != null) {
       final today = DateTime.now();
       final todayName = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'][today.weekday - 1];
       final dateKey = DateFormat('yyyy-MM-dd').format(today);
 
-      final todayPlan = plan.plan.firstWhere((day) => day.day == todayName, orElse: () => DailyPlan(day: todayName, schedule: []));
+      final todayPlan = weeklyPlan.plan.firstWhere((day) => day.day == todayName, orElse: () => DailyPlan(day: todayName, schedule: []));
 
       for (var item in todayPlan.schedule) {
         final identifier = '${item.time}-${item.activity}';
@@ -186,7 +188,7 @@ class _TimerDial extends StatelessWidget {
         aspectRatio: 1,
         child: CustomPaint(
           painter: _DialPainter(
-            progress: 1 - progress, // Painter 0'dan 1'e doğru çizer
+            progress: 1 - progress,
             color: color,
             isPaused: pomodoro.isPaused,
           ),
@@ -199,7 +201,6 @@ class _TimerDial extends StatelessWidget {
   }
 }
 
-// EVRİM GEÇİRMİŞ KADER ÇARKI PAINTER'I (HATASIZ)
 class _DialPainter extends CustomPainter {
   final double progress;
   final Color color;
@@ -212,15 +213,13 @@ class _DialPainter extends CustomPainter {
     final radius = size.width / 2;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
-    // Arka plan çizgisi
     final backgroundPaint = Paint()
       ..color = AppTheme.lightSurfaceColor.withOpacity(0.2)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 12;
     canvas.drawCircle(center, radius, backgroundPaint);
 
-    // Ana ilerleme çizgisi
-    if (progress > 0.0) { // Sadece ilerleme varsa çiz
+    if (progress > 0.0) {
       final progressPaint = Paint()
         ..shader = SweepGradient(
           colors: [color.withOpacity(0.5), color],
@@ -233,7 +232,6 @@ class _DialPainter extends CustomPainter {
       canvas.drawArc(rect, -pi / 2, 2 * pi * progress, false, progressPaint);
     }
 
-    // İç "nefes alma" efekti
     final breath = sin(DateTime.now().millisecondsSinceEpoch / (isPaused ? 2000 : 500)) * 5;
     final breathPaint = Paint()
       ..color = color.withOpacity(isPaused ? 0.05 : 0.1)
@@ -243,11 +241,10 @@ class _DialPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _DialPainter oldDelegate) => true; // Sürekli yeniden çizim
+  bool shouldRepaint(covariant _DialPainter oldDelegate) => true;
 }
 
 
-// AYARLAR EKRANI
 class PomodoroSettingsSheet extends ConsumerStatefulWidget {
   const PomodoroSettingsSheet({super.key});
 

@@ -17,6 +17,7 @@ class MissionCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tests = ref.watch(testsProvider).valueOrNull;
     final user = ref.watch(userProfileProvider).valueOrNull;
+    final performance = ref.watch(performanceProvider).value;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8),
@@ -24,13 +25,13 @@ class MissionCard extends ConsumerWidget {
       shadowColor: AppTheme.secondaryColor.withOpacity(0.2),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       clipBehavior: Clip.antiAlias,
-      child: user == null || tests == null
+      child: user == null || tests == null || performance == null
           ? const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor))
-          : _buildMissionContent(context, ref, user, tests),
+          : _buildMissionContent(context, ref, user, tests, performance),
     );
   }
 
-  Widget _buildMissionContent(BuildContext context, WidgetRef ref, UserModel user, List<TestModel> tests) {
+  Widget _buildMissionContent(BuildContext context, WidgetRef ref, UserModel user, List<TestModel> tests, performance) {
     if (user.selectedExam == null) return const SizedBox.shrink();
 
     final examType = ExamType.values.byName(user.selectedExam!);
@@ -57,7 +58,7 @@ class MissionCard extends ConsumerWidget {
           buttonText = 'İlk Denemeni Ekle';
           icon = Icons.add_chart_rounded;
         } else {
-          final analysis = StatsAnalysis(tests, user.topicPerformances, exam, user: user);
+          final analysis = StatsAnalysis(tests, performance, exam, user: user);
           final weakestTopicInfo = analysis.getWeakestTopicWithDetails();
           title = 'Günün Önceliği';
           subtitle = weakestTopicInfo != null

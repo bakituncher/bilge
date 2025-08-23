@@ -11,7 +11,6 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 
-// MODÜLER KARTLARI İÇERİ AKTAR
 import 'dashboard_cards/mission_card.dart';
 import 'dashboard_cards/weekly_plan_card.dart';
 import 'dashboard_cards/performance_analysis_card.dart';
@@ -53,38 +52,31 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
   Widget build(BuildContext context) {
     final user = ref.watch(userProfileProvider).value;
     final tests = ref.watch(testsProvider).value;
+    final planDoc = ref.watch(planProvider).value;
 
     if (user == null || tests == null) {
-      return const SizedBox(height: 420); // Yüklenirken boşluk bırak
+      return const SizedBox(height: 420);
     }
 
-    final weeklyPlan = user.weeklyPlan != null ? WeeklyPlan.fromJson(user.weeklyPlan!) : null;
+    final weeklyPlan = planDoc?.weeklyPlan != null ? WeeklyPlan.fromJson(planDoc!.weeklyPlan!) : null;
 
-    // YENİ KONTROL MANTIĞI
-    // Eğer plan 7 gün veya daha eskiyse, normal planı göstermek yerine
-    // kullanıcıyı yeni plan oluşturmaya yönlendiren özel bir kart göster.
     if (weeklyPlan != null && DateTime.now().difference(weeklyPlan.creationDate).inDays >= 7) {
       return const _NewPlanPromptCard();
     }
 
-    // =======================================================================
-    // HATANIN ÇÖZÜLDÜĞÜ YENİ STRATEJİK MANTIK
-    // =======================================================================
     int totalTasksSoFar = 0;
     int completedTasksSoFar = 0;
     bool isPlanBehind = false;
 
     if (weeklyPlan != null) {
       final today = DateTime.now();
-      final currentDayIndex = today.weekday - 1; // Pazartesi = 0, Pazar = 6
+      final currentDayIndex = today.weekday - 1;
       final startOfWeek = today.subtract(Duration(days: currentDayIndex));
 
-      // Sadece bugüne kadar olan günleri hesaba kat
       final relevantDays = weeklyPlan.plan.take(currentDayIndex + 1);
       totalTasksSoFar = relevantDays.expand((day) => day.schedule).length;
 
       if (totalTasksSoFar > 0) {
-        // İlgili günler için tamamlanan görevleri say
         for (int i = 0; i <= currentDayIndex; i++) {
           if (i >= weeklyPlan.plan.length) continue;
 
@@ -100,20 +92,16 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
             }
           }
         }
-        // O güne kadarki ortalama %50'nin altındaysa planın gerisinde say
         isPlanBehind = (completedTasksSoFar / totalTasksSoFar) < 0.5;
       }
     }
-    // =======================================================================
 
-    // Kartların standart sırası
     List<Widget> pages = [
       const MissionCard(),
       const WeeklyPlanCard(),
       PerformanceAnalysisCard(user: user, tests: tests),
     ];
 
-    // Eğer planda geri kalınmışsa, Haftalık Plan kartını en başa al
     if (isPlanBehind) {
       final weeklyPlanCard = pages.removeAt(1);
       pages.insert(0, weeklyPlanCard);
@@ -154,7 +142,6 @@ class _TodaysPlanState extends ConsumerState<TodaysPlan> {
   }
 }
 
-// YENİ EKLENEN WIDGET
 class _NewPlanPromptCard extends StatelessWidget {
   const _NewPlanPromptCard();
 
@@ -168,7 +155,7 @@ class _NewPlanPromptCard extends StatelessWidget {
         shadowColor: AppTheme.secondaryColor.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         child: Container(
-          height: 400, // Diğer kartlarla aynı boyutta olması için
+          height: 400,
           padding: const EdgeInsets.symmetric(vertical: 32.0, horizontal: 24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -183,7 +170,7 @@ class _NewPlanPromptCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Geçen haftanın planı tamamland��. Performansını güncelleyerek bu hafta için yeni bir zafer yolu çizelim.',
+                'Geçen haftanın planı tamamlandı. Performansını güncelleyerek bu hafta için yeni bir zafer yolu çizelim.',
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.secondaryTextColor, height: 1.5),
               ),

@@ -4,8 +4,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-
-// ... (StrategyPhase class'ı aynı kalıyor)
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 
 class StrategyPhase {
   final String title;
@@ -14,22 +14,24 @@ class StrategyPhase {
   StrategyPhase({required this.title, required this.content});
 }
 
-class CommandCenterScreen extends StatefulWidget {
+class CommandCenterScreen extends ConsumerStatefulWidget {
   final UserModel user;
   const CommandCenterScreen({super.key, required this.user});
 
   @override
-  State<CommandCenterScreen> createState() => _CommandCenterScreenState();
+  ConsumerState<CommandCenterScreen> createState() => _CommandCenterScreenState();
 }
 
-class _CommandCenterScreenState extends State<CommandCenterScreen> {
+class _CommandCenterScreenState extends ConsumerState<CommandCenterScreen> {
   List<StrategyPhase> _phases = [];
 
   @override
-  void initState() {
-    super.initState();
-    _parseStrategy(widget.user.longTermStrategy);
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final planDoc = ref.watch(planProvider).value;
+    _parseStrategy(planDoc?.longTermStrategy);
   }
+
 
   void _parseStrategy(String? strategyText) {
     if (strategyText == null || strategyText.isEmpty) return;
@@ -59,48 +61,60 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
       parsedPhases.add(StrategyPhase(title: currentTitle, content: contentBuffer.toString().trim()));
     }
 
-    setState(() {
-      _phases = parsedPhases;
+    // setState'i sadece widget ağacı oluşturulduktan sonra çağır
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _phases = parsedPhases;
+        });
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final planDocAsync = ref.watch(planProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Komuta Merkezi"),
       ),
-      body: _phases.isEmpty
-          ? _buildFallbackView(widget.user.longTermStrategy ?? "Strateji metni bulunamadı.")
-          : ListView.builder(
-        padding: const EdgeInsets.all(16.0),
-        itemCount: _phases.length,
-        itemBuilder: (context, index) {
-          final phase = _phases[index];
-          // İçeriği olmayan başlıkları (örn: Motto) normal bir kart olarak gösteriyoruz.
-          if (phase.content.isEmpty) {
-            return Card(
-              margin: const EdgeInsets.only(bottom: 16),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Text(
-                  phase.title,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontStyle: FontStyle.italic,
-                    color: AppTheme.secondaryTextColor,
-                  ),
-                ),
-              ),
-            ).animate().fadeIn(delay: (100 * index).ms).slideY(begin: 0.2);
+      body: planDocAsync.when(
+        data: (planDoc) {
+          final longTermStrategy = planDoc?.longTermStrategy;
+          if (_phases.isEmpty) {
+            return _buildFallbackView(longTermStrategy ?? "Strateji metni bulunamadı.");
           }
-          // İçeriği olanları genişletilebilir kart olarak gösteriyoruz.
-          return _StrategyPhaseCard(
-            phase: phase,
-            // İlk anlamlı içeriği olan paneli başlangıçta açık yap
-            initiallyExpanded: index == _phases.indexWhere((p) => p.content.isNotEmpty),
-          ).animate().fadeIn(delay: (100 * index).ms).slideY(begin: 0.2);
+          return ListView.builder(
+            padding: const EdgeInsets.all(16.0),
+            itemCount: _phases.length,
+            itemBuilder: (context, index) {
+              final phase = _phases[index];
+              if (phase.content.isEmpty) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Text(
+                      phase.title,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontStyle: FontStyle.italic,
+                        color: AppTheme.secondaryTextColor,
+                      ),
+                    ),
+                  ),
+                ).animate().fadeIn(delay: (100 * index).ms).slideY(begin: 0.2);
+              }
+              return _StrategyPhaseCard(
+                phase: phase,
+                initiallyExpanded: index == _phases.indexWhere((p) => p.content.isNotEmpty),
+              ).animate().fadeIn(delay: (100 * index).ms).slideY(begin: 0.2);
+            },
+          );
         },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, s) => _buildFallbackView("Strateji yüklenirken bir hata oluştu: $e"),
       ),
     );
   }
@@ -131,7 +145,6 @@ class _CommandCenterScreenState extends State<CommandCenterScreen> {
   }
 }
 
-// Genişletilebilir Kart Widget'ı
 class _StrategyPhaseCard extends StatefulWidget {
   final StrategyPhase phase;
   final bool initiallyExpanded;
@@ -187,7 +200,6 @@ class _StrategyPhaseCardState extends State<_StrategyPhaseCard> {
                 color: AppTheme.secondaryTextColor,
               ),
             ),
-            // SORUN BURADA DA ÇÖZÜLDÜ: Visibility yerine AnimatedSize kullanıldı.
             ClipRect(
               child: AnimatedSize(
                 duration: 300.ms,

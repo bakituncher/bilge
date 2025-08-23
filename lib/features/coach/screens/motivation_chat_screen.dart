@@ -7,6 +7,8 @@ import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/data/models/test_model.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
+
 
 // RUH HALİ SEÇENEKLERİ
 enum Mood { focused, neutral, tired, stressed, badResult, goodResult, workshop }
@@ -71,9 +73,11 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> wit
     final aiService = ref.read(aiServiceProvider);
     final user = ref.read(userProfileProvider).value!;
     final tests = ref.read(testsProvider).value!;
+    final performance = ref.read(performanceProvider).value!;
     final aiResponse = await aiService.getPersonalizedMotivation(
       user: user,
       tests: tests,
+      performance: performance,
       promptType: 'user_chat',
       emotion: text,
     );
@@ -86,6 +90,7 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> wit
   Future<void> _onMoodSelected(String moodType, {Map<String, dynamic>? extraContext}) async {
     final user = ref.read(userProfileProvider).value!;
     final tests = ref.read(testsProvider).value!;
+    final performance = ref.read(performanceProvider).value!;
 
     final Map<String, Mood> moodMapping = {
       'welcome': Mood.neutral, 'new_test_good': Mood.goodResult,
@@ -100,7 +105,7 @@ class _MotivationChatScreenState extends ConsumerState<MotivationChatScreen> wit
 
     final aiService = ref.read(aiServiceProvider);
     final aiResponse = await aiService.getPersonalizedMotivation(
-      user: user, tests: tests, promptType: moodType, emotion: null, workshopContext: extraContext,
+      user: user, tests: tests, performance: performance, promptType: moodType, emotion: null, workshopContext: extraContext,
     );
 
     ref.read(chatHistoryProvider.notifier).state = [ChatMessage(aiResponse, isUser: false)];
@@ -337,6 +342,7 @@ class _BriefingButton extends StatelessWidget {
 }
 
 class _BattleSummaryCard extends ConsumerWidget {
+  const _BattleSummaryCard();
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;

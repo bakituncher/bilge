@@ -17,7 +17,7 @@ class FirestoreService {
   final FirebaseFirestore _firestore;
   FirestoreService(this._firestore);
 
-  String _sanitizeKey(String key) {
+  String sanitizeKey(String key) {
     return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
   }
 
@@ -25,33 +25,22 @@ class FirestoreService {
     return FirebaseAuth.instance.currentUser?.uid;
   }
 
-  // --- HATA DÜZELTMESİ: GÖREV MOTORUNUN ERİŞEBİLMESİ İÇİN PUBLIC HALE GETİRİLDİ ---
   CollectionReference<Map<String, dynamic>> get usersCollection => _firestore.collection('users');
-  // ------------------------------------------------------------------------------------
-
-  // YENİ: Leaderboards kök koleksiyonu
   CollectionReference<Map<String, dynamic>> get _leaderboardsCollection => _firestore.collection('leaderboards');
-
   CollectionReference<Map<String, dynamic>> get _testsCollection => _firestore.collection('tests');
   CollectionReference<Map<String, dynamic>> get _focusSessionsCollection => _firestore.collection('focusSessions');
 
-  // Alt koleksiyon referans yardımcıları
   DocumentReference<Map<String, dynamic>> _planDoc(String userId) => usersCollection.doc(userId).collection('plans').doc('current_plan');
   DocumentReference<Map<String, dynamic>> _performanceDoc(String userId) => usersCollection.doc(userId).collection('performance').doc('summary');
   DocumentReference<Map<String, dynamic>> _appStateDoc(String userId) => usersCollection.doc(userId).collection('state').doc('app_state');
+  DocumentReference<Map<String, dynamic>> _leaderboardUserDoc({required String examType, required String userId}) => _leaderboardsCollection.doc(examType).collection('users').doc(userId);
 
-  // Leaderboard belge referansı
-  DocumentReference<Map<String, dynamic>> _leaderboardUserDoc({required String examType, required String userId}) {
-    return _leaderboardsCollection.doc(examType).collection('users').doc(userId);
-  }
-
-  // Kullanıcının mevcut durumunu okuyarak leaderboards/{examType}/users/{userId} dokümanını günceller
   Future<void> _syncLeaderboardUser(String userId, {String? targetExam}) async {
     final userSnap = await usersCollection.doc(userId).get();
     if (!userSnap.exists) return;
     final data = userSnap.data()!;
     final String? examType = targetExam ?? data['selectedExam'] as String?;
-    if (examType == null) return; // sınav seçilmemişse leaderboard'a yazma
+    if (examType == null) return;
 
     final docRef = _leaderboardUserDoc(examType: examType, userId: userId);
     await docRef.set({
@@ -72,11 +61,9 @@ class FirestoreService {
   }) async {
     final userDocRef = usersCollection.doc(userId);
     await _firestore.runTransaction((txn) async {
-      // Önce oku
       final snap = await txn.get(userDocRef);
       final data = snap.data();
       final String? examType = data?['selectedExam'];
-      // Sonra yaz
       txn.update(userDocRef, {
         'avatarStyle': style,
         'avatarSeed': seed,
@@ -96,7 +83,6 @@ class FirestoreService {
     });
   }
 
-  // YENİ EKLENEN FONKSİYONLAR: CEVHER ATÖLYESİ İÇİN
   Future<void> saveWorkshopForUser(String userId, SavedWorkshopModel workshop) async {
     final userDocRef = usersCollection.doc(userId);
     final workshopCollectionRef = userDocRef.collection('savedWorkshops');
@@ -111,25 +97,21 @@ class FirestoreService {
         .snapshots()
         .map((snapshot) => snapshot.docs.map((doc) => SavedWorkshopModel.fromSnapshot(doc)).toList());
   }
-  //---------------------------------------------------------
 
   Future<void> createUserProfile(User user, String name) async {
     final userProfile = UserModel(id: user.uid, email: user.email!, name: name, tutorialCompleted: false);
     await usersCollection.doc(user.uid).set(userProfile.toJson());
-    // Alt belgeleri başlangıçta oluştur (boş)
-    await _appStateDoc(user.uid).set(const AppState().toMap(), SetOptions(merge: true));
+    await _appStateDoc(user.uid).set(AppState().toMap(), SetOptions(merge: true));
     await _planDoc(user.uid).set(PlanDocument().toMap(), SetOptions(merge: true));
-    await _performanceDoc(user.uid).set(PerformanceSummary().toMap(), SetOptions(merge: true));
+    await _performanceDoc(user.uid).set(const PerformanceSummary().toMap(), SetOptions(merge: true));
   }
 
   Future<void> updateUserName({required String userId, required String newName}) async {
     final userDocRef = usersCollection.doc(userId);
     await _firestore.runTransaction((txn) async {
-      // Önce oku
       final snap = await txn.get(userDocRef);
       final data = snap.data();
       final String? examType = data?['selectedExam'];
-      // Sonra yaz
       txn.update(userDocRef, {'name': newName});
       if (examType != null) {
         final lbRef = _leaderboardUserDoc(examType: examType, userId: userId);
@@ -147,9 +129,7 @@ class FirestoreService {
   }
 
   Future<void> markTutorialAsCompleted(String userId) async {
-    // Alt koleksiyon: state/app_state
     await _appStateDoc(userId).set({'tutorialCompleted': true}, SetOptions(merge: true));
-    // Geri uyumluluk: ana belgeyi de güncelle
     await usersCollection.doc(userId).update({'tutorialCompleted': true});
   }
 
@@ -159,15 +139,12 @@ class FirestoreService {
     required List<String> challenges,
     required double weeklyStudyGoal,
   }) async {
-    // Hedef ve ilgili alanlar ana belgede kalabilir
     await usersCollection.doc(userId).update({
       'goal': goal,
       'challenges': challenges,
       'weeklyStudyGoal': weeklyStudyGoal,
     });
-    // Onboarding tamamlandı -> alt state belgesine
     await _appStateDoc(userId).set({'onboardingCompleted': true}, SetOptions(merge: true));
-    // Geri uyumluluk
     await usersCollection.doc(userId).update({'onboardingCompleted': true});
   }
 
@@ -191,11 +168,9 @@ class FirestoreService {
   Future<void> updateEngagementScore(String userId, int pointsToAdd) async {
     final userDocRef = usersCollection.doc(userId);
     await _firestore.runTransaction((transaction) async {
-      // Önce oku
       final userSnapshot = await transaction.get(userDocRef);
       final data = userSnapshot.data();
       final String? examType = data?['selectedExam'];
-      // Sonra yaz
       transaction.update(userDocRef, {'engagementScore': FieldValue.increment(pointsToAdd)});
       if (examType != null) {
         final lbRef = _leaderboardUserDoc(examType: examType, userId: userId);
@@ -272,13 +247,11 @@ class FirestoreService {
         'selectedExamSection': sectionName,
       });
 
-      // Eski sınavın leaderboards kaydını temizle
       if (prevExam != null && prevExam != examType.name) {
         final oldLbRef = _leaderboardUserDoc(examType: prevExam, userId: userId);
         txn.delete(oldLbRef);
       }
 
-      // Yeni sınav için kayıt/merge
       final newLbRef = _leaderboardUserDoc(examType: examType.name, userId: userId);
       txn.set(newLbRef, {
         'userId': userId,
@@ -292,7 +265,6 @@ class FirestoreService {
     });
   }
 
-  // Yeni Stream'ler
   Stream<PlanDocument?> getPlansStream(String userId) {
     return _planDoc(userId).snapshots().map((doc) => doc.exists ? PlanDocument.fromSnapshot(doc) : null);
   }
@@ -311,14 +283,10 @@ class FirestoreService {
     required String topic,
     required TopicPerformanceModel performance,
   }) async {
-    final userDocRef = usersCollection.doc(userId);
-    final sanitizedSubject = _sanitizeKey(subject);
-    final sanitizedTopic = _sanitizeKey(topic);
+    final sanitizedSubject = sanitizeKey(subject);
+    final sanitizedTopic = sanitizeKey(topic);
     final fieldPath = 'topicPerformances.$sanitizedSubject.$sanitizedTopic';
-    // Alt koleksiyon
     await _performanceDoc(userId).set({fieldPath: performance.toMap()}, SetOptions(merge: true));
-    // Geri uyumluluk
-    await userDocRef.update({fieldPath: performance.toMap()});
   }
 
   Future<void> addFocusSession(FocusSessionModel session) async {
@@ -339,8 +307,9 @@ class FirestoreService {
       final snap = await txn.get(userDocRef);
       if(!snap.exists) return;
       final user = UserModel.fromSnapshot(snap);
+      final planDoc = await txn.get(_planDoc(userId));
+      final planData = planDoc.data();
 
-      // Temel tamamlama / geri alma
       final updates = <String,dynamic>{};
       if(isCompleted) {
         updates[fieldPath] = FieldValue.arrayUnion([task]);
@@ -350,67 +319,58 @@ class FirestoreService {
         updates['engagementScore'] = FieldValue.increment(-10);
       }
 
-      // Tarih hesapları
       final today = DateTime.now();
       final todayKey = '${today.year.toString().padLeft(4,'0')}-${today.month.toString().padLeft(2,'0')}-${today.day.toString().padLeft(2,'0')}';
-      // Gün değiştiyse momentum sıfırla
+
       if(dateKey != todayKey && isCompleted) {
         updates['dailyScheduleStreak'] = 0;
       }
 
-      // Momentum ve bonuslar sadece tamamlanırken
       if(isCompleted) {
-        // Günlük momentum
         int currentStreak = user.dailyScheduleStreak;
         currentStreak += 1;
         updates['dailyScheduleStreak'] = currentStreak;
 
-        // Momentum eşikleri (3,6,9)
         const momentumThresholds = [3,6,9];
         if(momentumThresholds.contains(currentStreak)) {
-          final bonus = 15; // sabit mini bonus
+          final bonus = 15;
           updates['engagementScore'] = FieldValue.increment(bonus);
         }
 
-        // Gün içi plan görevi sayıları
         final completedList = List<String>.from(user.completedDailyTasks[dateKey] ?? []);
-        final projectedCompleted = {...completedList}.length + 1; // bu görev ekleniyor
+        final projectedCompleted = {...completedList}.length + 1;
 
-        // Günün toplam plan görevi sayısı -> weeklyPlan üzerinden bulunur
         int totalForDay = 0;
-        if(user.weeklyPlan != null) {
+        if(planData != null && planData['weeklyPlan'] != null) {
           try {
-            final weekly = WeeklyPlan.fromJson(user.weeklyPlan!);
+            final weekly = WeeklyPlan.fromJson(planData['weeklyPlan']);
             final dp = weekly.plan.firstWhere((d) => d.day == _weekdayName(DateTime.parse(dateKey).weekday), orElse: () => DailyPlan(day: '', schedule: []));
             totalForDay = dp.schedule.length;
           } catch(_){ totalForDay = 0; }
         }
         if(totalForDay > 0) {
           final ratio = projectedCompleted / totalForDay;
-          // Bonus eşikleri %60 %80 %100
-            final thresholds = [0.6,0.8,1.0];
-            final givenMap = Map<String,List<int>>.from(user.dailyPlanBonuses);
-            final givenList = List<int>.from(givenMap[dateKey] ?? []);
-            for(int i=0;i<thresholds.length;i++) {
-              if(ratio >= thresholds[i] && !givenList.contains(i)) {
-                int extra = (i==0?25:(i==1?35:60));
-                updates['engagementScore'] = FieldValue.increment(extra);
-                givenList.add(i);
-              }
+          final thresholds = [0.6,0.8,1.0];
+          final givenMap = Map<String,List<int>>.from(user.dailyPlanBonuses);
+          final givenList = List<int>.from(givenMap[dateKey] ?? []);
+          for(int i=0;i<thresholds.length;i++) {
+            if(ratio >= thresholds[i] && !givenList.contains(i)) {
+              int extra = (i==0?25:(i==1?35:60));
+              updates['engagementScore'] = FieldValue.increment(extra);
+              givenList.add(i);
             }
-            updates['dailyPlanBonuses.$dateKey'] = givenList;
+          }
+          updates['dailyPlanBonuses.$dateKey'] = givenList;
         }
       }
 
-      // Önceki gün oranını hesaplarken (günün ilk tamamlamasıysa) dünün durumu finalize et
       if(isCompleted && dateKey == todayKey) {
         final yesterday = today.subtract(const Duration(days:1));
         final yKey = '${yesterday.year.toString().padLeft(4,'0')}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
         if(user.lastScheduleCompletionRatio == null || (user.completedDailyTasks[yKey]??[]).isNotEmpty) {
-          // hesapla
-          if(user.weeklyPlan != null) {
+          if(planData != null && planData['weeklyPlan'] != null) {
             try {
-              final weekly = WeeklyPlan.fromJson(user.weeklyPlan!);
+              final weekly = WeeklyPlan.fromJson(planData['weeklyPlan']);
               final dpY = weekly.plan.firstWhere((d) => d.day == _weekdayName(yesterday.weekday), orElse: () => DailyPlan(day: '', schedule: []));
               final totalY = dpY.schedule.length;
               if(totalY>0) {
@@ -425,21 +385,16 @@ class FirestoreService {
 
       txn.update(userDocRef, updates);
 
-      // Leaderboard: puan artışı/azalışı kullanıcı belgesine yazıldıktan sonra mevcut sınav için güncelle
       final String? examType = user.selectedExam;
       if (examType != null) {
         final lbRef = _leaderboardUserDoc(examType: examType, userId: userId);
-        // Tam senkron için mevcut kullanıcı değerleri ile merge et (checksum olarak updatedAt)
         txn.set(lbRef, {
           'userId': userId,
           'userName': user.name,
-          // score için toplam delta bilinmiyor; transaction sonrası tam senkron yapılacak
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
       }
     });
-
-    // Transaction sonrası kesin senkron (score değerini birebir yansıt)
     await _syncLeaderboardUser(userId);
   }
 
@@ -458,38 +413,25 @@ class FirestoreService {
     required String longTermStrategy,
     required Map<String, dynamic> weeklyPlan,
   }) async {
-    // Alt koleksiyon: plans/current_plan
     await _planDoc(userId).set({
       'studyPacing': pacing,
       'longTermStrategy': longTermStrategy,
       'weeklyPlan': weeklyPlan,
     }, SetOptions(merge: true));
-    // Geri uyumluluk: ana belgeyi de güncelle (geçiş süreci için)
-    await usersCollection.doc(userId).update({
-      'studyPacing': pacing,
-      'longTermStrategy': longTermStrategy,
-      'weeklyPlan': weeklyPlan,
-    });
     await updateEngagementScore(userId, 100);
   }
 
   Future<void> markTopicAsMastered({required String userId, required String subject, required String topic}) async {
-    final sanitizedSubject = _sanitizeKey(subject);
-    final sanitizedTopic = _sanitizeKey(topic);
+    final sanitizedSubject = sanitizeKey(subject);
+    final sanitizedTopic = sanitizeKey(topic);
     final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
-    // Alt koleksiyon
     await _performanceDoc(userId).set({
       'masteredTopics': FieldValue.arrayUnion([uniqueIdentifier])
     }, SetOptions(merge: true));
-    // Geri uyumluluk
-    await usersCollection.doc(userId).update({
-      'masteredTopics': FieldValue.arrayUnion([uniqueIdentifier])
-    });
   }
 
   Future<void> resetUserDataForNewExam(String userId) async {
     final WriteBatch batch = _firestore.batch();
-
     final userDocRef = usersCollection.doc(userId);
     batch.update(userDocRef, {
       'onboardingCompleted': false,
@@ -499,19 +441,16 @@ class FirestoreService {
       'testCount': 0,
       'totalNetSum': 0.0,
       'engagementScore': 0,
-      'topicPerformances': {},
       'completedDailyTasks': {},
-      'studyPacing': null,
-      'longTermStrategy': null,
-      'weeklyPlan': null,
       'weeklyAvailability': {},
-      'masteredTopics': [],
       'goal': null,
       'challenges': [],
       'weeklyStudyGoal': null,
       'streak': 0,
       'lastStreakUpdate': null,
     });
+    batch.set(_performanceDoc(userId), const PerformanceSummary().toMap());
+    batch.set(_planDoc(userId), PlanDocument().toMap());
 
     final testsSnapshot = await _testsCollection.where('userId', isEqualTo: userId).get();
     for (final doc in testsSnapshot.docs) {
@@ -522,7 +461,6 @@ class FirestoreService {
     for (final doc in focusSnapshot.docs) {
       batch.delete(doc.reference);
     }
-
     await batch.commit();
   }
 

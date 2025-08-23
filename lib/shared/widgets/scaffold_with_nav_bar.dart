@@ -4,17 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:bilge_ai/features/home/screens/dashboard_screen.dart';
 import 'package:bilge_ai/features/onboarding/providers/tutorial_provider.dart';
 import 'package:bilge_ai/features/onboarding/widgets/tutorial_overlay.dart';
 import 'package:bilge_ai/features/onboarding/models/tutorial_step.dart';
-import 'package:bilge_ai/features/coach/screens/ai_hub_screen.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
 import 'package:bilge_ai/features/quests/logic/quest_completion_notifier.dart';
 import 'package:bilge_ai/shared/widgets/quest_completion_toast.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:bilge_ai/data/providers/firestore_providers.dart'; // eklendi
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/shared/constants/highlight_keys.dart';
 
 class ScaffoldWithNavBar extends ConsumerWidget {
@@ -27,25 +25,24 @@ class ScaffoldWithNavBar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // HATA GİDERİLDİ: Tanıtım adımları eksiksiz bir şekilde geri eklendi.
     final List<TutorialStep> tutorialSteps = [
-      TutorialStep( // Adım 0
+      TutorialStep(
         title: "Karargaha Hoş Geldin!",
         text: "Ben Bilge Baykuş! Zafer yolundaki en büyük destekçin ben olacağım. Sana hızlıca komuta merkezini tanıtayım.",
       ),
-      TutorialStep( // Adım 1
+      TutorialStep(
         highlightKey: todaysPlanKey,
         title: "Burası Harekat Merkezin",
         text: "Günlük görevlerin, haftalık planın ve performans raporun... En kritik bilgiler burada. Sağa kaydırarak diğer kartları görebilirsin!",
         requiredScreenIndex: 0,
       ),
-      TutorialStep( // Adım 2
+      TutorialStep(
         highlightKey: addTestKey,
         title: "Veri Güçtür!",
         text: "Buraya eklediğin her deneme, yapay zekanın seni daha iyi tanımasını ve sana özel stratejiler üretmesini sağlar! Hadi devam edelim.",
         requiredScreenIndex: 0,
       ),
-      TutorialStep( // Adım 3
+      TutorialStep(
         highlightKey: coachKey,
         title: "Bilgi Galaksisi",
         text: "Şimdi en güçlü silahımızın olduğu yer, çözdüğün testlerin sonuçlarını bu kısıma girerek yapay zekanın sana özel koçluk yapmasını sağlayabilirsin.",
@@ -53,13 +50,13 @@ class ScaffoldWithNavBar extends ConsumerWidget {
         isNavigational: true,
         requiredScreenIndex: 0,
       ),
-      TutorialStep( // Adım 4
+      TutorialStep(
         highlightKey: aiHubFabKey,
         title: "İşte BilgeAI Çekirdeği!",
         text: "Burası sihrin gerçekleştiği yer! Buradan kişisel zafer planını oluşturabilir, en zayıf konularına özel çalışmalar yapabilirsin.",
         requiredScreenIndex: 1,
       ),
-      TutorialStep( // Adım 5
+      TutorialStep(
         highlightKey: arenaKey,
         title: "Savaşçılar Arenası",
         text: "Diğer savaşçılar arasındaki yerini gör ve rekabetin tadını çıkar! Hadi Arena sekmesine dokun.",
@@ -67,7 +64,7 @@ class ScaffoldWithNavBar extends ConsumerWidget {
         isNavigational: true,
         requiredScreenIndex: 1,
       ),
-      TutorialStep( // Adım 6
+      TutorialStep(
         highlightKey: profileKey,
         title: "Komuta Merkezin",
         text: "Son olarak burası senin profilin. Madalyalarını ve genel istatistiklerini buradan takip edebilirsin. Profil sekmesine dokun.",
@@ -75,7 +72,7 @@ class ScaffoldWithNavBar extends ConsumerWidget {
         isNavigational: true,
         requiredScreenIndex: 3,
       ),
-      TutorialStep( // Adım 7
+      TutorialStep(
         title: "Keşif Turu Bitti!",
         text: "Harika! Artık karargahı tanıyorsun. Unutma, zafer azim, strateji ve doğru rehberlikle kazanılır. Ben her zaman buradayım!",
         buttonText: "Harika, Başlayalım!",
@@ -93,7 +90,6 @@ class ScaffoldWithNavBar extends ConsumerWidget {
             final shouldShowTutorial = currentStepIndex != null;
             final completedQuest = ref.watch(questCompletionProvider);
 
-            // Zafer Sancağı Dinleyicisi
             ref.listen<Quest?>(questCompletionProvider, (previous, next) {
               if (next != null) {
                 Future.delayed(3.seconds, () {
@@ -107,10 +103,9 @@ class ScaffoldWithNavBar extends ConsumerWidget {
             return Stack(
               children: [
                 Scaffold(
-                  resizeToAvoidBottomInset: false, // <--- EKLENEN SATIR BU
+                  resizeToAvoidBottomInset: false,
                   body: Builder(
                     builder: (ctx){
-                      // Snackbar çakışmasını azalt: Görev tamam toast varsa yeni snackbar önce temizle
                       final completedQuest = ref.watch(questCompletionProvider);
                       if(completedQuest != null) {
                         WidgetsBinding.instance.addPostFrameCallback((_){
@@ -216,19 +211,14 @@ class ScaffoldWithNavBar extends ConsumerWidget {
 final _weeklyPlanPopupShownProvider = StateProvider<bool>((_) => false);
 final weeklyPlanCompletionProvider = Provider<bool>((ref){
   final user = ref.watch(userProfileProvider).value;
-  // Öncelik: alt koleksiyon plan belgesi
-  final planDoc = ref.watch(planProvider).valueOrNull;
-  Map<String, dynamic>? planMap = planDoc?.weeklyPlan;
-  if (planMap == null) {
-    // Geri uyumluluk: ana belge
-    planMap = user?.weeklyPlan as Map<String, dynamic>?;
-  }
+  final planDoc = ref.watch(planProvider).value;
+  final planMap = planDoc?.weeklyPlan;
+
   if(user == null || planMap == null) return false;
   final alreadyShown = ref.watch(_weeklyPlanPopupShownProvider);
   if(alreadyShown) return false;
   try {
     final weekly = WeeklyPlan.fromJson(planMap);
-    // Haftanın başlangıcı
     DateTime startOfWeek(DateTime d)=> d.subtract(Duration(days: d.weekday-1));
     final now = DateTime.now();
     final thisWeekStart = startOfWeek(now);
@@ -241,8 +231,7 @@ final weeklyPlanCompletionProvider = Provider<bool>((ref){
       completed += (user.completedDailyTasks[dk]??[]).length;
     }
     if(planned>0 && completed>=planned) {
-      if(user.weeklyPlanCompletedAt == null) return true; // hiç kaydedilmemiş
-      // Eğer kaydedilen tarih bu haftadan değilse yine göster
+      if(user.weeklyPlanCompletedAt == null) return true;
       final saved = user.weeklyPlanCompletedAt!.toDate();
       if(startOfWeek(saved).isBefore(thisWeekStart)) return true;
     }
@@ -261,7 +250,7 @@ class _WeeklyPlanVictoryOverlay extends StatelessWidget {
         ignoring: false,
         child: AnimatedOpacity(
           opacity: 1,
-            duration: const Duration(milliseconds: 300),
+          duration: const Duration(milliseconds: 300),
           child: Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(

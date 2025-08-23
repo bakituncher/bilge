@@ -19,13 +19,13 @@ class UserModel {
   final int testCount;
   final double totalNetSum;
   final int engagementScore;
-  final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
+  // ARTIK KULLANILMIYOR: final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
   final Map<String, List<String>> completedDailyTasks;
-  final String? studyPacing;
-  final String? longTermStrategy;
-  final Map<String, dynamic>? weeklyPlan;
+  // ARTIK KULLANILMIYOR: final String? studyPacing;
+  // ARTIK KULLANILMIYOR: final String? longTermStrategy;
+  // ARTIK KULLANILMIYOR: final Map<String, dynamic>? weeklyPlan;
   final Map<String, List<String>> weeklyAvailability;
-  final List<String> masteredTopics;
+  // ARTIK KULLANILMIYOR: final List<String> masteredTopics;
   final List<Quest> activeDailyQuests;
   final Quest? activeWeeklyCampaign;
   final Timestamp? lastQuestRefreshDate;
@@ -61,13 +61,13 @@ class UserModel {
     this.testCount = 0,
     this.totalNetSum = 0.0,
     this.engagementScore = 0,
-    this.topicPerformances = const {},
+    // this.topicPerformances = const {},
     this.completedDailyTasks = const {},
-    this.studyPacing,
-    this.longTermStrategy,
-    this.weeklyPlan,
+    // this.studyPacing,
+    // this.longTermStrategy,
+    // this.weeklyPlan,
     this.weeklyAvailability = const {},
-    this.masteredTopics = const [],
+    // this.masteredTopics = const [],
     this.activeDailyQuests = const [],
     this.activeWeeklyCampaign,
     this.lastQuestRefreshDate,
@@ -90,21 +90,8 @@ class UserModel {
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
 
-    final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
-    if (data['topicPerformances'] is Map<String, dynamic>) {
-      final topicsMap = data['topicPerformances'] as Map<String, dynamic>;
-      topicsMap.forEach((subjectKey, subjectValue) {
-        if (subjectValue is Map<String, dynamic>) {
-          final newSubjectMap = <String, TopicPerformanceModel>{};
-          subjectValue.forEach((topicKey, topicValue) {
-            if (topicValue is Map<String, dynamic>) {
-              newSubjectMap[topicKey] = TopicPerformanceModel.fromMap(topicValue);
-            }
-          });
-          safeTopicPerformances[subjectKey] = newSubjectMap;
-        }
-      });
-    }
+    // Bu alanlar artık alt koleksiyonlardan okunacak, bu yüzden burada parse etmeye gerek yok.
+    // final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
 
     final Map<String, List<String>> safeCompletedTasks = {};
     if (data['completedDailyTasks'] is Map<String, dynamic>) {
@@ -120,9 +107,9 @@ class UserModel {
       for (var questData in (data['activeDailyQuests'] as List)) {
         if (questData is Map<String, dynamic>) {
           final dynamic rawId = questData['qid'] ?? questData['id'];
-            if (rawId != null) {
-              quests.add(Quest.fromMap(questData, rawId));
-            }
+          if (rawId != null) {
+            quests.add(Quest.fromMap(questData, rawId.toString()));
+          }
         }
       }
     }
@@ -131,7 +118,7 @@ class UserModel {
       final campaignData = data['activeWeeklyCampaign'] as Map<String, dynamic>;
       final dynamic rawId = campaignData['qid'] ?? campaignData['id'];
       if (rawId != null) {
-        weeklyCampaign = Quest.fromMap(campaignData, rawId);
+        weeklyCampaign = Quest.fromMap(campaignData, rawId.toString());
       }
     }
 
@@ -151,17 +138,17 @@ class UserModel {
       testCount: data['testCount'] ?? 0,
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
       engagementScore: data['engagementScore'] ?? 0,
-      topicPerformances: safeTopicPerformances,
+      // topicPerformances: safeTopicPerformances,
       completedDailyTasks: safeCompletedTasks,
-      studyPacing: data['studyPacing'],
-      longTermStrategy: data['longTermStrategy'],
-      weeklyPlan: data['weeklyPlan'] as Map<String, dynamic>?,
+      // studyPacing: data['studyPacing'],
+      // longTermStrategy: data['longTermStrategy'],
+      // weeklyPlan: data['weeklyPlan'] as Map<String, dynamic>?,
       weeklyAvailability: Map<String, List<String>>.from(
         (data['weeklyAvailability'] ?? {}).map(
               (key, value) => MapEntry(key, List<String>.from(value)),
         ),
       ),
-      masteredTopics: List<String>.from(data['masteredTopics'] ?? []),
+      // masteredTopics: List<String>.from(data['masteredTopics'] ?? []),
       activeDailyQuests: quests,
       activeWeeklyCampaign: weeklyCampaign,
       lastQuestRefreshDate: data['lastQuestRefreshDate'] as Timestamp?,
@@ -201,18 +188,18 @@ class UserModel {
       'testCount': testCount,
       'totalNetSum': totalNetSum,
       'engagementScore': engagementScore,
-      'topicPerformances': topicPerformances.map((key, value) => MapEntry(key, value.map((k, v) => MapEntry(k, v.toMap())))),
+      // 'topicPerformances': topicPerformances.map((key, value) => MapEntry(key, value.map((k, v) => MapEntry(k, v.toMap())))),
       'completedDailyTasks': completedDailyTasks,
-      'studyPacing': studyPacing,
-      'longTermStrategy': longTermStrategy,
-      'weeklyPlan': weeklyPlan,
+      // 'studyPacing': studyPacing,
+      // 'longTermStrategy': longTermStrategy,
+      // 'weeklyPlan': weeklyPlan,
       'weeklyAvailability': weeklyAvailability,
-      'masteredTopics': masteredTopics,
+      // 'masteredTopics': masteredTopics,
       'activeDailyQuests': activeDailyQuests.map((quest) => quest.toMap()).toList(),
       'activeWeeklyCampaign': activeWeeklyCampaign?.toMap(),
       'lastQuestRefreshDate': lastQuestRefreshDate,
       'unlockedAchievements': unlockedAchievements,
-      'dailyVisits': dailyVisits, // YEN��
+      'dailyVisits': dailyVisits, // YENİ
       'avatarStyle': avatarStyle,
       'avatarSeed': avatarSeed,
       'dailyQuestPlanSignature': dailyQuestPlanSignature,

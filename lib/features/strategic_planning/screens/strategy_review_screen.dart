@@ -9,8 +9,6 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:bilge_ai/data/repositories/ai_service.dart';
-import 'package:bilge_ai/data/models/user_model.dart';
-// --- GÖREV SİSTEMİ İMPORTLARI ---
 import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
 
@@ -24,7 +22,6 @@ class StrategyReviewScreen extends ConsumerStatefulWidget {
 }
 
 class _StrategyReviewScreenState extends ConsumerState<StrategyReviewScreen> {
-  // EKRANIN GÜNCEL STRATEJİ VERİSİNİ TUTACAK STATE DEĞİŞKENİ
   late Map<String, dynamic> _currentStrategyData;
   final PageController _pageController = PageController(viewportFraction: 0.85);
   bool _isRevising = false;
@@ -32,11 +29,9 @@ class _StrategyReviewScreenState extends ConsumerState<StrategyReviewScreen> {
   @override
   void initState() {
     super.initState();
-    // Başlangıçta gelen veriyi state'e ata
     _currentStrategyData = widget.generationResult;
   }
 
-  // Bu fonksiyon artık doğrudan state'i güncelleyecek
   WeeklyPlan get weeklyPlan => WeeklyPlan.fromJson(_currentStrategyData['weeklyPlan']);
   String get longTermStrategy => _currentStrategyData['longTermStrategy'];
   String get pacing => _currentStrategyData['pacing'];
@@ -47,16 +42,9 @@ class _StrategyReviewScreenState extends ConsumerState<StrategyReviewScreen> {
       userId: userId,
       pacing: pacing,
       longTermStrategy: longTermStrategy,
-      // ARTIK DOĞRUDAN GÜNCEL STATE'İ KULLANIYORUZ, MANUEL OLUŞTURMA YOK!
       weeklyPlan: _currentStrategyData['weeklyPlan'],
     );
-
-    // --- GÖREV SİSTEMİ ENTEGRASYONU ---
-    // "Stratejist" gibi görevleri tetikle.
     ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.engagement, amount: 1);
-    // ------------------------------------
-
-    // ignore: unused_result
     ref.refresh(userProfileProvider);
     context.go('/home');
   }
@@ -66,10 +54,12 @@ class _StrategyReviewScreenState extends ConsumerState<StrategyReviewScreen> {
 
     final user = ref.read(userProfileProvider).value;
     final tests = ref.read(testsProvider).value;
+    final performance = ref.read(performanceProvider).value;
+    final planDoc = ref.read(planProvider).value;
 
-    if (user == null || tests == null) {
+    if (user == null || tests == null || performance == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kullanıcı verisi bulunamadı.")));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Kullanıcı, test veya performans verisi bulunamadı.")));
       }
       setState(() => _isRevising = false);
       return;
@@ -79,7 +69,9 @@ class _StrategyReviewScreenState extends ConsumerState<StrategyReviewScreen> {
       final resultJson = await ref.read(aiServiceProvider).generateGrandStrategy(
         user: user,
         tests: tests,
-        pacing: pacing, // Mevcut pacing'i koru
+        performance: performance,
+        planDoc: planDoc,
+        pacing: pacing,
         revisionRequest: feedback,
       );
 
@@ -89,7 +81,6 @@ class _StrategyReviewScreenState extends ConsumerState<StrategyReviewScreen> {
         throw Exception(decodedData['error']);
       }
 
-      // EKRANIN STATE'İNİ YENİ GELEN VERİYLE GÜNCELLE
       setState(() {
         _currentStrategyData = {
           'longTermStrategy': decodedData['longTermStrategy'],

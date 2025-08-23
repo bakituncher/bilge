@@ -50,13 +50,9 @@ final dailyQuestsProgressProvider = Provider<({int completed,int total,double pr
 
 final planProgressProvider = Provider<({int done,int total,double ratio})>((ref){
   final user = ref.watch(userProfileProvider).value;
-  // Önce alt koleksiyon plan verisini dene
   final planDoc = ref.watch(planProvider).valueOrNull;
-  Map<String, dynamic>? planMap = planDoc?.weeklyPlan;
-  if (planMap == null) {
-    // Geri uyumluluk: ana user belgesindeki weeklyPlan
-    planMap = user?.weeklyPlan as Map<String, dynamic>?;
-  }
+  final planMap = planDoc?.weeklyPlan;
+
   if (user == null || planMap == null){
     return (done:0,total:0,ratio:0.0);
   }
@@ -77,19 +73,16 @@ final planProgressProvider = Provider<({int done,int total,double ratio})>((ref)
   return (done:completed.length,total:totalToday,ratio:ratio);
 });
 
-/// Son anlamlı aktiviteyi belirleyip tür & rota döndürür.
 final lastActivityProvider = Provider<({String label,String route,IconData icon, Color color})>((ref){
   final user = ref.watch(userProfileProvider).value;
   final tests = ref.watch(testsProvider).valueOrNull ?? [];
   if (user == null){
     return (label:'Planı Aç', route:'/home', icon: Icons.view_week_rounded, color: Colors.amberAccent);
   }
-  // PLAN CTA KALDIRILDI -> Haftalık kart içinde birleşik gösterilecek.
   if (tests.isEmpty){
     return (label:'İlk Denemeni Ekle', route:'/home/add-test', icon: Icons.add_chart_outlined, color: Colors.amberAccent);
   }
   if (user.workshopStreak>0){
-    // Atölye serisi varsa artık kullanıcıyı motivasyon / AI sohbetine yönlendir.
     return (label:'AI Koç Sohbeti', route:'/ai-hub/motivation-chat', icon: Icons.chat_bubble_outline_rounded, color: Colors.tealAccent);
   }
   return (label:'Odak Seansına Başla', route:'/home/pomodoro', icon: Icons.timer_outlined, color: Colors.lightBlueAccent);

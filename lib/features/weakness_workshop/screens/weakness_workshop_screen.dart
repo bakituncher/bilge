@@ -17,23 +17,20 @@ import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:bilge_ai/features/auth/application/auth_controller.dart';
 import 'package:uuid/uuid.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // eklendi: Timestamp için
-// GÖREV SİSTEMİ İMPORTLARI
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
 
-// Atölyenin hangi aşamada olduğunu yöneten durum
+
 enum WorkshopStep { briefing, study, quiz, results }
 
-// Seçilen konuyu ve zorluk seviyesini tutan provider'lar
 final _selectedTopicProvider = StateProvider<Map<String, String>?>((ref) => null);
-// YENİ: Zorluk ve deneme sayısını birlikte tutan provider
 final _difficultyProvider = StateProvider<(String, int)>((ref) => ('normal', 1));
 
-// AI'dan gelen çalışma materyalini yöneten ana provider
 final workshopSessionProvider = FutureProvider.autoDispose<StudyGuideAndQuiz>((ref) async {
   final selectedTopic = ref.watch(_selectedTopicProvider);
-  final difficultyInfo = ref.watch(_difficultyProvider); // YENİ
+  final difficultyInfo = ref.watch(_difficultyProvider);
 
   if (selectedTopic == null) {
     return Future.error("Konu seçilmedi.");
@@ -41,18 +38,19 @@ final workshopSessionProvider = FutureProvider.autoDispose<StudyGuideAndQuiz>((r
 
   final user = ref.read(userProfileProvider).value;
   final tests = ref.read(testsProvider).value;
+  final performance = ref.read(performanceProvider).value;
 
-  if (user == null || tests == null) {
-    return Future.error("Analiz için kullanıcı veya test verisi bulunamadı.");
+  if (user == null || tests == null || performance == null) {
+    return Future.error("Analiz için kullanıcı, test veya performans verisi bulunamadı.");
   }
 
-  // YENİ: AI servisine zorluk ve deneme sayısı birlikte gönderiliyor
   final jsonString = await ref.read(aiServiceProvider).generateStudyGuideAndQuiz(
     user,
     tests,
+    performance,
     topicOverride: selectedTopic,
-    difficulty: difficultyInfo.$1, // difficulty string
-    attemptCount: difficultyInfo.$2, // attempt integer
+    difficulty: difficultyInfo.$1,
+    attemptCount: difficultyInfo.$2,
   ).timeout(
     const Duration(seconds: 45),
     onTimeout: () => throw TimeoutException("Yapay zeka çok uzun süredir yanıt vermiyor. Lütfen tekrar deneyin."),
@@ -74,13 +72,11 @@ class WeaknessWorkshopScreen extends ConsumerStatefulWidget {
 
 class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen> {
   WorkshopStep _currentStep = WorkshopStep.briefing;
-  Map<int, int> _selectedAnswers = {}; // {soruIndex: secenekIndex}
-  // YENİ: Konu anlatımını atlayıp doğrudan teste geçmek için bir bayrak
+  Map<int, int> _selectedAnswers = {};
   bool _skipStudyView = false;
 
   void _startWorkshop(Map<String, String> topic) {
     ref.read(_selectedTopicProvider.notifier).state = topic;
-    // YENİ: Zorluk provider'ını başlangıç durumuna getir.
     ref.read(_difficultyProvider.notifier).state = ('normal', 1);
     _selectedAnswers = {};
     setState(() => _currentStep = WorkshopStep.study);
@@ -88,7 +84,8 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
 
   void _submitQuiz(StudyGuideAndQuiz material) {
     final user = ref.read(userProfileProvider).value;
-    if(user == null) return;
+    final performanceSummary = ref.read(performanceProvider).value;
+    if(user == null || performanceSummary == null) return;
 
     int correct = 0;
     int wrong = 0;
@@ -102,9 +99,12 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
       }
     });
     int blank = material.quiz.length - correct - wrong;
-    final scorePercent = material.quiz.isEmpty ? 0 : (correct / material.quiz.length) * 100;
 
-    final currentPerformance = user.topicPerformances[material.subject]?[material.topic] ?? TopicPerformanceModel();
+    final firestoreService = ref.read(firestoreServiceProvider);
+    final sanitizedSubject = firestoreService.sanitizeKey(material.subject);
+    final sanitizedTopic = firestoreService.sanitizeKey(material.topic);
+
+    final currentPerformance = performanceSummary.topicPerformances[sanitizedSubject]?[sanitizedTopic] ?? TopicPerformanceModel();
     final newPerformance = TopicPerformanceModel(
       correctCount: currentPerformance.correctCount + correct,
       wrongCount: currentPerformance.wrongCount + wrong,
@@ -112,14 +112,13 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
       questionCount: currentPerformance.questionCount + material.quiz.length,
     );
 
-    ref.read(firestoreServiceProvider).updateTopicPerformance(
+    firestoreService.updateTopicPerformance(
       userId: user.id,
       subject: material.subject,
       topic: material.topic,
       performance: newPerformance,
     );
 
-    // Günlük Cevher serisi (workshopStreak) güncelle
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     DateTime? last = user.lastWorkshopDate?.toDate();
@@ -129,22 +128,19 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
     } else {
       final lastDay = DateTime(last.year, last.month, last.day);
       final diff = today.difference(lastDay).inDays;
-      if (diff == 0) {
-        // aynı gün tekrar: streak değişmez
-      } else if (diff == 1) {
+      if (diff == 1) {
         newStreak += 1;
       } else if (diff > 1) {
-        newStreak = 1; // kopmuş
+        newStreak = 1;
       }
     }
-    ref.read(firestoreServiceProvider).usersCollection.doc(user.id).update({
+    firestoreService.usersCollection.doc(user.id).update({
       'workshopStreak': newStreak,
       'lastWorkshopDate': Timestamp.fromDate(now),
     });
 
-    // GÖREV GÜNCELLEME EMRİ
     ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.engagement);
-    ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.practice, amount: 1); // yeni: atölye seansı practice ilerlemesi
+    ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.practice, amount: 1);
 
     setState(() => _currentStep = WorkshopStep.results);
   }
@@ -163,20 +159,16 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
         builder: (context) => _DeepenWorkshopSheet(
           onOptionSelected: (String difficulty, bool invalidate, bool skipStudy) {
             Navigator.of(context).pop();
-            // YENİ: Skip study bayrağı ile fonksiyon çağrılıyor
             _setDifficultyAndChangeStep(difficulty, invalidate, skipStudy: skipStudy);
           },
         )
     );
   }
 
-  // YENİ: Fonksiyon artık skipStudy parametresini alıyor
   void _setDifficultyAndChangeStep(String difficulty, bool invalidate, {bool skipStudy = false}) {
-    // YENİ: Zorluk provider'ı güncellenirken deneme sayısı artırılıyor
     ref.read(_difficultyProvider.notifier).update((state) => (difficulty, state.$2 + 1));
     _selectedAnswers = {};
 
-    // YENİ: Eğer konu anlatımı atlanacaksa, bayrağı true yap
     if(skipStudy) {
       _skipStudyView = true;
     }
@@ -184,7 +176,6 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
     if (invalidate) {
       ref.invalidate(workshopSessionProvider);
     }
-    // Her durumda çalışma adımına dönüyoruz, build metodu gerisini halledecek.
     setState(() => _currentStep = WorkshopStep.study);
   }
 
@@ -240,19 +231,15 @@ class _WeaknessWorkshopScreenState extends ConsumerState<WeaknessWorkshopScreen>
         });
       },
       data: (material) {
-        // YENİ MANTIK:
-        // Eğer _skipStudyView bayrağı true ise, build işlemi bittikten hemen sonra
-        // adımı quiz'e geçir ve bayrağı sıfırla.
         if (_skipStudyView) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               setState(() {
                 _currentStep = WorkshopStep.quiz;
-                _skipStudyView = false; // Bayrağı sıfırla
+                _skipStudyView = false;
               });
             }
           });
-          // State değişene kadar kısa bir yükleme ekranı göster
           return const _LoadingCevherView(key: ValueKey('reloading_quiz'));
         }
 
@@ -315,8 +302,9 @@ class _BriefingView extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;
     final tests = ref.watch(testsProvider).value;
+    final performance = ref.watch(performanceProvider).value;
 
-    if (user == null || tests == null || user.selectedExam == null) {
+    if (user == null || tests == null || user.selectedExam == null || performance == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -325,7 +313,7 @@ class _BriefingView extends ConsumerWidget {
         builder: (context, snapshot) {
           if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
-          final analysis = StatsAnalysis(tests, user.topicPerformances, snapshot.data!, user: user);
+          final analysis = StatsAnalysis(tests, performance, snapshot.data!, user: user);
           final suggestions = analysis.getWorkshopSuggestions(count: 3);
 
           return ListView(
@@ -402,7 +390,7 @@ class _TopicCard extends StatelessWidget {
                   Expanded(
                     child: LinearProgressIndicator(
                       value: masteryValue == null || masteryValue < 0 ? null : masteryValue,
-                      backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: 0.3),
+                      backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.3),
                       color: masteryValue == null || masteryValue < 0 ? AppTheme.secondaryTextColor : Color.lerp(AppTheme.accentColor, AppTheme.successColor, masteryValue),
                       borderRadius: BorderRadius.circular(4),
                     ),
@@ -501,7 +489,7 @@ class _QuizViewState extends State<_QuizView> {
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
           child: LinearProgressIndicator(
             value: (_currentPage + 1) / quizLength,
-            backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha: 0.3),
+            backgroundColor: AppTheme.lightSurfaceColor.withOpacity(0.3),
             color: AppTheme.secondaryColor,
             borderRadius: BorderRadius.circular(8),
           ),
@@ -583,13 +571,13 @@ class _QuestionCard extends StatelessWidget {
             Color? borderColor;
             IconData? trailingIcon;
 
-            if (selectedOptionIndex != null) { // Cevap verildiğinde renkleri belirle
+            if (selectedOptionIndex != null) {
               if (isSelected) {
-                tileColor = isCorrect ? AppTheme.successColor.withValues(alpha: 0.2) : AppTheme.accentColor.withValues(alpha: 0.2);
+                tileColor = isCorrect ? AppTheme.successColor.withOpacity(0.2) : AppTheme.accentColor.withOpacity(0.2);
                 borderColor = isCorrect ? AppTheme.successColor : AppTheme.accentColor;
                 trailingIcon = isCorrect ? Icons.check_circle_rounded : Icons.cancel_rounded;
               } else if (isCorrect) {
-                tileColor = AppTheme.successColor.withValues(alpha: 0.2);
+                tileColor = AppTheme.successColor.withOpacity(0.2);
                 borderColor = AppTheme.successColor;
                 trailingIcon = Icons.check_circle_outline_rounded;
               }
@@ -624,7 +612,7 @@ class _ExplanationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: AppTheme.primaryColor.withValues(alpha: 0.7),
+      color: AppTheme.primaryColor.withOpacity(0.7),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -754,9 +742,9 @@ class _SummaryViewState extends ConsumerState<_SummaryView> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: [AppTheme.successColor.withValues(alpha:0.25), AppTheme.secondaryColor.withValues(alpha:0.15)]),
+                gradient: LinearGradient(colors: [AppTheme.successColor.withOpacity(0.25), AppTheme.secondaryColor.withOpacity(0.15)]),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppTheme.successColor.withValues(alpha:0.6), width: 1.5),
+                border: Border.all(color: AppTheme.successColor.withOpacity(0.6), width: 1.5),
               ),
               child: Row(
                 children: [
@@ -862,10 +850,13 @@ class _QuizReviewView extends StatelessWidget {
                   return ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    title: Text(question.options[optIndex], style: TextStyle(
-                      color: optIndex == question.correctOptionIndex ? AppTheme.successColor :
-                      (optIndex == userAnswer && !isCorrect ? AppTheme.accentColor : AppTheme.textColor),
-                    )),
+                    title: Text(
+                      question.options[optIndex],
+                      style: TextStyle(
+                        color: optIndex == question.correctOptionIndex ? AppTheme.successColor :
+                        (optIndex == userAnswer && !isCorrect ? AppTheme.accentColor : AppTheme.textColor),
+                      ),
+                    ),
                     leading: Icon(
                       optIndex == question.correctOptionIndex ? Icons.check_circle_rounded :
                       (optIndex == userAnswer && !isCorrect ? Icons.cancel_rounded : Icons.radio_button_unchecked_rounded),
@@ -907,7 +898,7 @@ class _ResultActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: isPrimary ? AppTheme.secondaryColor.withValues(alpha: 0.2) : AppTheme.cardColor,
+      color: isPrimary ? AppTheme.secondaryColor.withOpacity(0.2) : AppTheme.cardColor,
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: overrideColor ?? (isPrimary ? AppTheme.secondaryColor : AppTheme.lightSurfaceColor), width: 1.5)
@@ -974,7 +965,6 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-// YENİ: _DeepenWorkshopSheet widget'ı artık skipStudy bayrağını da iletiyor.
 class _DeepenWorkshopSheet extends StatelessWidget {
   final Function(String difficulty, bool invalidate, bool skipStudy) onOptionSelected;
   const _DeepenWorkshopSheet({required this.onOptionSelected});
@@ -1006,14 +996,14 @@ class _DeepenWorkshopSheet extends StatelessWidget {
             title: "Konuyu Tekrar Oku",
             subtitle: "Anlatımı gözden geçirip zor teste hazırlan.",
             icon: Icons.menu_book_rounded,
-            onTap: () => onOptionSelected('hard', false, false), // skipStudy: false
+            onTap: () => onOptionSelected('hard', false, false),
           ),
           const SizedBox(height: 12),
           _ResultActionCard(
             title: "Yeni Zor Test Oluştur",
             subtitle: "Bilgini en çeldirici sorularla sına.",
             icon: Icons.auto_awesome_motion_rounded,
-            onTap: () => onOptionSelected('hard', true, true), // skipStudy: true
+            onTap: () => onOptionSelected('hard', true, true),
             isPrimary: true,
           ),
         ],

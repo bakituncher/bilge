@@ -11,8 +11,11 @@ import 'package:bilge_ai/features/stats/widgets/net_evolution_chart.dart';
 import 'package:bilge_ai/features/stats/widgets/key_stats_grid.dart';
 import 'package:bilge_ai/features/stats/widgets/ai_insight_card.dart';
 import 'package:bilge_ai/features/stats/widgets/subject_stat_card.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
 
-class AnalysisView extends StatelessWidget {
+class AnalysisView extends ConsumerWidget {
   final List<TestModel> tests;
   final UserModel user;
   final Exam exam;
@@ -20,8 +23,9 @@ class AnalysisView extends StatelessWidget {
   const AnalysisView({required this.tests, required this.user, required this.exam, super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final analysis = StatsAnalysis(tests, user.topicPerformances, exam, user: user);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final performance = ref.watch(performanceProvider).value ?? const PerformanceSummary();
+    final analysis = StatsAnalysis(tests, performance, exam, user: user);
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),

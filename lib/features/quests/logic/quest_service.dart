@@ -6,28 +6,28 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
-import 'package:bilge_ai/features/quests/quest_armory.dart'; // YENİ CEPHANELİK
+import 'package:bilge_ai/features/quests/quest_armory.dart';
 import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 import 'package:uuid/uuid.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
-import 'package:bilge_ai/data/models/plan_model.dart'; // WeeklyPlan parsing için
-import 'package:flutter/foundation.dart'; // debugPrint
+import 'package:bilge_ai/data/models/plan_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/features/quests/logic/quest_templates.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
 
 final questServiceProvider = Provider<QuestService>((ref) {
   return QuestService(ref);
 });
 final questGenerationIssueProvider = StateProvider<bool>((_) => false);
 
-// "Strateji Masası" - Görev Atama Motoru
 class QuestService {
   final Ref _ref;
   QuestService(this._ref);
 
-  bool _inProgress = false; // yeniden giriş kilidi
+  bool _inProgress = false;
 
   Future<List<Quest>> refreshDailyQuestsForUser(UserModel user, {bool force = false}) async {
     if (_inProgress) {
@@ -36,9 +36,9 @@ class QuestService {
     _inProgress = true;
     try {
       final today = DateTime.now();
-      await _maybeGenerateWeeklyReport(user, today); // yeni
+      await _maybeGenerateWeeklyReport(user, today);
       final lastRefresh = user.lastQuestRefreshDate?.toDate();
-      final currentPlanSignature = _computeTodayPlanSignature(user);
+      final currentPlanSignature = _computeTodayPlanSignature();
       final planChanged = currentPlanSignature != null && currentPlanSignature != user.dailyQuestPlanSignature;
       final shouldBypassSameDayCache = planChanged;
       if (!force && !shouldBypassSameDayCache && lastRefresh != null && lastRefresh.year == today.year && lastRefresh.month == today.month && lastRefresh.day == today.day) {
@@ -49,14 +49,14 @@ class QuestService {
         newQuests = await _generateQuestsForUser(user).timeout(const Duration(seconds: 8));
       } on TimeoutException {
         if (kDebugMode) debugPrint('[QuestService] Görev üretimi timeout -> eski görevler dönüyor');
-        _ref.read(questGenerationIssueProvider.notifier).state = true; // banner tetik
+        _ref.read(questGenerationIssueProvider.notifier).state = true;
         return user.activeDailyQuests;
       } catch (e, st) {
         if (kDebugMode) {
           debugPrint('[QuestService] Görev üretimi hata: $e');
           debugPrint(st.toString());
         }
-        _ref.read(questGenerationIssueProvider.notifier).state = true; // banner tetik
+        _ref.read(questGenerationIssueProvider.notifier).state = true;
         return user.activeDailyQuests;
       }
       await _ref.read(firestoreServiceProvider).usersCollection.doc(user.id).update({
@@ -65,47 +65,37 @@ class QuestService {
         if (currentPlanSignature != null) 'dailyQuestPlanSignature': currentPlanSignature,
         if (_lastDifficultyFactor != null) 'dynamicDifficultyFactorToday': _lastDifficultyFactor,
       });
-      _ref.read(questGenerationIssueProvider.notifier).state = false; // başarıyla temizle
+      _ref.read(questGenerationIssueProvider.notifier).state = false;
       return newQuests;
     } finally {
       _inProgress = false;
     }
   }
 
-  double? _lastDifficultyFactor; // güncel zorluk çarpanı cache
+  double? _lastDifficultyFactor;
 
-  // === MİLYON DOLARLIK OTOMASYONUN KALBİ: GÖREV ÜRETİM MOTORU ===
   Future<List<Quest>> _generateQuestsForUser(UserModel user) async {
     final List<Quest> generatedQuests = [];
     final random = Random();
 
-    // 1. VERİ TOPLAMA (streams -> valueOrNull ile non-blocking)
-    List<TestModel> tests = [];
-    try {
-      final testsAsync = _ref.read(testsProvider);
-      tests = testsAsync.valueOrNull ?? [];
-    } catch (_) {
-      // yoksay
-    }
+    List<TestModel> tests = _ref.read(testsProvider).valueOrNull ?? [];
+    final performance = _ref.read(performanceProvider).value ?? const PerformanceSummary();
     final examData = user.selectedExam != null
         ? await ExamData.getExamByType(ExamType.values.byName(user.selectedExam!))
         : null;
 
     StatsAnalysis? analysis;
     if (tests.isNotEmpty && examData != null) {
-      analysis = StatsAnalysis(tests, user.topicPerformances, examData, user: user);
+      analysis = StatsAnalysis(tests, performance, examData, user: user);
     }
 
-    // 2. ŞABLONLARI HAZIRLA (modüler)
     List<QuestTemplate> templates = questArmory.map((m) => QuestTemplateFactory.fromMap(m)).toList();
     templates.shuffle();
     templates.removeWhere((t) => user.activeDailyQuests.any((q) => q.id == t.id));
 
-    // Gün içi plan tamamlama ve kategori bilgisi
     final todayKey = _dateKey(DateTime.now());
     final todayCompletedPlanTasks = user.completedDailyTasks[todayKey]?.length ?? 0;
 
-    // Önceki gün plan oranı ve inaktiflik
     final yesterday = DateTime.now().subtract(const Duration(days: 1));
     final yesterdayRatio = user.lastScheduleCompletionRatio ?? 0.0;
     final wasInactiveYesterday = !(user.dailyVisits.any((ts) {
@@ -113,7 +103,6 @@ class QuestService {
       return d.year == yesterday.year && d.month == yesterday.month && d.day == yesterday.day;
     }));
 
-    // Mevcut tamamlanan quest kategorileri (günün) -> sadece çeşitlilik sayımı için adlar
     final completedCategoriesNames = user.activeDailyQuests
         .where((q) => q.isCompleted)
         .map((q) => q.category.name)
@@ -127,7 +116,6 @@ class QuestService {
       completedCategoriesToday: completedCategoriesNames,
     );
 
-    // 3. PUANLAMA (modüler)
     final List<({QuestTemplate template, int score, Map<String, String> variables})> scoredQuests = [];
     for (final t in templates) {
       if (!t.isEligible(user, analysis, ctx)) continue;
@@ -138,7 +126,6 @@ class QuestService {
     }
     scoredQuests.sort((a, b) => b.score.compareTo(a.score));
 
-    // 4. SEÇİM (kategori çeşitliliğini koru)
     final Set<QuestCategory> selectedCategories = {};
     while (generatedQuests.length < 5 && scoredQuests.isNotEmpty) {
       final candidate = scoredQuests.removeAt(0);
@@ -151,24 +138,18 @@ class QuestService {
       selectedCategories.add(catEnum);
     }
 
-    // 5. HAFTALIK PLAN ENTEGRASYONU (KALE GÜÇLENDİRME)
     _injectScheduleBasedQuests(user, generatedQuests, tests: tests);
 
-    // Günlük ödül dengesini (özellikle programdan gelen görevler) normalize et.
     _normalizeDailyRewards(generatedQuests);
 
-    // 6. KİŞİSELLEŞTİRME Katmanı
     for (var i = 0; i < generatedQuests.length; i++) {
-      generatedQuests[i] = _personalizeQuest(generatedQuests[i], user, analysis);
+      generatedQuests[i] = _personalizeQuest(generatedQuests[i], user, analysis, performance);
     }
 
-    // 7. İHMAL EDİLEN DERS GÖREVİ (Recovery)
-    _maybeInjectNeglectedSubjectQuest(user, generatedQuests, analysis);
+    _maybeInjectNeglectedSubjectQuest(user, generatedQuests, analysis, performance);
 
-    // 8. PLATO KIRICI GÖREV
     _maybeInjectPlateauBreaker(user, generatedQuests, analysis, tests);
 
-    // 9. MASTERy CHAIN (strong subject)
     _maybeInjectMasteryChain(user, generatedQuests, analysis);
 
     return generatedQuests;
@@ -176,8 +157,7 @@ class QuestService {
 
   void _maybeInjectPlateauBreaker(UserModel user, List<Quest> quests, StatsAnalysis? analysis, List<TestModel> tests){
     if (tests.length < 3) return;
-    final last3 = tests.take(3).toList(); // tests zaten tarih sıralı (generate sırasında ilk eleman en yeni test kabul)
-    // Güvenli: en yeni başta değilse sıralayalım (desc)
+    final last3 = tests.take(3).toList();
     last3.sort((a,b)=> b.date.compareTo(a.date));
     final nets = last3.map((t)=> t.totalNet).toList();
     final avg = nets.fold<double>(0,(s,e)=>s+e)/nets.length;
@@ -187,8 +167,8 @@ class QuestService {
       final exists = quests.any((q)=> q.id=='plateau_breaker_1');
       if(!exists){
         quests.add(_personalizeQuest(Quest(
-          id: 'plateau_breaker_1',
-          title: 'Net Sıçratma Hamlesi',
+            id: 'plateau_breaker_1',
+            title: 'Net Sıçratma Hamlesi',
             description: 'Son denemelerde ilerleme plato yaptı. 3 farklı dersten toplam 30 hız odaklı soru çöz (10+10+10).',
             type: QuestType.daily,
             category: QuestCategory.practice,
@@ -198,7 +178,7 @@ class QuestService {
             actionRoute: '/coach',
             route: questRouteFromPath('/coach'),
             tags: ['variety','plateau','personal']
-        ), user, analysis));
+        ), user, analysis, _ref.read(performanceProvider).value!));
       }
     }
   }
@@ -206,26 +186,25 @@ class QuestService {
   void _maybeInjectMasteryChain(UserModel user, List<Quest> quests, StatsAnalysis? analysis){
     final strong = analysis?.strongestSubjectByNet;
     if (strong==null || strong=='Belirlenemedi') return;
-    final hasChain = quests.any((q)=> q.id.startsWith('chain_mastery_')); // basit kontrol
+    final hasChain = quests.any((q)=> q.id.startsWith('chain_mastery_'));
     if (hasChain) return;
     final idBase = 'chain_mastery_${strong.hashCode}';
-    // İlk adımı ekle
     quests.add(_personalizeQuest(Quest(
-      id: '${idBase}_1',
-      title: 'Ustalık Zinciri I: $strong Temel Tarama',
-      description: '$strong kalesinde 20 seçilmiş soru ile ritmi kur. Hız değil doğruluk öncelik. ',
-      type: QuestType.daily,
-      category: QuestCategory.practice,
-      progressType: QuestProgressType.increment,
-      reward: 60,
-      goalValue: 20,
-      actionRoute: '/coach',
-      route: questRouteFromPath('/coach'),
-      tags: ['chain','strength','subject:$strong','mastery_chain']
-    ), user, analysis));
+        id: '${idBase}_1',
+        title: 'Ustalık Zinciri I: $strong Temel Tarama',
+        description: '$strong kalesinde 20 seçilmiş soru ile ritmi kur. Hız değil doğruluk öncelik. ',
+        type: QuestType.daily,
+        category: QuestCategory.practice,
+        progressType: QuestProgressType.increment,
+        reward: 60,
+        goalValue: 20,
+        actionRoute: '/coach',
+        route: questRouteFromPath('/coach'),
+        tags: ['chain','strength','subject:$strong','mastery_chain']
+    ), user, analysis, _ref.read(performanceProvider).value!));
   }
 
-  Quest _personalizeQuest(Quest q, UserModel user, StatsAnalysis? analysis) {
+  Quest _personalizeQuest(Quest q, UserModel user, StatsAnalysis? analysis, PerformanceSummary performance) {
     String reason = '';
     int rewardDelta = 0;
     int? newGoal;
@@ -234,9 +213,8 @@ class QuestService {
     final strong = analysis?.strongestSubjectByNet;
     final streak = user.streak;
     final planRatio = user.lastScheduleCompletionRatio ?? 0.0;
-    final recentPracticeAvg = _computeRecentPracticeAverage(user); // günlük ortalama soru hacmi
+    final recentPracticeAvg = _computeRecentPracticeAverage(user);
 
-    // Weakness görevleri – ekstra bağlam
     if (q.tags.contains('weakness')) {
       if (weak != null && weak != 'Belirlenemedi' && !q.title.contains(weak)) {
         q = q.copyWith(title: q.title.replaceAll('{subject}', weak));
@@ -254,7 +232,6 @@ class QuestService {
       reason = 'Güçlü yanını hız ve doğrulukla pekiştirmek için.';
       rewardDelta += 5;
       if (q.category == QuestCategory.practice && q.goalValue >= 25) {
-        // Güçlü alanda hedefi hafif artır (challenge)
         newGoal = (q.goalValue * 1.1).round();
       }
     }
@@ -291,16 +268,12 @@ class QuestService {
       q = q.copyWith(description: personalizedDescription);
     }
 
-    // Adaptif hedef (genel) – plan oranı düşükse hedefi küçült, yüksekse hafif büyüt
     if (q.category == QuestCategory.practice && newGoal == null) {
       if (planRatio < 0.5 && q.goalValue >= 20) newGoal = (q.goalValue * 0.85).round();
       else if (planRatio >= 0.85 && q.goalValue >= 15) newGoal = (q.goalValue * 1.05).round();
-      // Son 7 gün ortalama soru hacmine göre ince ayar – aşırı yükseltmemek için clamp
       if (recentPracticeAvg > 0) {
         final target = (recentPracticeAvg * 1.12).round();
-        // Sadece anlamlı fark varsa (±%10) uygula ve weakness/neglected hedeflerini küçültme kuralına dokunma
         if (target > 5 && (target - q.goalValue).abs() / q.goalValue > 0.1) {
-          // Önceki newGoal ayarlanmış olabilir – ona göre güncelle
           final baseGoal = newGoal ?? q.goalValue;
           int adaptiveGoal;
           if (target > baseGoal) {
@@ -328,9 +301,9 @@ class QuestService {
     return q;
   }
 
-  void _maybeInjectNeglectedSubjectQuest(UserModel user, List<Quest> quests, StatsAnalysis? analysis) {
-    if (quests.length >= 6) return; // üst sınır
-    final neglected = _detectNeglectedSubjects(user);
+  void _maybeInjectNeglectedSubjectQuest(UserModel user, List<Quest> quests, StatsAnalysis? analysis, PerformanceSummary performance) {
+    if (quests.length >= 6) return;
+    final neglected = _detectNeglectedSubjects(performance);
     if (neglected.isEmpty) return;
     final subject = neglected.first;
     final exists = quests.any((q)=> q.tags.contains('neglected') && q.tags.any((t)=> t == 'subject:$subject'));
@@ -350,13 +323,13 @@ class QuestService {
       route: questRouteFromPath('/coach'),
       tags: ['neglected','subject:$subject','weakness','personal'],
     );
-    quests.add(_personalizeQuest(quest, user, analysis));
+    quests.add(_personalizeQuest(quest, user, analysis, performance));
   }
 
-  List<String> _detectNeglectedSubjects(UserModel user) {
-    if (user.topicPerformances.isEmpty) return [];
+  List<String> _detectNeglectedSubjects(PerformanceSummary performance) {
+    if (performance.topicPerformances.isEmpty) return [];
     final Map<String,int> totals = {};
-    user.topicPerformances.forEach((subject, topics) {
+    performance.topicPerformances.forEach((subject, topics) {
       int sum = 0;
       topics.forEach((_, perf) { sum += (perf.correctCount + perf.wrongCount + perf.blankCount); });
       totals[subject] = sum;
@@ -384,16 +357,17 @@ class QuestService {
       }
     });
     if (sum==0 || count==0) return 0;
-    return sum / count;
+    return sum / count.toDouble();
   }
 
-  // Bugünkü haftalık plan görevlerinden dinamik görev üretici
   void _injectScheduleBasedQuests(UserModel user, List<Quest> quests, {required List<TestModel> tests}) {
-    if (user.weeklyPlan == null) return;
+    final planDoc = _ref.read(planProvider).value;
+    final weeklyPlan = planDoc?.weeklyPlan;
+    if (weeklyPlan == null) return;
     try {
-      final weekly = WeeklyPlan.fromJson(user.weeklyPlan!);
+      final weekly = WeeklyPlan.fromJson(weeklyPlan);
       final today = DateTime.now();
-      final weekdayIndex = today.weekday - 1; // 0-6
+      final weekdayIndex = today.weekday - 1;
       if (weekdayIndex < 0 || weekdayIndex >= weekly.plan.length) return;
       final todayPlan = weekly.plan[weekdayIndex];
       final dateKey = _dateKey(today);
@@ -401,7 +375,6 @@ class QuestService {
 
       bool hasTestQuestAlready = quests.any((q) => q.category == QuestCategory.test_submission);
 
-      // Dinlenme günü ise kullanıcıyı yine de etkileşime sokacak hafif bir görev enjekte et
       if (todayPlan.schedule.isEmpty) {
         if (!quests.any((q) => q.id == 'schedule_${dateKey}_rest')) {
           quests.add(_autoTagQuest(Quest(
@@ -417,18 +390,17 @@ class QuestService {
             route: questRouteFromPath('/home/pomodoro'),
           )));
         }
-        return; // Dinlenme gününde ekstra program görevi yok.
+        return;
       }
 
       for (final item in todayPlan.schedule) {
         final identifier = '${item.time}-${item.activity}';
-        if (completedIds.contains(identifier)) continue; // Zaten yapılmış
-        // Zaten aynı aktivite için dinamik görev oluşturulmuş mu?
+        if (completedIds.contains(identifier)) continue;
         final questId = 'schedule_${dateKey}_${identifier.hashCode}';
         if (quests.any((q) => q.id == questId)) continue;
 
         final lower = item.activity.toLowerCase();
-        bool isTestLike = lower.contains('deneme') || lower.contains('test') || lower.contains('sim��lasyon');
+        bool isTestLike = lower.contains('deneme') || lower.contains('test') || lower.contains('simülasyon');
 
         if (isTestLike && !hasTestQuestAlready) {
           quests.add(_autoTagQuest(Quest(
@@ -485,73 +457,24 @@ class QuestService {
       if (q.id.startsWith('schedule_')) {
         final scaled = (q.reward * difficultyFactor).round();
         final newReward = scaled.clamp(10, 999);
-        quests[i] = Quest(
-          id: q.id,
-          title: q.title,
-          description: q.description,
-          type: q.type,
-          category: q.category,
-          progressType: q.progressType,
-          reward: newReward,
-          goalValue: q.goalValue,
-          currentProgress: q.currentProgress,
-          isCompleted: q.isCompleted,
-          actionRoute: q.actionRoute,
-          route: q.route,
-          completionDate: q.completionDate,
-          tags: q.tags,
-          difficulty: q.difficulty,
-          estimatedMinutes: q.estimatedMinutes,
-          prerequisiteIds: q.prerequisiteIds,
-          conceptTags: q.conceptTags,
-          learningObjectiveId: q.learningObjectiveId,
-          chainId: q.chainId,
-          chainStep: q.chainStep,
-          chainLength: q.chainLength,
-        );
+        quests[i] = q.copyWith(reward: newReward);
       }
     }
-    // Programdan gelen görevler id prefix: schedule_
     final scheduleQuests = quests.where((q) => q.id.startsWith('schedule_')).toList();
     if (scheduleQuests.isEmpty) return;
-    const int scheduleRewardCap = 300; // Günlük program görevleri toplam tavan
+    const int scheduleRewardCap = 300;
     final int currentSum = scheduleQuests.fold(0, (s, q) => s + q.reward);
     if (currentSum <= scheduleRewardCap) return;
     final double scale = scheduleRewardCap / currentSum;
     for (var i = 0; i < quests.length; i++) {
       final q = quests[i];
       if (q.id.startsWith('schedule_')) {
-        // Yeni reward hesaplanıp kopya ile güncellenir.
-        final newReward = (q.reward * scale).floor().clamp(10, q.reward); // asgari 10
-        quests[i] = Quest(
-          id: q.id,
-          title: q.title,
-          description: q.description,
-          type: q.type,
-          category: q.category,
-          progressType: q.progressType,
-          reward: newReward,
-          goalValue: q.goalValue,
-          currentProgress: q.currentProgress,
-          isCompleted: q.isCompleted,
-          actionRoute: q.actionRoute,
-          route: q.route,
-          completionDate: q.completionDate,
-          tags: q.tags,
-          difficulty: q.difficulty,
-          estimatedMinutes: q.estimatedMinutes,
-          prerequisiteIds: q.prerequisiteIds,
-          conceptTags: q.conceptTags,
-          learningObjectiveId: q.learningObjectiveId,
-          chainId: q.chainId,
-          chainStep: q.chainStep,
-          chainLength: q.chainLength,
-        );
+        final newReward = (q.reward * scale).floor().clamp(10, q.reward);
+        quests[i] = q.copyWith(reward: newReward);
       }
     }
   }
 
-  // Şablondan görev oluşturucu (eksik olduğu için geri eklendi)
   Quest _createQuestFromTemplate(Map<String, dynamic> template, {Map<String, String>? variables}) {
     String title = template['title'] ?? 'İsimsiz Görev';
     String description = template['description'] ?? 'Açıklama bulunamadı.';
@@ -565,12 +488,10 @@ class QuestService {
     }
 
     final rawTags = template['tags'];
-    // DEĞİŞTİ: final kaldırıldı ki dinamik subject etiketi eklenebilsin
     List<String> tagList = rawTags is List
         ? rawTags.map((e) => e.toString().split('.').last).toList()
         : <String>[];
 
-    // Yeni: subject değişkeni varsa subject:<Ad> etiketi ekle
     if (variables != null && variables.containsKey('{subject}')) {
       final subj = variables['{subject}'];
       if (subj != null && subj.isNotEmpty) {
@@ -585,8 +506,8 @@ class QuestService {
       type: QuestType.values.byName(template['type'] ?? 'daily'),
       category: QuestCategory.values.byName(template['category'] ?? 'engagement'),
       progressType: QuestProgressType.values.byName(template['progressType'] ?? 'increment'),
-      reward: template['reward'] ?? 10,
-      goalValue: template['goalValue'] ?? 1,
+      reward: (template['reward'] as num).toInt(),
+      goalValue: (template['goalValue'] as num).toInt(),
       actionRoute: actionRoute,
       route: questRouteFromPath(actionRoute),
       tags: tagList,
@@ -604,7 +525,7 @@ class QuestService {
         return QuestCategory.test_submission;
       case 'focus':
         return QuestCategory.focus;
-      case 'analysis': // ayrı enum yok, etkileşim olarak değerlendir
+      case 'analysis':
         return QuestCategory.engagement;
       default:
         return QuestCategory.study;
@@ -620,7 +541,6 @@ class QuestService {
       case QuestCategory.study: base = 45; break;
       case QuestCategory.engagement: base = 40; break;
       case QuestCategory.consistency: base = 35; break;
-      default: base = 40; break;
     }
     if (item.activity.length > 25) base += 10;
     return base;
@@ -646,12 +566,13 @@ class QuestService {
   String _dateKey(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 
-  String? _computeTodayPlanSignature(UserModel user) {
-    if (user.weeklyPlan == null) return null;
+  String? _computeTodayPlanSignature() {
+    final planDoc = _ref.read(planProvider).value;
+    if (planDoc?.weeklyPlan == null) return null;
     try {
-      final weekly = WeeklyPlan.fromJson(user.weeklyPlan!);
+      final weekly = WeeklyPlan.fromJson(planDoc!.weeklyPlan!);
       final today = DateTime.now();
-      final weekdayIndex = today.weekday - 1; // 0-6
+      final weekdayIndex = today.weekday - 1;
       if (weekdayIndex < 0 || weekdayIndex >= weekly.plan.length) return null;
       final dayName = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'][weekdayIndex];
       final daily = weekly.plan.firstWhere((d) => d.day == dayName, orElse: () => DailyPlan(day: dayName, schedule: []));
@@ -667,8 +588,8 @@ class QuestService {
   }
 
   Future<void> _maybeGenerateWeeklyReport(UserModel user, DateTime now) async {
-    if (user.weeklyPlan == null) return;
-    // Haftanın pazartesi başlangıcı
+    final planDoc = _ref.read(planProvider).value;
+    if (planDoc?.weeklyPlan == null) return;
     DateTime startOfWeek(DateTime d){return d.subtract(Duration(days: d.weekday-1));}
     final thisWeekStart = startOfWeek(now);
     final lastReport = user.lastWeeklyReport;
@@ -676,20 +597,18 @@ class QuestService {
       final lastWeekStartStr = lastReport['weekStart'] as String?;
       if (lastWeekStartStr != null) {
         final lastWeekStart = DateTime.tryParse(lastWeekStartStr);
-        if (lastWeekStart != null && lastWeekStart.isAtSameMomentAs(thisWeekStart)) return; // aynı hafta
+        if (lastWeekStart != null && lastWeekStart.isAtSameMomentAs(thisWeekStart)) return;
       }
     }
-    // Sadece haftanın ilk günü (Pazartesi) veya ilk girişte üret
     if (now.weekday != DateTime.monday && lastReport != null) return;
 
     try {
-      final weekly = WeeklyPlan.fromJson(user.weeklyPlan!);
+      final weekly = WeeklyPlan.fromJson(planDoc!.weeklyPlan!);
       int planned = 0; int completed = 0; Map<String,int> dayPlanned = {}; Map<String,int> dayCompleted = {};
       for (int i=0;i<weekly.plan.length;i++) {
         final dp = weekly.plan[i];
         planned += dp.schedule.length;
         dayPlanned[dp.day] = dp.schedule.length;
-        // Tarih hesapla
         final date = thisWeekStart.add(Duration(days: i));
         final key = _dateKey(date);
         final compList = user.completedDailyTasks[key] ?? [];
@@ -728,9 +647,8 @@ class QuestService {
     if (q.reward < 30 && q.goalValue <= 2) newTags.add('quick_win');
     if ((q.estimatedMinutes != null && q.estimatedMinutes! <= 5) || (q.goalValue == 1 && q.reward <= 25)) newTags.add('micro');
     if (q.category == QuestCategory.focus) newTags.add('focus');
-    // plan programı görevleri
     if (q.id.startsWith('schedule_')) newTags.add('plan');
-    if (newTags.difference(q.tags.toSet()).isEmpty) return q; // değişiklik yok
+    if (newTags.difference(q.tags.toSet()).isEmpty) return q;
     return q.copyWith(tags: newTags.toList());
   }
 }
@@ -741,7 +659,7 @@ final dailyQuestsProvider = FutureProvider.autoDispose<List<Quest>>((ref) async 
   final questService = ref.read(questServiceProvider);
   final result = await questService.refreshDailyQuestsForUser(user).catchError((e){
     if (kDebugMode) debugPrint('[dailyQuestsProvider] hata: $e');
-    return user.activeDailyQuests; // fallback
+    return user.activeDailyQuests;
   });
   return result;
 });

@@ -16,6 +16,8 @@ import 'package:flutter_svg/flutter_svg.dart'; // Avatar için eklendi
 import 'package:flutter/services.dart'; // HapticFeedback
 import 'dart:math' as math; // trig için
 import '../logic/rank_service.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
+import 'package:bilge_ai/data/models/plan_document.dart'; // EKLENDİ
 
 // ===== NovaPulse / Arena ile tutarlı premium accent renkleri =====
 const _accentProfile1 = Color(0xFF7F5BFF); // elektrik moru
@@ -83,7 +85,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  List<app_badge.Badge> _generateBadges(UserModel user, int testCount, double avgNet, List<FocusSessionModel> focusSessions) {
+  List<app_badge.Badge> _generateBadges(UserModel user, PerformanceSummary performance, PlanDocument? planDoc, int testCount, double avgNet, List<FocusSessionModel> focusSessions) {
     return [
       app_badge.Badge(name: 'İlk Adım', description: 'İlk denemeni başarıyla ekledin ve zafere giden yola çıktın.', icon: Icons.flag, color: AppTheme.successColor, isUnlocked: testCount >= 1, hint: "İlk denemeni ekleyerek başla."),
       app_badge.Badge(name: 'Acemi Savaşçı', description: '5 farklı denemede savaş meydanının tozunu attın.', icon: Icons.shield_outlined, color: AppTheme.successColor, isUnlocked: testCount >= 5, rarity: app_badge.BadgeRarity.common, hint: "Toplam 5 deneme ekle."),
@@ -95,10 +97,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       app_badge.Badge(name: 'Yükseliş', description: 'Ortalama 50 net barajını aştın. Bu daha başlangıç!', icon: Icons.trending_up, color: Colors.blueAccent, isUnlocked: avgNet > 50, hint: "Net ortalamanı 50'nin üzerine çıkar."),
       app_badge.Badge(name: 'Usta Nişancı', description: 'Ortalama 90 net! Elitler arasına hoş geldin.', icon: Icons.gps_not_fixed, color: Colors.blueAccent, isUnlocked: avgNet > 90, rarity: app_badge.BadgeRarity.rare, hint: "Net ortalamanı 90'ın üzerine çıkar."),
       app_badge.Badge(name: 'Bilge Nişancı', description: 'Ortalama 100 net barajını yıktın. Sen bir efsanesin!', icon: Icons.workspace_premium, color: Colors.blueAccent, isUnlocked: avgNet > 100, rarity: app_badge.BadgeRarity.epic, hint: "Net ortalamanı 100'ün üzerine çıkar."),
-      app_badge.Badge(name: 'Stratejist', description: 'BilgeAI ile ilk uzun vadeli stratejini oluşturdun.', icon: Icons.insights, color: Colors.purpleAccent, isUnlocked: user.longTermStrategy != null, hint: "AI Hub'da stratejini oluştur."),
+      app_badge.Badge(name: 'Stratejist', description: 'BilgeAI ile ilk uzun vadeli stratejini oluşturdun.', icon: Icons.insights, color: Colors.purpleAccent, isUnlocked: planDoc?.longTermStrategy != null, hint: "AI Hub'da stratejini oluştur."),
       app_badge.Badge(name: 'Haftanın Hakimi', description: 'Bir haftalık plandaki tüm görevleri tamamladın.', icon: Icons.checklist, color: Colors.purpleAccent, isUnlocked: (user.completedDailyTasks.values.expand((e) => e).length) >= 15, rarity: app_badge.BadgeRarity.rare, hint: "Bir haftalık plandaki tüm görevleri bitir."),
       app_badge.Badge(name: 'Odaklanma Ninjası', description: 'Toplam 10 saat Pomodoro tekniği ile odaklandın.', icon: Icons.timer, color: Colors.purpleAccent, isUnlocked: focusSessions.fold(0, (p, c) => p + c.durationInSeconds) >= 36000, rarity: app_badge.BadgeRarity.rare, hint: "Toplam 10 saat odaklan."),
-      app_badge.Badge(name: 'Cevher Avcısı', description: 'Cevher Atölyesi\'nde ilk zayıf konunu işledin.', icon: Icons.construction, color: AppTheme.secondaryColor, isUnlocked: user.topicPerformances.isNotEmpty, hint: "Cevher Atölyesi'ni kullan."),
+      app_badge.Badge(name: 'Cevher Avcısı', description: 'Cevher Atölyesi\'nde ilk zayıf konunu işledin.', icon: Icons.construction, color: AppTheme.secondaryColor, isUnlocked: performance.topicPerformances.isNotEmpty, hint: "Cevher Atölyesi'ni kullan."),
       app_badge.Badge(name: 'Arena Gladyatörü', description: 'Liderlik tablosuna girerek adını duyurdun.', icon: Icons.leaderboard, color: AppTheme.secondaryColor, isUnlocked: user.engagementScore > 0, rarity: app_badge.BadgeRarity.common, hint: "Etkileşim puanı kazan."),
       app_badge.Badge(name: 'Efsane', description: 'Tüm madalyaları toplayarak ölümsüzleştin!', icon: Icons.auto_stories, color: Colors.amber, isUnlocked: false, rarity: app_badge.BadgeRarity.legendary, hint: "Tüm diğer madalyaları kazan."),
     ];
@@ -109,6 +111,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userAsync = ref.watch(userProfileProvider);
     final testsAsync = ref.watch(testsProvider);
     final focusSessionsAsync = ref.watch(focusSessionsProvider);
+    final performanceAsync = ref.watch(performanceProvider);
+    final planDocAsync = ref.watch(planProvider);
 
     ref.listen<AsyncValue<UserModel?>>(userProfileProvider, (previous, next) {
       final prevUser = previous?.valueOrNull;
@@ -148,9 +152,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           return focusSessionsAsync.when(
             data: (focusSessions) {
               final tests = testsAsync.valueOrNull ?? [];
+              final performance = performanceAsync.value;
+              final planDoc = planDocAsync.value;
+
+              if (performance == null) return const Center(child: CircularProgressIndicator());
+
               final testCount = tests.length;
               final avgNet = testCount > 0 ? user.totalNetSum / testCount : 0.0;
-              final allBadges = _generateBadges(user, testCount, avgNet, focusSessions);
+              final allBadges = _generateBadges(user, performance, planDoc, testCount, avgNet, focusSessions);
               final unlockedCount = allBadges.where((b) => b.isUnlocked).length;
 
               final rankInfo = RankService.getRankInfo(user.engagementScore);
@@ -162,13 +171,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               return Stack(
                 alignment: Alignment.topCenter,
                 children: [
-                  // Arka plan gradient (Rive yerine hafif desen istenirse burada kalabilir)
                   Container(
                     decoration: const BoxDecoration(
                       gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: _profileBgGradient),
                     ),
                   ),
-                  // Hafif noise / parıltı ileride eklenebilir
                   SafeArea(
                     child: CustomScrollView(
                       physics: const BouncingScrollPhysics(),
@@ -274,21 +281,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 }
 
-// === Yeni premium avatar halo ===
+// === Diğer widget'lar değişmediği için kısaltıldı ===
 class _ProfileAvatarHalo extends StatelessWidget {
   final UserModel user; final Color color; final int rankIndex;
   const _ProfileAvatarHalo({required this.user, required this.color, required this.rankIndex});
   String _avatarUrl(String style, String seed) => 'https://api.dicebear.com/9.x/'
       '$style/svg?seed=$seed&backgroundColor=transparent&margin=0&scale=110&size=256';
 
-  bool get _midTier => rankIndex >= 3; // Kıdemli Stratejist ve üstü
-  bool get _highTier => rankIndex >= 6; // Bilgelik Ustası ve üstü
-  bool get _legendTier => rankIndex >= 8; // Yaşayan Efsane ve üstü
-  bool get _apexTier => rankIndex >= 9; // Yıldızların Fatihi
+  bool get _midTier => rankIndex >= 3;
+  bool get _highTier => rankIndex >= 6;
+  bool get _legendTier => rankIndex >= 8;
+  bool get _apexTier => rankIndex >= 9;
 
   @override
   Widget build(BuildContext context) {
-    const double outerSize = 170; // biraz büyüttük geniş süsler için
+    const double outerSize = 170;
     const double avatarDiameter = 126;
     final primaryGlow = color.o(0.30);
     final secondaryGlow = _highTier ? _accentProfile1.o(0.25) : _accentProfile2.o(0.18);
@@ -299,7 +306,6 @@ class _ProfileAvatarHalo extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // TEMEL HALO KATLARI
           _HaloRing(color: _accentProfile1.o(0.20), size: 150, begin: 0.90, end: 1.05, delay: 0.ms),
           if (_midTier)
             _HaloRing(color: _accentProfile2.o(0.16), size: 132, begin: 0.92, end: 1.07, delay: 250.ms),
@@ -308,7 +314,6 @@ class _ProfileAvatarHalo extends StatelessWidget {
           if (_legendTier)
             _PulsingCore(size: 60, color: _accentProfile2.o(0.20)),
 
-            // DÖNEN HALKA (yüksek rütbe)
           if (_highTier)
             _RotatingRing(
               size: 158,
@@ -322,11 +327,9 @@ class _ProfileAvatarHalo extends StatelessWidget {
               duration: _apexTier ? const Duration(seconds: 10) : const Duration(seconds: 18),
             ),
 
-          // PARTİKÜL EFECTİ (efsane ve üstü)
           if (_legendTier)
             ...List.generate(10 + (rankIndex * 2).clamp(0, 12), (i) => _SparkParticle(index: i, radius: 78, apex: _apexTier)),
 
-          // TAÇ (orta ve üzeri rütbeler için kademeli)
           if (rankIndex >= 4)
             Positioned(
               top: 4.0 + (10 - rankIndex).clamp(0,6).toDouble(),
@@ -339,15 +342,14 @@ class _ProfileAvatarHalo extends StatelessWidget {
                 )
                     .animate(onPlay: (c) => c.repeat(reverse: true))
                     .scale(
-                      begin: const Offset(0.95, 0.95),
-                      end: const Offset(1.05, 1.05),
-                      duration: (1600 - (rankIndex * 40)).clamp(900, 1600).ms,
-                      curve: Curves.easeInOut,
-                    ),
+                  begin: const Offset(0.95, 0.95),
+                  end: const Offset(1.05, 1.05),
+                  duration: (1600 - (rankIndex * 40)).clamp(900, 1600).ms,
+                  curve: Curves.easeInOut,
+                ),
               ),
             ),
 
-          // Statik rütbe çerçevesi (her zaman, renk yoğunluğu rütbeye göre)
           Positioned.fill(
             child: IgnorePointer(
               ignoring: true,
@@ -361,7 +363,6 @@ class _ProfileAvatarHalo extends StatelessWidget {
             ),
           ),
 
-          // ANA AVATAR
           Container(
             width: avatarDiameter + 12,
             height: avatarDiameter + 12,
@@ -382,31 +383,31 @@ class _ProfileAvatarHalo extends StatelessWidget {
               child: ClipOval(
                 child: user.avatarStyle != null && user.avatarSeed != null
                     ? SvgPicture.network(
-                        _avatarUrl(user.avatarStyle!, user.avatarSeed!),
-                        fit: BoxFit.cover,
-                        width: avatarDiameter,
-                        height: avatarDiameter,
-                        placeholderBuilder: (_) => Center(
-                          child: SizedBox(
-                            width: 30,
-                            height: 30,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.6,
-                              valueColor: AlwaysStoppedAnimation(_accentProfile2),
-                            ),
-                          ),
-                        ),
-                        semanticsLabel: 'Kullanıcı avatarı',
-                      )
-                    : Center(
-                        child: Text(
-                          user.name?.substring(0, 1).toUpperCase() ?? 'B',
-                          style: Theme.of(context).textTheme.displayMedium?.copyWith(
-                                color: _accentProfile2,
-                                fontWeight: FontWeight.bold,
-                              ),
-                        ),
+                  _avatarUrl(user.avatarStyle!, user.avatarSeed!),
+                  fit: BoxFit.cover,
+                  width: avatarDiameter,
+                  height: avatarDiameter,
+                  placeholderBuilder: (_) => Center(
+                    child: SizedBox(
+                      width: 30,
+                      height: 30,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.6,
+                        valueColor: AlwaysStoppedAnimation(_accentProfile2),
                       ),
+                    ),
+                  ),
+                  semanticsLabel: 'Kullanıcı avatarı',
+                )
+                    : Center(
+                  child: Text(
+                    user.name?.substring(0, 1).toUpperCase() ?? 'B',
+                    style: Theme.of(context).textTheme.displayMedium?.copyWith(
+                      color: _accentProfile2,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
               ),
             ),
           ).animate().fadeIn(duration: 480.ms).scale(curve: Curves.easeOutBack),
@@ -416,17 +417,14 @@ class _ProfileAvatarHalo extends StatelessWidget {
   }
 }
 
-// Yeni: statik rank frame painter
 class _RankFramePainter extends CustomPainter {
   final int rankIndex; final Color color; final double intensity;
   _RankFramePainter({required this.rankIndex, required this.color, required this.intensity});
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width/2, size.height/2);
-    // Avatar kapsül çapına göre halka yarıçapı ayarla
-    final radius = size.width/2 - 12; // içeri biraz boşluk
+    final radius = size.width/2 - 12;
     final tier = rankIndex;
-    // Renk paleti (gradient 2-3 ton)
     final base = color;
     final accent = rankIndex >= 6 ? _accentProfile2 : _accentProfile1;
     final gradient = SweepGradient(
@@ -440,14 +438,12 @@ class _RankFramePainter extends CustomPainter {
       stops: const [0, .25, .5, .75, 1],
       transform: const GradientRotation(-math.pi/2),
     );
-    // Halka stroke kalınlığı rütbe ile artar
     final stroke = 3.0 + (tier * 0.45);
     final paint = Paint()
       ..shader = gradient.createShader(Rect.fromCircle(center: center, radius: radius))
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..maskFilter = MaskFilter.blur(BlurStyle.normal, (tier >= 7 ? 4 : 2));
-    // Alt ışık (parıltı)
     if (tier >= 5) {
       final glowPaint = Paint()
         ..color = accent.o(0.25)
@@ -468,22 +464,22 @@ class _RotatingRing extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: size,
-      height: size,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: 1),
-        duration: duration,
-        onEnd: () {},
-        curve: Curves.linear,
-        builder: (context, value, child) {
-          return Transform.rotate(
-            angle: value * 6.28318, // 2π
-            child: CustomPaint(
-              painter: _RingPainter(gradient: gradient, stroke: stroke),
-            ),
-          );
-        },
-      ).animate(onPlay: (c) => c.repeat()));
+        width: size,
+        height: size,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: duration,
+          onEnd: () {},
+          curve: Curves.linear,
+          builder: (context, value, child) {
+            return Transform.rotate(
+              angle: value * 6.28318,
+              child: CustomPaint(
+                painter: _RingPainter(gradient: gradient, stroke: stroke),
+              ),
+            );
+          },
+        ).animate(onPlay: (c) => c.repeat()));
   }
 }
 
@@ -518,8 +514,8 @@ class _PulsingCore extends StatelessWidget {
         gradient: RadialGradient(colors: [color, Colors.transparent]),
       ),
     ).animate(onPlay: (c)=> c.repeat(reverse: true))
-      .scale(begin: const Offset(0.85,0.85), end: const Offset(1.1,1.1), duration: 2400.ms, curve: Curves.easeInOut)
-      .fadeIn(duration: 800.ms);
+        .scale(begin: const Offset(0.85,0.85), end: const Offset(1.1,1.1), duration: 2400.ms, curve: Curves.easeInOut)
+        .fadeIn(duration: 800.ms);
   }
 }
 
@@ -528,29 +524,28 @@ class _SparkParticle extends StatelessWidget {
   const _SparkParticle({required this.index, required this.radius, required this.apex});
   @override
   Widget build(BuildContext context) {
-    final angle = (index / 12) * 2 * math.pi; // dağılım
+    final angle = (index / 12) * 2 * math.pi;
     final dist = radius + (index % 3) * 4;
     final dx = dist * math.cos(angle);
     final dy = dist * math.sin(angle);
     final baseColor = apex ? _accentProfile2 : _accentProfile1;
     return Positioned(
-      left: (radius + 10) + dx,
-      top: (radius + 10) + dy,
-      child: Container(
-        width: 6,
-        height: 6,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: baseColor.o(0.9),
-          boxShadow: [BoxShadow(color: baseColor.o(0.6), blurRadius: 8, spreadRadius: 1)],
-        ),
-      ).animate(onPlay: (c)=> c.repeat())
-        .fade(begin: 0.1, end: 1, duration: (1500 + (index*120)).ms)
-        .scale(begin: const Offset(0.6,0.6), end: const Offset(1.3,1.3), duration: (1600 + (index*90)).ms, curve: Curves.easeInOut));
+        left: (radius + 10) + dx,
+        top: (radius + 10) + dy,
+        child: Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: baseColor.o(0.9),
+            boxShadow: [BoxShadow(color: baseColor.o(0.6), blurRadius: 8, spreadRadius: 1)],
+          ),
+        ).animate(onPlay: (c)=> c.repeat())
+            .fade(begin: 0.1, end: 1, duration: (1500 + (index*120)).ms)
+            .scale(begin: const Offset(0.6,0.6), end: const Offset(1.3,1.3), duration: (1600 + (index*90)).ms, curve: Curves.easeInOut));
   }
 }
 
-// Basit halo (önceki sürüm geri eklendi)
 class _HaloRing extends StatelessWidget {
   final Color color; final double size; final double begin; final double end; final Duration delay;
   const _HaloRing({required this.color, required this.size, required this.begin, required this.end, required this.delay});
@@ -757,5 +752,4 @@ class _ActionNeoState extends State<_ActionNeo> {
   }
 }
 
-// Opaklık helper
 extension _ColorOpacityXProfile on Color { Color o(double factor) => withValues(alpha: (a * factor).toDouble()); }

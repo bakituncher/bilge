@@ -1,9 +1,11 @@
 // lib/features/profile/widgets/profile_action_cards.dart
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
+import 'package:bilge_ai/data/providers/firestore_providers.dart';
 
 class TimeManagementActions extends StatelessWidget {
   const TimeManagementActions({super.key});
@@ -39,12 +41,14 @@ class TimeManagementActions extends StatelessWidget {
   }
 }
 
-class StrategicActions extends StatelessWidget {
+class StrategicActions extends ConsumerWidget {
   final UserModel user;
   const StrategicActions({super.key, required this.user});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final planDoc = ref.watch(planProvider).value;
+
     return Card(
       color: AppTheme.secondaryColor.withOpacity(0.1),
       shape: RoundedRectangleBorder(
@@ -66,7 +70,7 @@ class StrategicActions extends StatelessWidget {
               ),
             );
           } else {
-            if(user.longTermStrategy != null && user.weeklyPlan != null) {
+            if(planDoc?.longTermStrategy != null && planDoc?.weeklyPlan != null) {
               context.push('${AppRoutes.aiHub}/${AppRoutes.commandCenter}', extra: user);
             } else {
               context.push('${AppRoutes.aiHub}/${AppRoutes.strategicPlanning}');

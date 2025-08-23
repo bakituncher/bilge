@@ -9,9 +9,8 @@ import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
-import 'dart:ui'; // glass effect için eklendi
+import 'dart:ui';
 
-// Yardımcı: 0-1 aralığına güvenli double sıkıştırma
 double _clamp01(num v) {
   if (v.isNaN) return 0.0;
   if (v < 0) return 0.0;
@@ -19,7 +18,6 @@ double _clamp01(num v) {
   return v.toDouble();
 }
 
-// Bu kartın kendi içindeki günü yönetmesi için özel provider
 final _selectedDayProvider = StateProvider.autoDispose<int>((ref) {
   int todayIndex = DateTime.now().weekday - 1;
   return todayIndex.clamp(0, 6);
@@ -30,9 +28,11 @@ class WeeklyPlanCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final weeklyPlanData = ref.watch(userProfileProvider.select((user) => user.value?.weeklyPlan));
-    final userId = ref.watch(userProfileProvider.select((user) => user.value?.id));
+    final planDoc = ref.watch(planProvider).value;
+    final userId = ref.watch(userProfileProvider).value?.id;
+
     if (userId == null) return const SizedBox.shrink();
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -55,7 +55,7 @@ class WeeklyPlanCard extends ConsumerWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: _PlanView(
-          weeklyPlan: weeklyPlanData != null ? WeeklyPlan.fromJson(weeklyPlanData) : null,
+          weeklyPlan: planDoc?.weeklyPlan != null ? WeeklyPlan.fromJson(planDoc!.weeklyPlan!) : null,
           userId: userId,
         ),
       ),
@@ -81,12 +81,11 @@ class _PlanView extends ConsumerWidget {
     final startOfWeek = today.subtract(Duration(days: today.weekday - 1));
     final dateForTab = startOfWeek.add(Duration(days: selectedDayIndex));
     final dateKey = DateFormat('yyyy-MM-dd').format(dateForTab);
-    final user = ref.watch(userProfileProvider).value;
 
     return Column(children: [
       _HeaderBar(dateForTab: dateForTab, weeklyPlan: weeklyPlan!, userId: userId),
       _DaySelector(days: _daysOfWeekShort),
-      const SizedBox(height: 8), // önce inline CTA vardı; kaldırıldı, boşluk ayarlandı
+      const SizedBox(height: 8),
       Expanded(
         child: AnimatedSwitcher(
           duration: 300.ms,
@@ -94,20 +93,20 @@ class _PlanView extends ConsumerWidget {
           child: dailyPlan.schedule.isEmpty
               ? const _RestDay()
               : ListView.separated(
-                  key: PageStorageKey<String>(dayName),
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
-                  itemCount: dailyPlan.schedule.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) {
-                    final scheduleItem = dailyPlan.schedule[index];
-                    return _TaskTile(
-                      key: ValueKey('$dateKey-${scheduleItem.time}-${scheduleItem.activity}'),
-                      item: scheduleItem,
-                      dateKey: dateKey,
-                      userId: userId,
-                    ).animate().fadeIn(delay: (40 * index).ms).slideX(begin: .15, curve: Curves.easeOutCubic);
-                  },
-                ),
+            key: PageStorageKey<String>(dayName),
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            itemCount: dailyPlan.schedule.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final scheduleItem = dailyPlan.schedule[index];
+              return _TaskTile(
+                key: ValueKey('$dateKey-${scheduleItem.time}-${scheduleItem.activity}'),
+                item: scheduleItem,
+                dateKey: dateKey,
+                userId: userId,
+              ).animate().fadeIn(delay: (40 * index).ms).slideX(begin: .15, curve: Curves.easeOutCubic);
+            },
+          ),
         ),
       ),
     ]);
@@ -148,60 +147,6 @@ class _HeaderBar extends ConsumerWidget {
 
 class _RestDay extends StatelessWidget { const _RestDay(); @override Widget build(BuildContext context){ return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children:[ const Icon(Icons.self_improvement_rounded,size:48,color:AppTheme.secondaryColor), const SizedBox(height:12), Text('Dinlenme Günü', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)), const SizedBox(height:6), Text('Zihinsel depoları doldur – yarın yeniden hücum.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)) ]).animate().fadeIn(duration: 400.ms)); } }
 
-class _WeeklyProgressSummary extends ConsumerWidget {
-  final WeeklyPlan weeklyPlan;
-  final String userId;
-  const _WeeklyProgressSummary({required this.weeklyPlan, required this.userId});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(userProfileProvider).value;
-    if (user == null) return const SizedBox.shrink();
-
-    // Haftanın başlangıcı
-    final now = DateTime.now();
-    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-
-    int total = 0; int done = 0;
-    for (int i=0;i<weeklyPlan.plan.length;i++) {
-      final dp = weeklyPlan.plan[i];
-      total += dp.schedule.length;
-      final date = startOfWeek.add(Duration(days: i));
-      final key = DateFormat('yyyy-MM-dd').format(date);
-      done += (user.completedDailyTasks[key] ?? []).length;
-    }
-    if (total == 0) return const SizedBox.shrink();
-    final double ratio = done/total;
-
-    return Column(
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: _clamp01(ratio),
-                  minHeight: 8,
-                  backgroundColor: AppTheme.lightSurfaceColor,
-                  valueColor: AlwaysStoppedAnimation<Color>(ratio >= .75 ? AppTheme.successColor : AppTheme.secondaryColor),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text('${(ratio*100).round()}%', style: const TextStyle(fontWeight: FontWeight.bold)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text('Haftalık ilerleme: $done / $total görev', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.secondaryTextColor)),
-        ),
-      ],
-    );
-  }
-}
-
 class _DaySelector extends ConsumerWidget {
   final List<String> days;
   const _DaySelector({required this.days});
@@ -216,7 +161,6 @@ class _DaySelector extends ConsumerWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: List.generate(days.length, (index) {
-            // HATA BURADAYDI, DÜZELTİLDİ: 'isSelected' değişkeni tekrar tanımlandı.
             final isSelected = selectedDayIndex == index;
             return GestureDetector(
               onTap: () => ref.read(_selectedDayProvider.notifier).state = index,
@@ -270,7 +214,6 @@ class _TaskTile extends ConsumerWidget {
           (user) => user.value?.completedDailyTasks[dateKey]?.contains(taskIdentifier) ?? false,
     ));
 
-    // HATA: Burada Material ve InkWell eklenerek düzeltildi.
     return Material(
       color: Colors.transparent,
       child: InkWell(

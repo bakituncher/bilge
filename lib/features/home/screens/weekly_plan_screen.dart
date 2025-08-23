@@ -6,7 +6,6 @@ import 'package:intl/intl.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
-import 'package:bilge_ai/data/repositories/firestore_service.dart';
 import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
 import 'package:flutter/services.dart'; // Haptic için
 
@@ -21,7 +20,8 @@ class WeeklyPlanScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;
-    final weeklyPlan = user?.weeklyPlan != null ? WeeklyPlan.fromJson(user!.weeklyPlan!) : null;
+    final planDoc = ref.watch(planProvider).value;
+    final weeklyPlan = planDoc?.weeklyPlan != null ? WeeklyPlan.fromJson(planDoc!.weeklyPlan!) : null;
 
     if (user == null || weeklyPlan == null) {
       return Scaffold(appBar: AppBar(), body: const Center(child: Text("Aktif bir haftalık plan bulunamadı.")));
@@ -62,7 +62,6 @@ class WeeklyPlanScreen extends ConsumerWidget {
                   ],
                 ).animate().fadeIn(duration: 500.ms),
               ),
-              // Yeni: Haftalık özet kartı
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
                 child: WeeklyOverviewCard(weeklyPlan: weeklyPlan, userId: user.id),
@@ -141,7 +140,7 @@ class _DaySelector extends ConsumerWidget {
   }
 }
 
-class _TaskListView extends ConsumerStatefulWidget { // ConsumerWidget -> Stateful
+class _TaskListView extends ConsumerStatefulWidget {
   final DailyPlan dailyPlan; final String userId;
   const _TaskListView({super.key, required this.dailyPlan, required this.userId});
   @override
@@ -221,7 +220,7 @@ class _DaySummaryHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        color: AppTheme.cardColor.withOpacity(.55), // nötrleştirildi
+        color: AppTheme.cardColor.withOpacity(.55),
         border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(.20)),
       ),
       child: Column(
@@ -231,7 +230,7 @@ class _DaySummaryHeader extends StatelessWidget {
             children: [
               Expanded(
                 child: Text('$dayLabel • $dateStr', maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600)),
               ),
               Text('${(progress*100).toStringAsFixed(0)}%',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(color: AppTheme.secondaryColor, fontWeight: FontWeight.w700)),
@@ -419,7 +418,7 @@ class _TaskTimelineTile extends StatelessWidget {
   final bool isFirst;
   final bool isLast;
   final VoidCallback onToggle;
-  final String dateKey; // yeni
+  final String dateKey;
 
   const _TaskTimelineTile({
     required this.item,
@@ -442,7 +441,6 @@ class _TaskTimelineTile extends StatelessWidget {
   }
 
   IconData _getIconForTaskType(String type) {
-    // ... (öncekiyle aynı ikon fonksiyonu)
     switch (type.toLowerCase()) {
       case 'study': return Icons.book_rounded;
       case 'practice': case 'routine': return Icons.edit_note_rounded;
@@ -463,7 +461,7 @@ class _TaskTimelineTile extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-            onTap: onToggle,
+          onTap: onToggle,
           child: AnimatedContainer(
             duration: 300.ms,
             curve: Curves.easeOutCubic,
@@ -474,7 +472,6 @@ class _TaskTimelineTile extends StatelessWidget {
             ),
             child: Row(
               children: [
-                // Sol şerit + ikon rozeti birlikte
                 Container(
                   width: 50,
                   padding: const EdgeInsets.symmetric(vertical: 10),
@@ -546,8 +543,8 @@ class _TaskTimelineTile extends StatelessWidget {
                       border: Border.all(color: accent.withOpacity(.55), width: 1.1),
                     ),
                     child: Icon(isCompleted ? Icons.check_rounded : Icons.circle_outlined, color: Colors.white)
-                      .animate(target: isCompleted ? 1 : 0)
-                      .scale(duration: 300.ms, curve: Curves.easeOutBack),
+                        .animate(target: isCompleted ? 1 : 0)
+                        .scale(duration: 300.ms, curve: Curves.easeOutBack),
                   ),
                 )
               ],

@@ -11,6 +11,7 @@ import 'package:bilge_ai/data/models/user_model.dart';
 import 'package:bilge_ai/core/navigation/app_routes.dart';
 import 'package:intl/intl.dart';
 import 'package:bilge_ai/data/models/plan_model.dart';
+import 'package:bilge_ai/data/models/plan_document.dart';
 
 
 enum Pacing { relaxed, moderate, intense }
@@ -31,9 +32,11 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
     final pacing = _ref.read(selectedPacingProvider);
     final user = _ref.read(userProfileProvider).value;
     final tests = _ref.read(testsProvider).value;
+    final performance = _ref.read(performanceProvider).value;
+    final planDoc = _ref.read(planProvider).value;
 
-    if (user == null || tests == null) {
-      state = AsyncValue.error("Kullanıcı veya test verisi bulunamadı.", StackTrace.current);
+    if (user == null || tests == null || performance == null) {
+      state = AsyncValue.error("Kullanıcı, test veya performans verisi bulunamadı.", StackTrace.current);
       return;
     }
 
@@ -41,6 +44,8 @@ class StrategyGenerationNotifier extends StateNotifier<AsyncValue<void>> {
       final resultJson = await _ref.read(aiServiceProvider).generateGrandStrategy(
         user: user,
         tests: tests,
+        performance: performance,
+        planDoc: planDoc,
         pacing: pacing.name,
         revisionRequest: revisionRequest,
       );
@@ -92,6 +97,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProfileProvider);
     final tests = ref.watch(testsProvider).valueOrNull;
+    final planDoc = ref.watch(planProvider).valueOrNull;
     final step = ref.watch(planningStepProvider);
 
     ref.listen<AsyncValue<void>>(strategyGenerationProvider, (_, state) {
@@ -111,9 +117,9 @@ class StrategicPlanningScreen extends ConsumerWidget {
           return const Scaffold(body: Center(child: Text("Kullanıcı verisi bulunamadı.")));
         }
 
-        if (user.longTermStrategy != null && user.weeklyPlan != null) {
+        if (planDoc?.longTermStrategy != null && planDoc?.weeklyPlan != null) {
           if(step != PlanningStep.confirmation && step != PlanningStep.pacing && step != PlanningStep.loading) {
-            return _buildStrategyDisplay(context, ref, user);
+            return _buildStrategyDisplay(context, ref, user, planDoc!);
           }
         }
 
@@ -179,11 +185,8 @@ class StrategicPlanningScreen extends ConsumerWidget {
     }
   }
 
-  // =======================================================================
-  // KUSURSUZ KULLANICI DENEYİMİ İÇİN YENİDEN TASARLANAN "MEVCUT STRATEJİ VAR" EKRANI
-  // =======================================================================
-  Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref, UserModel user) {
-    final weeklyPlan = WeeklyPlan.fromJson(user.weeklyPlan!);
+  Widget _buildStrategyDisplay(BuildContext context, WidgetRef ref, UserModel user, PlanDocument planDoc) {
+    final weeklyPlan = WeeklyPlan.fromJson(planDoc.weeklyPlan!);
 
     return Scaffold(
       appBar: AppBar(
@@ -213,7 +216,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
                   children: [
                     _ActionCard(
                       title: "Haftalık Cephe Planı",
-                      subtitle: "G��nlük görevlerini ve hedeflerini gör.",
+                      subtitle: "Günlük görevlerini ve hedeflerini gör.",
                       icon: Icons.calendar_view_week_rounded,
                       onTap: () => context.push('/home/weekly-plan'),
                     ).animate().fadeIn(delay: 200.ms, duration: 400.ms).slideX(begin: -0.2),
@@ -246,7 +249,6 @@ class StrategicPlanningScreen extends ConsumerWidget {
     );
   }
 
-  // YENİ EKLENEN ÖZEL WIDGET: EYLEM KARTI
   Widget _ActionCard({
     required String title,
     required String subtitle,
@@ -281,9 +283,7 @@ class StrategicPlanningScreen extends ConsumerWidget {
     );
   }
 
-  // HAREKÂT MÜHRÜ WIDGET'I (Değişiklik yok)
   Widget _buildSealOfCommand(BuildContext context, WeeklyPlan weeklyPlan) {
-    // ... (Bu fonksiyon bir önceki cevaptaki ile aynı kalmıştır)
     return Animate(
       onPlay: (controller) => controller.repeat(reverse: true),
       effects: [
@@ -381,10 +381,12 @@ class StrategicPlanningScreen extends ConsumerWidget {
   Widget _buildConfirmationView(BuildContext context, WidgetRef ref) {
     final user = ref.watch(userProfileProvider).value;
     final tests = ref.watch(testsProvider).valueOrNull ?? [];
-    if(user == null) return const Center(child: CircularProgressIndicator());
+    final performance = ref.watch(performanceProvider).value;
+
+    if(user == null || performance == null) return const Center(child: CircularProgressIndicator());
 
     final totalHours = user.weeklyAvailability.values.expand((slots) => slots).length * 2;
-    final analyzedTopicsCount = user.topicPerformances.values.expand((subject) => subject.values).where((topic) => topic.questionCount > 3).length;
+    final analyzedTopicsCount = performance.topicPerformances.values.expand((subject) => subject.values).where((topic) => topic.questionCount > 3).length;
     final isTimeMapOk = totalHours >= 10;
     final isGalaxyOk = analyzedTopicsCount >= 5;
 
@@ -476,9 +478,6 @@ class StrategicPlanningScreen extends ConsumerWidget {
     ).animate().fadeIn();
   }
 
-  // =======================================================================
-  // YENİLENEN, "NİRVANA" TEMPO SEÇİM EKRANI
-  // =======================================================================
   Widget _buildPacingView(BuildContext context, WidgetRef ref) {
     return Column(
       children: [
@@ -654,9 +653,6 @@ class _ChecklistItemCard extends StatelessWidget {
   }
 }
 
-// =======================================================================
-// YENİ, "NİRVANA" TEMPO SEÇİM KARTI WIDGET'I
-// =======================================================================
 class _PacingCard extends StatelessWidget {
   final Pacing pacing;
   final IconData icon;

@@ -2,6 +2,8 @@
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:bilge_ai/data/models/user_model.dart';
+import 'package:bilge_ai/data/models/performance_summary.dart';
+import 'package:bilge_ai/data/models/plan_document.dart';
 
 class StrategyPrompts {
   static String? _yksTemplate;
@@ -82,6 +84,7 @@ class StrategyPrompts {
     required int daysUntilExam,
     required String topicPerformancesJson,
     required String availabilityJson,
+    required String? weeklyPlanJson,
     String? revisionRequest,
   }) {
     assert(_lgsTemplate != null, 'StrategyPrompts.preload() çağrılmalı');
@@ -98,7 +101,7 @@ class StrategyPrompts {
       'AVG_NET': avgNet,
       'SUBJECT_AVERAGES': jsonEncode(subjectAverages),
       'TOPIC_PERFORMANCES_JSON': topicPerformancesJson,
-      'WEEKLY_PLAN_TEXT': user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : 'YOK. HAREKÂT BAŞLIYOR.',
+      'WEEKLY_PLAN_TEXT': weeklyPlanJson ?? 'YOK. HAREKÂT BAŞLIYOR.',
     };
     return _fillTemplate(template, replacements);
   }
@@ -112,6 +115,7 @@ class StrategyPrompts {
     required String topicPerformancesJson,
     required String availabilityJson,
     required String examName,
+    required String? weeklyPlanJson,
     String? revisionRequest,
   }) {
     assert(_kpssTemplate != null, 'StrategyPrompts.preload() çağrılmalı');
@@ -129,88 +133,8 @@ class StrategyPrompts {
       'AVG_NET': avgNet,
       'SUBJECT_AVERAGES': jsonEncode(subjectAverages),
       'TOPIC_PERFORMANCES_JSON': topicPerformancesJson,
-      'WEEKLY_PLAN_TEXT': user.weeklyPlan != null ? jsonEncode(user.weeklyPlan) : 'YOK. PLANLAMA BAŞLIYOR.',
+      'WEEKLY_PLAN_TEXT': weeklyPlanJson ?? 'YOK. PLANLAMA BAŞLIYOR.',
     };
     return _fillTemplate(template, replacements);
   }
-}
-
-String getYksPrompt(
-  String userId,
-  String selectedExamSection,
-  int daysUntilExam,
-  String goal,
-  List<String>? challenges,
-  String pacing,
-  int testCount,
-  String avgNet,
-  Map<String, double> subjectAverages,
-  String topicPerformancesJson,
-  String availabilityJson,
-  String? weeklyPlanJson,
-  String completedTasksJson,
-  {String? revisionRequest}
-) {
-  return StrategyPrompts.getYksPrompt(
-    userId: userId,
-    selectedExamSection: selectedExamSection,
-    daysUntilExam: daysUntilExam,
-    goal: goal,
-    challenges: challenges,
-    pacing: pacing,
-    testCount: testCount,
-    avgNet: avgNet,
-    subjectAverages: subjectAverages,
-    topicPerformancesJson: topicPerformancesJson,
-    availabilityJson: availabilityJson,
-    weeklyPlanJson: weeklyPlanJson,
-    completedTasksJson: completedTasksJson,
-    revisionRequest: revisionRequest,
-  );
-}
-
-String getLgsPrompt(
-  UserModel user,
-  String avgNet,
-  Map<String, double> subjectAverages,
-  String pacing,
-  int daysUntilExam,
-  String topicPerformancesJson,
-  String availabilityJson,
-  {String? revisionRequest}
-) {
-  return StrategyPrompts.getLgsPrompt(
-    user: user,
-    avgNet: avgNet,
-    subjectAverages: subjectAverages,
-    pacing: pacing,
-    daysUntilExam: daysUntilExam,
-    topicPerformancesJson: topicPerformancesJson,
-    availabilityJson: availabilityJson,
-    revisionRequest: revisionRequest,
-  );
-}
-
-String getKpssPrompt(
-  UserModel user,
-  String avgNet,
-  Map<String, double> subjectAverages,
-  String pacing,
-  int daysUntilExam,
-  String topicPerformancesJson,
-  String availabilityJson,
-  String examName,
-  {String? revisionRequest}
-) {
-  return StrategyPrompts.getKpssPrompt(
-    user: user,
-    avgNet: avgNet,
-    subjectAverages: subjectAverages,
-    pacing: pacing,
-    daysUntilExam: daysUntilExam,
-    topicPerformancesJson: topicPerformancesJson,
-    availabilityJson: availabilityJson,
-    examName: examName,
-    revisionRequest: revisionRequest,
-  );
 }
