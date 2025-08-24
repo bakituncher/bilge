@@ -39,7 +39,15 @@ class QuestProgressController {
         case QuestProgressType.increment:
           newProgress += amount; break;
         case QuestProgressType.set_to_value:
-          if (quest.id == 'consistency_01') newProgress = user.dailyVisits.length; else newProgress = user.streak; break;
+          if (quest.id == 'consistency_01') {
+            final visits = await firestoreSvc.getVisitsForMonth(user.id, DateTime.now());
+            final now = DateTime.now();
+            final todays = visits.where((ts){ final d=ts.toDate(); return d.year==now.year && d.month==now.month && d.day==now.day;}).length;
+            newProgress = todays;
+          } else {
+            newProgress = user.streak;
+          }
+          break;
       }
       final willComplete = newProgress >= quest.goalValue;
       if (willComplete) {

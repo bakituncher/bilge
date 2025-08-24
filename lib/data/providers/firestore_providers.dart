@@ -63,3 +63,9 @@ final appStateProvider = StreamProvider<AppState?>((ref) {
   }
   return Stream.value(null);
 });
+
+final completedTasksForDateProvider = FutureProvider.family<List<String>, DateTime>((ref, date) async {
+  final user = ref.watch(authControllerProvider).value;
+  if (user == null) return [];
+  return ref.read(firestoreServiceProvider).getCompletedTasksForDate(user.uid, date);
+});

@@ -159,9 +159,10 @@ class _TaskListViewState extends ConsumerState<_TaskListView> with AutomaticKeep
     final dateForTab = startOfWeek.add(Duration(days: dayIndex));
     final dateKey = DateFormat('yyyy-MM-dd').format(dateForTab);
     final totalTasks = dailyPlan.schedule.length;
+    final completedList = ref.watch(completedTasksForDateProvider(dateForTab)).maybeWhen(data: (list)=> list, orElse: ()=> const <String>[]);
     final completedCount = dailyPlan.schedule.where((item) {
       final taskIdentifier = '${item.time}-${item.activity}';
-      return ref.watch(userProfileProvider.select((user) => user.value?.completedDailyTasks[dateKey]?.contains(taskIdentifier) ?? false));
+      return completedList.contains(taskIdentifier);
     }).length;
     final progress = totalTasks == 0 ? 0.0 : completedCount / totalTasks;
 
@@ -176,7 +177,7 @@ class _TaskListViewState extends ConsumerState<_TaskListView> with AutomaticKeep
             itemBuilder: (context, index) {
               final item = dailyPlan.schedule[index];
               final taskIdentifier = '${item.time}-${item.activity}';
-              final isCompleted = ref.watch(userProfileProvider.select((user) => user.value?.completedDailyTasks[dateKey]?.contains(taskIdentifier) ?? false));
+              final isCompleted = completedList.contains(taskIdentifier);
               return RepaintBoundary(
                 child: _TaskTimelineTile(
                   item: item,
@@ -272,11 +273,11 @@ class WeeklyOverviewCard extends ConsumerWidget {
       final dk = dateKeys[idx];
       totalTasks += d.schedule.length;
       dayTotals[dk] = d.schedule.length;
+      final completedList = ref.watch(completedTasksForDateProvider(dates[idx])).maybeWhen(data: (list)=> list, orElse: ()=> const <String>[]);
       int compForDay = 0;
       for (final item in d.schedule) {
         final id = '${item.time}-${item.activity}';
-        final done = ref.watch(userProfileProvider.select((p)=> p.value?.completedDailyTasks[dk]?.contains(id) ?? false));
-        if (done) compForDay++;
+        if (completedList.contains(id)) compForDay++;
       }
       completedTasks += compForDay;
       dayCompleted[dk] = compForDay;

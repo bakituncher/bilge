@@ -129,12 +129,14 @@ class QuestService {
     templates.shuffle();
     templates.removeWhere((t) => existingQuests.any((q) => q.id == t.id));
 
-    final todayKey = _dateKey(DateTime.now());
-    final todayCompletedPlanTasks = user.completedDailyTasks[todayKey]?.length ?? 0;
+    final now = DateTime.now();
+    final todayKey = _dateKey(now);
+    final completedToday = await _ref.read(firestoreServiceProvider).getCompletedTasksForDate(user.id, now);
+    final todayCompletedPlanTasks = completedToday.length;
 
-    final yesterday = DateTime.now().subtract(const Duration(days: 1));
-    final yesterdayRatio = user.lastScheduleCompletionRatio ?? 0.0;
-    final wasInactiveYesterday = !(user.dailyVisits.any((ts) {
+    final yesterday = now.subtract(const Duration(days: 1));
+    final visitsMonth = await _ref.read(firestoreServiceProvider).getVisitsForMonth(user.id, yesterday);
+    final wasInactiveYesterday = !(visitsMonth.any((ts) {
       final d = ts.toDate();
       return d.year == yesterday.year && d.month == yesterday.month && d.day == yesterday.day;
     }));
@@ -146,7 +148,7 @@ class QuestService {
 
     final ctx = QuestContext(
       tests: tests,
-      yesterdayPlanRatio: yesterdayRatio,
+      yesterdayPlanRatio: user.lastScheduleCompletionRatio ?? 0.0,
       wasInactiveYesterday: wasInactiveYesterday,
       todayCompletedPlanTasks: todayCompletedPlanTasks,
       completedCategoriesToday: completedCategoriesNames,
@@ -175,7 +177,7 @@ class QuestService {
       selectedCategories.add(catEnum);
     }
 
-    _injectScheduleBasedQuests(user, generatedQuests, tests: tests);
+    await _injectScheduleBasedQuests(user, generatedQuests, tests: tests);
 
     _normalizeDailyRewards(generatedQuests);
 
@@ -397,7 +399,7 @@ class QuestService {
     return sum / count.toDouble();
   }
 
-  void _injectScheduleBasedQuests(UserModel user, List<Quest> quests, {required List<TestModel> tests}) {
+  Future<void> _injectScheduleBasedQuests(UserModel user, List<Quest> quests, {required List<TestModel> tests}) async {
     final planDoc = _ref.read(planProvider).value;
     final weeklyPlan = planDoc?.weeklyPlan;
     if (weeklyPlan == null) return;
@@ -408,7 +410,7 @@ class QuestService {
       if (weekdayIndex < 0 || weekdayIndex >= weekly.plan.length) return;
       final todayPlan = weekly.plan[weekdayIndex];
       final dateKey = _dateKey(today);
-      final completedIds = user.completedDailyTasks[dateKey] ?? [];
+      final completedIds = await _ref.read(firestoreServiceProvider).getCompletedTasksForDate(user.id, today);
 
       bool hasTestQuestAlready = quests.any((q) => q.category == QuestCategory.test_submission);
 
@@ -647,8 +649,7 @@ class QuestService {
         planned += dp.schedule.length;
         dayPlanned[dp.day] = dp.schedule.length;
         final date = thisWeekStart.add(Duration(days: i));
-        final key = _dateKey(date);
-        final compList = user.completedDailyTasks[key] ?? [];
+        final compList = await _ref.read(firestoreServiceProvider).getCompletedTasksForDate(user.id, date);
         completed += compList.length;
         dayCompleted[dp.day] = compList.length;
       }

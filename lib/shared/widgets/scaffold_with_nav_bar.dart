@@ -222,13 +222,19 @@ final weeklyPlanCompletionProvider = Provider<bool>((ref){
     DateTime startOfWeek(DateTime d)=> d.subtract(Duration(days: d.weekday-1));
     final now = DateTime.now();
     final thisWeekStart = startOfWeek(now);
-    final dateKeys = List.generate(7, (i){ final d = thisWeekStart.add(Duration(days:i)); return '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';});
+    final dates = List.generate(7, (i) => thisWeekStart.add(Duration(days: i)));
     int planned = 0; int completed = 0;
     for(int i=0;i<weekly.plan.length;i++){
       final dp = weekly.plan[i];
       planned += dp.schedule.length;
-      final dk = dateKeys[i];
-      completed += (user.completedDailyTasks[dk]??[]).length;
+      final dayDate = dates[i];
+      final completedList = ref.watch(completedTasksForDateProvider(dayDate)).maybeWhen(data: (list)=> list, orElse: ()=> const <String>[]);
+      int comp = 0;
+      for (final s in dp.schedule) {
+        final id='${s.time}-${s.activity}';
+        if (completedList.contains(id)) comp++;
+      }
+      completed += comp;
     }
     if(planned>0 && completed>=planned) {
       if(user.weeklyPlanCompletedAt == null) return true;

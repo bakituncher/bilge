@@ -49,19 +49,19 @@ final dailyQuestsProgressProvider = Provider<({int completed,int total,double pr
 });
 
 final planProgressProvider = Provider<({int done,int total,double ratio})>((ref){
-  final user = ref.watch(userProfileProvider).value;
   final planDoc = ref.watch(planProvider).valueOrNull;
   final planMap = planDoc?.weeklyPlan;
 
-  if (user == null || planMap == null){
+  if (planMap == null){
     return (done:0,total:0,ratio:0.0);
   }
-  final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
-  final completed = user.completedDailyTasks[todayKey] ?? [];
+  final today = DateTime.now();
+  final todayKey = DateFormat('yyyy-MM-dd').format(today);
+  final completedList = ref.watch(completedTasksForDateProvider(today)).maybeWhen(data: (list)=> list, orElse: ()=> const <String>[]);
   int totalToday = 0;
   if (planMap['plan'] is List){
     final list = planMap['plan'] as List;
-    final idx = DateTime.now().weekday -1;
+    final idx = today.weekday -1;
     if (idx>=0 && idx < list.length){
       final day = list[idx];
       if (day is Map && day['schedule'] is List){
@@ -69,8 +69,8 @@ final planProgressProvider = Provider<({int done,int total,double ratio})>((ref)
       }
     }
   }
-  final double ratio = totalToday==0?0.0: (completed.length/ totalToday).clamp(0,1).toDouble();
-  return (done:completed.length,total:totalToday,ratio:ratio);
+  final double ratio = totalToday==0?0.0: (completedList.length/ totalToday).clamp(0,1).toDouble();
+  return (done:completedList.length,total:totalToday,ratio:ratio);
 });
 
 final lastActivityProvider = Provider<({String label,String route,IconData icon, Color color})>((ref){

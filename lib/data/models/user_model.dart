@@ -19,7 +19,7 @@ class UserModel {
   final double totalNetSum;
   final int engagementScore;
   // ARTIK KULLANILMIYOR: final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
-  final Map<String, List<String>> completedDailyTasks;
+  // KALDIRILDI: completedDailyTasks -> user_activity alt koleksiyonuna taşındı
   // ARTIK KULLANILMIYOR: final String? studyPacing;
   // ARTIK KULLANILMIYOR: final String? longTermStrategy;
   // ARTIK KULLANILMIYOR: final Map<String, dynamic>? weeklyPlan;
@@ -29,8 +29,7 @@ class UserModel {
   final Quest? activeWeeklyCampaign;
   final Timestamp? lastQuestRefreshDate;
   final Map<String, Timestamp> unlockedAchievements;
-  // YENİ ALAN: Savaşçı Yemini görevi için gün içi ziyaretleri takip eder.
-  final List<Timestamp> dailyVisits;
+  // KALDIRILDI: dailyVisits -> user_activity alt koleksiyonuna taşındı
   final String? avatarStyle;
   final String? avatarSeed;
   final String? dailyQuestPlanSignature; // YENİ: bugünkü plan imzası
@@ -42,7 +41,7 @@ class UserModel {
   final Timestamp? weeklyPlanCompletedAt; // YENİ: haftalık plan tamamlanma anı
   final int workshopStreak; // YENİ: art arda günlerde Cevher Atölyesi seansı
   final Timestamp? lastWorkshopDate; // YENİ: son Cevher seansı tarihi (UTC gün)
-  final Map<String,int> recentPracticeVolumes; // YENİ: son günlere ait practice soru adetleri
+  // KALDIRILDI: recentPracticeVolumes -> user_activity alt koleksiyonuna taşındı
 
   UserModel({
     required this.id,
@@ -61,7 +60,7 @@ class UserModel {
     this.totalNetSum = 0.0,
     this.engagementScore = 0,
     // this.topicPerformances = const {},
-    this.completedDailyTasks = const {},
+    // this.completedDailyTasks = const {},
     // this.studyPacing,
     // this.longTermStrategy,
     // this.weeklyPlan,
@@ -71,7 +70,7 @@ class UserModel {
     this.activeWeeklyCampaign,
     this.lastQuestRefreshDate,
     this.unlockedAchievements = const {},
-    this.dailyVisits = const [], // YENİ
+    // this.dailyVisits = const [], // KALDIRILDI
     this.avatarStyle, // YENİ
     this.avatarSeed, // YENİ
     this.dailyQuestPlanSignature,
@@ -83,7 +82,7 @@ class UserModel {
     this.weeklyPlanCompletedAt,
     this.workshopStreak = 0, // yeni
     this.lastWorkshopDate, // yeni
-    this.recentPracticeVolumes = const {}, // yeni
+    // this.recentPracticeVolumes = const {}, // KALDIRILDI
   });
 
   factory UserModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -92,14 +91,7 @@ class UserModel {
     // Bu alanlar artık alt koleksiyonlardan okunacak, bu yüzden burada parse etmeye gerek yok.
     // final Map<String, Map<String, TopicPerformanceModel>> safeTopicPerformances = {};
 
-    final Map<String, List<String>> safeCompletedTasks = {};
-    if (data['completedDailyTasks'] is Map<String, dynamic>) {
-      (data['completedDailyTasks'] as Map<String, dynamic>).forEach((key, value) {
-        if (value is List) {
-          safeCompletedTasks[key] = List<String>.from(value);
-        }
-      });
-    }
+    // KALDIRILDI: completedDailyTasks parse
 
     // KALDIRILDI: activeDailyQuests parse
     Quest? weeklyCampaign;
@@ -128,7 +120,7 @@ class UserModel {
       totalNetSum: (data['totalNetSum'] as num?)?.toDouble() ?? 0.0,
       engagementScore: data['engagementScore'] ?? 0,
       // topicPerformances: safeTopicPerformances,
-      completedDailyTasks: safeCompletedTasks,
+      // completedDailyTasks: {},
       // studyPacing: data['studyPacing'],
       // longTermStrategy: data['longTermStrategy'],
       // weeklyPlan: data['weeklyPlan'] as Map<String, dynamic>?,
@@ -142,7 +134,7 @@ class UserModel {
       activeWeeklyCampaign: weeklyCampaign,
       lastQuestRefreshDate: data['lastQuestRefreshDate'] as Timestamp?,
       unlockedAchievements: Map<String, Timestamp>.from(data['unlockedAchievements'] ?? {}),
-      dailyVisits: List<Timestamp>.from(data['dailyVisits'] ?? []), // YENİ
+      // dailyVisits: List<Timestamp>.from(data['dailyVisits'] ?? []), // KALDIRILDI
       avatarStyle: data['avatarStyle'],
       avatarSeed: data['avatarSeed'],
       dailyQuestPlanSignature: data['dailyQuestPlanSignature'],
@@ -156,9 +148,14 @@ class UserModel {
       weeklyPlanCompletedAt: data['weeklyPlanCompletedAt'] as Timestamp?,
       workshopStreak: data['workshopStreak'] ?? 0, // yeni
       lastWorkshopDate: data['lastWorkshopDate'] as Timestamp?, // yeni
-      recentPracticeVolumes: Map<String,int>.from(data['recentPracticeVolumes'] ?? {}), // yeni
+      // recentPracticeVolumes: Map<String,int>.from(data['recentPracticeVolumes'] ?? {}), // KALDIRILDI
     );
   }
+
+  // Geriye dönük uyumluluk: Artık veri user_activity alt koleksiyonunda. Boş değer döndür.
+  Map<String, List<String>> get completedDailyTasks => const {};
+  List<Timestamp> get dailyVisits => const [];
+  Map<String,int> get recentPracticeVolumes => const {};
 
   Map<String, dynamic> toJson() {
     return {
@@ -178,7 +175,7 @@ class UserModel {
       'totalNetSum': totalNetSum,
       'engagementScore': engagementScore,
       // 'topicPerformances': topicPerformances.map((key, value) => MapEntry(key, value.map((k, v) => MapEntry(k, v.toMap())))),
-      'completedDailyTasks': completedDailyTasks,
+      // 'completedDailyTasks': completedDailyTasks,
       // 'studyPacing': studyPacing,
       // 'longTermStrategy': longTermStrategy,
       // 'weeklyPlan': weeklyPlan,
@@ -188,7 +185,7 @@ class UserModel {
       'activeWeeklyCampaign': activeWeeklyCampaign?.toMap(),
       'lastQuestRefreshDate': lastQuestRefreshDate,
       'unlockedAchievements': unlockedAchievements,
-      'dailyVisits': dailyVisits, // YENİ
+      // 'dailyVisits': dailyVisits, // KALDIRILDI
       'avatarStyle': avatarStyle,
       'avatarSeed': avatarSeed,
       'dailyQuestPlanSignature': dailyQuestPlanSignature,
@@ -200,7 +197,7 @@ class UserModel {
       'weeklyPlanCompletedAt': weeklyPlanCompletedAt,
       'workshopStreak': workshopStreak,
       'lastWorkshopDate': lastWorkshopDate,
-      'recentPracticeVolumes': recentPracticeVolumes, // yeni
+      // 'recentPracticeVolumes': recentPracticeVolumes, // KALDIRILDI
     };
   }
 }

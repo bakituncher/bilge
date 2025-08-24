@@ -102,6 +102,7 @@ class _PlanView extends ConsumerWidget {
               return _TaskTile(
                 key: ValueKey('$dateKey-${scheduleItem.time}-${scheduleItem.activity}'),
                 item: scheduleItem,
+                dateForTile: dateForTab,
                 dateKey: dateKey,
                 userId: userId,
               ).animate().fadeIn(delay: (40 * index).ms).slideX(begin: .15, curve: Curves.easeOutCubic);
@@ -117,8 +118,19 @@ class _HeaderBar extends ConsumerWidget {
   final DateTime dateForTab; final WeeklyPlan weeklyPlan; final String userId; const _HeaderBar({required this.dateForTab, required this.weeklyPlan, required this.userId});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(userProfileProvider).value;
-    int total=0; int done=0; if(user!=null){ final now=DateTime.now(); final sow=now.subtract(Duration(days: now.weekday-1)); for(int i=0;i<weeklyPlan.plan.length;i++){ final dp=weeklyPlan.plan[i]; total+=dp.schedule.length; final d=sow.add(Duration(days:i)); final k=DateFormat('yyyy-MM-dd').format(d); done += (user.completedDailyTasks[k]??[]).length; } }
+    int total=0; int done=0;
+    final now=DateTime.now();
+    final sow=now.subtract(Duration(days: now.weekday-1));
+    for(int i=0;i<weeklyPlan.plan.length;i++){
+      final dp=weeklyPlan.plan[i];
+      total+=dp.schedule.length;
+      final d=sow.add(Duration(days:i));
+      final completedList = ref.watch(completedTasksForDateProvider(d)).maybeWhen(data: (list) => list, orElse: ()=> const <String>[]);
+      for (final s in dp.schedule) {
+        final id='${s.time}-${s.activity}';
+        if (completedList.contains(id)) done++;
+      }
+    }
     final double ratio = total==0?0.0: done/total;
     return Container(
       padding: const EdgeInsets.fromLTRB(20,18,20,16),
@@ -193,8 +205,9 @@ class _TaskTile extends ConsumerWidget {
   final ScheduleItem item;
   final String dateKey;
   final String userId;
+  final DateTime dateForTile;
 
-  const _TaskTile({super.key, required this.item, required this.dateKey, required this.userId});
+  const _TaskTile({super.key, required this.item, required this.dateKey, required this.userId, required this.dateForTile});
 
   IconData _getIconForTaskType(String type) {
     switch (type.toLowerCase()) {
@@ -210,9 +223,8 @@ class _TaskTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final taskIdentifier = '${item.time}-${item.activity}';
-    final isCompleted = ref.watch(userProfileProvider.select(
-          (user) => user.value?.completedDailyTasks[dateKey]?.contains(taskIdentifier) ?? false,
-    ));
+    final completedList = ref.watch(completedTasksForDateProvider(dateForTile)).maybeWhen(data: (list)=> list, orElse: ()=> const <String>[]);
+    final isCompleted = completedList.contains(taskIdentifier);
 
     return Material(
       color: Colors.transparent,

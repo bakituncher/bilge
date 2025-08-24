@@ -26,12 +26,14 @@ class AuthController extends StreamNotifier<User?> {
 
   void _onUserActivity(User? user) {
     if (user != null) {
-      // --- YENİ ZİYARET KAYIT VE GÖREV GÜNCELLEME MANTIĞI ---
-      // Bu fonksiyon artık sadece kullanıcı aktivitesini kaydeder ve görevleri tetikler.
-      Future.delayed(const Duration(seconds: 2), () {
+      // --- ZİYARET KAYDI: user_activity aylık dokümanına yaz ---
+      Future.delayed(const Duration(seconds: 2), () async {
         try {
-          if (state.hasValue) { // Provider'ın hala "canlı" olduğundan emin ol.
-            _recordVisitAndUpdateQuests(user.uid);
+          if (state.hasValue) {
+            final firestoreService = ref.read(firestoreServiceProvider);
+            await firestoreService.recordUserVisit(user.uid);
+            // Görev ilerlemesini tetikle
+            ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.consistency);
           }
         } catch (e) {
           print("Quest update on auth change failed (safe to ignore on startup): $e");
@@ -39,34 +41,6 @@ class AuthController extends StreamNotifier<User?> {
       });
       // ------------------------------------
     }
-  }
-
-  /// Kullanıcının ziyaretini kaydeder ve tutarlılık görevlerini günceller.
-  Future<void> _recordVisitAndUpdateQuests(String userId) async {
-    final firestoreService = ref.read(firestoreServiceProvider);
-    final userDoc = await firestoreService.usersCollection.doc(userId).get();
-    if (!userDoc.exists) return;
-
-    final user = UserModel.fromSnapshot(userDoc as DocumentSnapshot<Map<String, dynamic>>);
-    final now = Timestamp.now();
-    final today = DateTime(now.toDate().year, now.toDate().month, now.toDate().day);
-
-    // Bugün dışındaki eski ziyaretleri temizle
-    final todaysVisits = user.dailyVisits.where((ts) {
-      final visitDate = ts.toDate();
-      return visitDate.year == today.year && visitDate.month == today.month && visitDate.day == today.day;
-    }).toList();
-
-    // Son ziyaretten bu yana en az 1 saat geçtiyse yenisini ekle
-    if (todaysVisits.isEmpty || now.toDate().difference(todaysVisits.last.toDate()).inHours >= 1) {
-      todaysVisits.add(now);
-      await firestoreService.usersCollection.doc(userId).update({
-        'dailyVisits': todaysVisits,
-      });
-    }
-
-    // Görev ilerlemesini tetikle
-    ref.read(questNotifierProvider.notifier).updateQuestProgress(QuestCategory.consistency);
   }
 
 

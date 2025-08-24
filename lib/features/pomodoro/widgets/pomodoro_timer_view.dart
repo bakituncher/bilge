@@ -116,10 +116,11 @@ class PomodoroTimerView extends ConsumerWidget {
       final dateKey = DateFormat('yyyy-MM-dd').format(today);
 
       final todayPlan = weeklyPlan.plan.firstWhere((day) => day.day == todayName, orElse: () => DailyPlan(day: todayName, schedule: []));
+      final completedToday = ref.read(completedTasksForDateProvider(today)).maybeWhen(data: (list)=> list, orElse: ()=> const <String>[]);
 
       for (var item in todayPlan.schedule) {
         final identifier = '${item.time}-${item.activity}';
-        final isCompleted = user.completedDailyTasks[dateKey]?.contains(identifier) ?? false;
+        final isCompleted = completedToday.contains(identifier);
         if (!isCompleted) {
           tasks.add((task: item.activity, identifier: identifier));
         }
