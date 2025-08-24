@@ -48,12 +48,12 @@ final planProvider = StreamProvider<PlanDocument?>((ref) {
   return Stream.value(null);
 });
 
-final performanceProvider = StreamProvider<PerformanceSummary?>((ref) {
+final performanceProvider = FutureProvider.autoDispose<PerformanceSummary?>((ref) {
   final user = ref.watch(authControllerProvider).value;
   if (user != null) {
-    return ref.watch(firestoreServiceProvider).getPerformanceStream(user.uid);
+    return ref.watch(firestoreServiceProvider).getPerformanceSummaryOnce(user.uid);
   }
-  return Stream.value(null);
+  return Future.value(null);
 });
 
 final appStateProvider = StreamProvider<AppState?>((ref) {

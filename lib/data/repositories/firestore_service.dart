@@ -401,83 +401,14 @@ class FirestoreService {
     return _appStateDoc(userId).snapshots().map((doc) => doc.exists ? AppState.fromSnapshot(doc) : null);
   }
 
-  Stream<PerformanceSummary?> getPerformanceStream(String userId) {
-    // Yeni yapı: users/{userId}/topic_performance alt koleksiyonundaki tüm dokümanları dinle
-    // ve performance/summary/masteredTopics alt koleksiyonundaki kayıtlarla birleştir.
-    // Geriye dönük uyumluluk: masteredTopics alt koleksiyonu yoksa summary.masteredTopics alanını kullan.
-    final topicsStream = _topicPerformanceCollection(userId).snapshots();
-    final summaryStream = _performanceDoc(userId).snapshots();
-    final masteredColStream = _masteredTopicsCollection(userId).snapshots();
+  Future<PerformanceSummary> getPerformanceSummaryOnce(String userId) async {
+    final topicsSnap = await _topicPerformanceCollection(userId).get();
+    final masteredSnap = await _masteredTopicsCollection(userId).get();
 
-    final controller = StreamController<PerformanceSummary?>();
-    Map<String, Map<String, TopicPerformanceModel>> latestTopics = const {};
-    List<String> latestMastered = const [];
-    bool useMasteredCollection = false;
+    final topics = topicsSnap.docs;
+    final mastered = masteredSnap.docs.map((d) => d.id).toList();
 
-    void emit() {
-      controller.add(PerformanceSummary(topicPerformances: latestTopics, masteredTopics: latestMastered));
-    }
-
-    late final StreamSubscription topicsSub;
-    late final StreamSubscription summarySub;
-    late final StreamSubscription masteredSub;
-
-    topicsSub = topicsStream.listen((qs) {
-      final nested = <String, Map<String, TopicPerformanceModel>>{};
-      for (final doc in qs.docs) {
-        final data = doc.data();
-        final String subjectKey = (data['subject'] ?? '').toString().isNotEmpty
-            ? data['subject'] as String
-            : (doc.id.contains('_') ? doc.id.split('_').first : doc.id);
-        final String topicKey = (data['topic'] ?? '').toString().isNotEmpty
-            ? data['topic'] as String
-            : (doc.id.contains('_') ? doc.id.split('_').skip(1).join('_') : doc.id);
-        final model = TopicPerformanceModel.fromMap(data);
-        (nested[subjectKey] ??= <String, TopicPerformanceModel>{})[topicKey] = model;
-      }
-      latestTopics = nested;
-      emit();
-    }, onError: controller.addError);
-
-    masteredSub = masteredColStream.listen((qs) {
-      useMasteredCollection = true;
-      latestMastered = qs.docs.map((d) => d.id).toList(growable: false);
-      emit();
-    }, onError: controller.addError);
-
-    summarySub = summaryStream.listen((doc) {
-      final data = doc.data();
-      // Geriye dönük uyumluluk: masteredTopics sadece alt koleksiyon yoksa kullanılır
-      if (!useMasteredCollection) {
-        latestMastered = List<String>.from((data?['masteredTopics'] ?? const <String>[]) as List);
-      }
-      // Geriye dönük uyumluluk: alt koleksiyon boşsa eski summary içindeki map'i tek seferlik oku
-      if ((latestTopics.isEmpty) && data != null && data['topicPerformances'] is Map<String, dynamic>) {
-        final topicsMap = data['topicPerformances'] as Map<String, dynamic>;
-        final nested = <String, Map<String, TopicPerformanceModel>>{};
-        topicsMap.forEach((subjectKey, subjectValue) {
-          if (subjectValue is Map<String, dynamic>) {
-            final newSubjectMap = <String, TopicPerformanceModel>{};
-            subjectValue.forEach((topicKey, topicValue) {
-              if (topicValue is Map<String, dynamic>) {
-                newSubjectMap[topicKey] = TopicPerformanceModel.fromMap(topicValue);
-              }
-            });
-            nested[subjectKey] = newSubjectMap;
-          }
-        });
-        latestTopics = nested;
-      }
-      emit();
-    }, onError: controller.addError);
-
-    controller.onCancel = () async {
-      await topicsSub.cancel();
-      await summarySub.cancel();
-      await masteredSub.cancel();
-    };
-
-    return controller.stream;
+    return PerformanceSummary.fromTopicDocs(topics, masteredTopics: mastered);
   }
 
   Future<void> updateTopicPerformance({
