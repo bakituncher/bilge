@@ -1,0 +1,75 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =====================================================================
+    // KULLANICI KOLEKSİYONU (/users)
+    // =====================================================================
+    match /users/{userId} {
+      // Bir kullanıcı sadece kendi profilini okuyabilir ve güncelleyebilir.
+      allow get, update: if request.auth.uid == userId;
+      // Yeni kullanıcı oluşturmaya izin ver.
+      allow create: if request.auth.uid != null;
+
+      // --- ALT KOLEKSİYONLAR ---
+      match /daily_quests/{questId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      match /state/{docId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      match /plans/{docId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      match /performance/{docId} {
+        allow read, write: if request.auth.uid == userId;
+
+        // *** YENİ EKLENEN KURAL: masteredTopics alt koleksiyonuna erişim izni ***
+        match /masteredTopics/{masteredTopicId} {
+          allow read, write: if request.auth.uid == userId;
+        }
+      }
+      match /topic_performance/{topicId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      match /savedWorkshops/{workshopId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+      match /user_activity/{activityId} {
+        allow read, write: if request.auth.uid == userId;
+      }
+    }
+
+    // =====================================================================
+    // LİDERLİK TABLOSU KOLEKSİYONU (/leaderboards)
+    // =====================================================================
+    match /leaderboards/{examType}/users/{userId} {
+      // Herkes liderlik tablosunu okuyabilir.
+      allow read: if request.auth != null;
+      // Sadece kullanıcının kendisi kendi skorunu güncelleyebilir.
+      allow write: if request.auth.uid == userId;
+    }
+
+    // =====================================================================
+    // DİĞER ANA KOLEKSİYONLAR (Testler, Odaklanma)
+    // =====================================================================
+    match /tests/{testId} {
+      // Kullanıcı sadece kendi testlerini okuyabilir ve silebilir.
+      allow read, delete: if request.auth.uid == resource.data.userId;
+      // Kullanıcı sadece kendi adına test oluşturabilir.
+      allow create: if request.auth.uid == request.resource.data.userId;
+    }
+    match /focusSessions/{sessionId} {
+      // Kullanıcı sadece kendi odaklanma seanslarını okuyabilir ve silebilir.
+      allow read, delete: if request.auth.uid == resource.data.userId;
+      // Kullanıcı sadece kendi adına odaklanma seansı oluşturabilir.
+      allow create: if request.auth.uid == request.resource.data.userId;
+    }
+     match /analytics_events/{eventId} {
+      // Analitik verileri sadece oluşturulabilir, okunamaz veya güncellenemez.
+      allow create: if request.auth.uid != null;
+      allow read, update, delete: if false;
+    }
+  }
+}
