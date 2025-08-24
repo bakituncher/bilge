@@ -159,6 +159,8 @@ class FirestoreService {
   DocumentReference<Map<String, dynamic>> _leaderboardUserDoc({required String examType, required String userId}) => _leaderboardsCollection.doc(examType).collection('users').doc(userId);
   // YENI: Konu performansları için alt koleksiyon
   CollectionReference<Map<String, dynamic>> _topicPerformanceCollection(String userId) => usersCollection.doc(userId).collection('topic_performance');
+  // YENI: Ustalaşılan konular için alt koleksiyon
+  CollectionReference<Map<String, dynamic>> _masteredTopicsCollection(String userId) => _performanceDoc(userId).collection('masteredTopics');
 
   Future<void> _syncLeaderboardUser(String userId, {String? targetExam}) async {
     final userSnap = await usersCollection.doc(userId).get();
@@ -401,20 +403,23 @@ class FirestoreService {
 
   Stream<PerformanceSummary?> getPerformanceStream(String userId) {
     // Yeni yapı: users/{userId}/topic_performance alt koleksiyonundaki tüm dokümanları dinle
-    // ve performance/summary dokümanındaki masteredTopics ile birleştir.
+    // ve performance/summary/masteredTopics alt koleksiyonundaki kayıtlarla birleştir.
+    // Geriye dönük uyumluluk: masteredTopics alt koleksiyonu yoksa summary.masteredTopics alanını kullan.
     final topicsStream = _topicPerformanceCollection(userId).snapshots();
-    final masteredStream = _performanceDoc(userId).snapshots();
+    final summaryStream = _performanceDoc(userId).snapshots();
+    final masteredColStream = _masteredTopicsCollection(userId).snapshots();
 
-    // Manuel combineLatest
     final controller = StreamController<PerformanceSummary?>();
     Map<String, Map<String, TopicPerformanceModel>> latestTopics = const {};
     List<String> latestMastered = const [];
+    bool useMasteredCollection = false;
 
     void emit() {
       controller.add(PerformanceSummary(topicPerformances: latestTopics, masteredTopics: latestMastered));
     }
 
     late final StreamSubscription topicsSub;
+    late final StreamSubscription summarySub;
     late final StreamSubscription masteredSub;
 
     topicsSub = topicsStream.listen((qs) {
@@ -434,9 +439,18 @@ class FirestoreService {
       emit();
     }, onError: controller.addError);
 
-    masteredSub = masteredStream.listen((doc) {
+    masteredSub = masteredColStream.listen((qs) {
+      useMasteredCollection = true;
+      latestMastered = qs.docs.map((d) => d.id).toList(growable: false);
+      emit();
+    }, onError: controller.addError);
+
+    summarySub = summaryStream.listen((doc) {
       final data = doc.data();
-      latestMastered = List<String>.from((data?['masteredTopics'] ?? const <String>[]) as List);
+      // Geriye dönük uyumluluk: masteredTopics sadece alt koleksiyon yoksa kullanılır
+      if (!useMasteredCollection) {
+        latestMastered = List<String>.from((data?['masteredTopics'] ?? const <String>[]) as List);
+      }
       // Geriye dönük uyumluluk: alt koleksiyon boşsa eski summary içindeki map'i tek seferlik oku
       if ((latestTopics.isEmpty) && data != null && data['topicPerformances'] is Map<String, dynamic>) {
         final topicsMap = data['topicPerformances'] as Map<String, dynamic>;
@@ -459,6 +473,7 @@ class FirestoreService {
 
     controller.onCancel = () async {
       await topicsSub.cancel();
+      await summarySub.cancel();
       await masteredSub.cancel();
     };
 
@@ -631,8 +646,11 @@ class FirestoreService {
     final sanitizedSubject = sanitizeKey(subject);
     final sanitizedTopic = sanitizeKey(topic);
     final uniqueIdentifier = '$sanitizedSubject-$sanitizedTopic';
-    await _performanceDoc(userId).set({
-      'masteredTopics': FieldValue.arrayUnion([uniqueIdentifier])
+    // Alt koleksiyon: users/{uid}/performance/summary/masteredTopics/{uniqueIdentifier}
+    await _masteredTopicsCollection(userId).doc(uniqueIdentifier).set({
+      'subject': sanitizedSubject,
+      'topic': sanitizedTopic,
+      'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
 
@@ -677,6 +695,12 @@ class FirestoreService {
     // YENI: topic_performance alt koleksiyonunu temizle
     final topicSnap = await _topicPerformanceCollection(userId).get();
     for (final doc in topicSnap.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // YENI: masteredTopics alt koleksiyonunu temizle
+    final masteredSnap = await _masteredTopicsCollection(userId).get();
+    for (final doc in masteredSnap.docs) {
       batch.delete(doc.reference);
     }
 

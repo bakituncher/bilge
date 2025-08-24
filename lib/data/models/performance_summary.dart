@@ -4,6 +4,8 @@ import 'package:bilge_ai/data/models/topic_performance_model.dart';
 
 class PerformanceSummary {
   final Map<String, Map<String, TopicPerformanceModel>> topicPerformances;
+  // Not: masteredTopics artık Firestore dokümanında tutulmuyor; FirestoreService tarafından
+  // performance/summary/masteredTopics alt koleksiyonundan dinamik olarak birleştirilecektir.
   final List<String> masteredTopics;
 
   const PerformanceSummary({
@@ -31,7 +33,8 @@ class PerformanceSummary {
 
     return PerformanceSummary(
       topicPerformances: safeTopicPerformances,
-      masteredTopics: List<String>.from(data['masteredTopics'] ?? const []),
+      // masteredTopics artık doc'tan okunmuyor; FirestoreService birleştirir.
+      masteredTopics: const [],
     );
   }
 
@@ -54,6 +57,6 @@ class PerformanceSummary {
 
   Map<String, dynamic> toMap() => {
     'topicPerformances': topicPerformances.map((k, v) => MapEntry(k, v.map((tk, tv) => MapEntry(tk, tv.toMap())))),
-    'masteredTopics': masteredTopics,
+    // masteredTopics artık serileştirilmez
   };
 }
