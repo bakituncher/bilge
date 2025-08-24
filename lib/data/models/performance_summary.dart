@@ -35,6 +35,23 @@ class PerformanceSummary {
     );
   }
 
+  // Yeni: Alt koleksiyon dokümanlarından özet oluşturma
+  factory PerformanceSummary.fromTopicDocs(
+    Iterable<QueryDocumentSnapshot<Map<String, dynamic>>> docs, {
+    List<String> masteredTopics = const [],
+  }) {
+    final nested = <String, Map<String, TopicPerformanceModel>>{};
+    for (final d in docs) {
+      final data = d.data();
+      final String subjectKey = (data['subject'] ?? '').toString();
+      final String topicKey = (data['topic'] ?? '').toString();
+      if (subjectKey.isEmpty || topicKey.isEmpty) continue;
+      final model = TopicPerformanceModel.fromMap(data);
+      (nested[subjectKey] ??= <String, TopicPerformanceModel>{})[topicKey] = model;
+    }
+    return PerformanceSummary(topicPerformances: nested, masteredTopics: masteredTopics);
+  }
+
   Map<String, dynamic> toMap() => {
     'topicPerformances': topicPerformances.map((k, v) => MapEntry(k, v.map((tk, tv) => MapEntry(tk, tv.toMap())))),
     'masteredTopics': masteredTopics,

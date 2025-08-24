@@ -1,4 +1,5 @@
 // lib/data/repositories/firestore_service.dart
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:bilge_ai/data/models/user_model.dart';
@@ -156,6 +157,8 @@ class FirestoreService {
   DocumentReference<Map<String, dynamic>> _performanceDoc(String userId) => usersCollection.doc(userId).collection('performance').doc('summary');
   DocumentReference<Map<String, dynamic>> _appStateDoc(String userId) => usersCollection.doc(userId).collection('state').doc('app_state');
   DocumentReference<Map<String, dynamic>> _leaderboardUserDoc({required String examType, required String userId}) => _leaderboardsCollection.doc(examType).collection('users').doc(userId);
+  // YENI: Konu performansları için alt koleksiyon
+  CollectionReference<Map<String, dynamic>> _topicPerformanceCollection(String userId) => usersCollection.doc(userId).collection('topic_performance');
 
   Future<void> _syncLeaderboardUser(String userId, {String? targetExam}) async {
     final userSnap = await usersCollection.doc(userId).get();
@@ -391,12 +394,75 @@ class FirestoreService {
     return _planDoc(userId).snapshots().map((doc) => doc.exists ? PlanDocument.fromSnapshot(doc) : null);
   }
 
-  Stream<PerformanceSummary?> getPerformanceStream(String userId) {
-    return _performanceDoc(userId).snapshots().map((doc) => doc.exists ? PerformanceSummary.fromSnapshot(doc) : null);
-  }
-
+  // Geri yüklendi: AppState akışı
   Stream<AppState?> getAppStateStream(String userId) {
     return _appStateDoc(userId).snapshots().map((doc) => doc.exists ? AppState.fromSnapshot(doc) : null);
+  }
+
+  Stream<PerformanceSummary?> getPerformanceStream(String userId) {
+    // Yeni yapı: users/{userId}/topic_performance alt koleksiyonundaki tüm dokümanları dinle
+    // ve performance/summary dokümanındaki masteredTopics ile birleştir.
+    final topicsStream = _topicPerformanceCollection(userId).snapshots();
+    final masteredStream = _performanceDoc(userId).snapshots();
+
+    // Manuel combineLatest
+    final controller = StreamController<PerformanceSummary?>();
+    Map<String, Map<String, TopicPerformanceModel>> latestTopics = const {};
+    List<String> latestMastered = const [];
+
+    void emit() {
+      controller.add(PerformanceSummary(topicPerformances: latestTopics, masteredTopics: latestMastered));
+    }
+
+    late final StreamSubscription topicsSub;
+    late final StreamSubscription masteredSub;
+
+    topicsSub = topicsStream.listen((qs) {
+      final nested = <String, Map<String, TopicPerformanceModel>>{};
+      for (final doc in qs.docs) {
+        final data = doc.data();
+        final String subjectKey = (data['subject'] ?? '').toString().isNotEmpty
+            ? data['subject'] as String
+            : (doc.id.contains('_') ? doc.id.split('_').first : doc.id);
+        final String topicKey = (data['topic'] ?? '').toString().isNotEmpty
+            ? data['topic'] as String
+            : (doc.id.contains('_') ? doc.id.split('_').skip(1).join('_') : doc.id);
+        final model = TopicPerformanceModel.fromMap(data);
+        (nested[subjectKey] ??= <String, TopicPerformanceModel>{})[topicKey] = model;
+      }
+      latestTopics = nested;
+      emit();
+    }, onError: controller.addError);
+
+    masteredSub = masteredStream.listen((doc) {
+      final data = doc.data();
+      latestMastered = List<String>.from((data?['masteredTopics'] ?? const <String>[]) as List);
+      // Geriye dönük uyumluluk: alt koleksiyon boşsa eski summary içindeki map'i tek seferlik oku
+      if ((latestTopics.isEmpty) && data != null && data['topicPerformances'] is Map<String, dynamic>) {
+        final topicsMap = data['topicPerformances'] as Map<String, dynamic>;
+        final nested = <String, Map<String, TopicPerformanceModel>>{};
+        topicsMap.forEach((subjectKey, subjectValue) {
+          if (subjectValue is Map<String, dynamic>) {
+            final newSubjectMap = <String, TopicPerformanceModel>{};
+            subjectValue.forEach((topicKey, topicValue) {
+              if (topicValue is Map<String, dynamic>) {
+                newSubjectMap[topicKey] = TopicPerformanceModel.fromMap(topicValue);
+              }
+            });
+            nested[subjectKey] = newSubjectMap;
+          }
+        });
+        latestTopics = nested;
+      }
+      emit();
+    }, onError: controller.addError);
+
+    controller.onCancel = () async {
+      await topicsSub.cancel();
+      await masteredSub.cancel();
+    };
+
+    return controller.stream;
   }
 
   Future<void> updateTopicPerformance({
@@ -407,25 +473,14 @@ class FirestoreService {
   }) async {
     final sanitizedSubject = sanitizeKey(subject);
     final sanitizedTopic = sanitizeKey(topic);
-    // Önce update ile iç içe alanı doğrudan güncelle (nokta notasyonu destekli)
-    try {
-      await _performanceDoc(userId).update({
-        'topicPerformances.$sanitizedSubject.$sanitizedTopic': performance.toMap(),
-      });
-    } on FirebaseException catch (e) {
-      // Eğer özet dokümanı yoksa, merge set ile oluşturup ilgili alanı yaz
-      if (e.code == 'not-found') {
-        await _performanceDoc(userId).set({
-          'topicPerformances': {
-            sanitizedSubject: {
-              sanitizedTopic: performance.toMap(),
-            }
-          }
-        }, SetOptions(merge: true));
-      } else {
-        rethrow;
-      }
-    }
+    final docId = '${sanitizedSubject}_${sanitizedTopic}';
+    // Her konuyu ayrı bir dokümanda tut
+    await _topicPerformanceCollection(userId).doc(docId).set({
+      'subject': sanitizedSubject,
+      'topic': sanitizedTopic,
+      ...performance.toMap(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   Future<void> addFocusSession(FocusSessionModel session) async {
@@ -616,6 +671,12 @@ class FirestoreService {
     // YENI: user_activity alt koleksiyonunu temizle
     final activitySnap = await _userActivityCollection(userId).get();
     for (final doc in activitySnap.docs) {
+      batch.delete(doc.reference);
+    }
+
+    // YENI: topic_performance alt koleksiyonunu temizle
+    final topicSnap = await _topicPerformanceCollection(userId).get();
+    for (final doc in topicSnap.docs) {
       batch.delete(doc.reference);
     }
 
