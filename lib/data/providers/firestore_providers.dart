@@ -69,3 +69,10 @@ final completedTasksForDateProvider = FutureProvider.family<List<String>, DateTi
   if (user == null) return [];
   return ref.read(firestoreServiceProvider).getCompletedTasksForDate(user.uid, date);
 });
+
+// YENI: Haftalık toplu sağlayıcı (7 günlük tek okuma; ay sınırında en fazla iki okuma)
+final completedTasksForWeekProvider = FutureProvider.family.autoDispose<Map<String, List<String>>, DateTime>((ref, weekStart) async {
+  final user = ref.watch(authControllerProvider).value;
+  if (user == null) return {};
+  return ref.read(firestoreServiceProvider).getCompletedTasksForWeek(user.uid, weekStart);
+});

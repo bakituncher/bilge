@@ -127,8 +127,8 @@ class ScaffoldWithNavBar extends ConsumerWidget {
                   ).animate().scale(delay: 500.ms),
                   floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
                   bottomNavigationBar: BottomAppBar(
-                    shape: const CircularNotchedRectangle(),
-                    notchMargin: 10.0,
+                    // shape: const CircularNotchedRectangle(),
+                    // notchMargin: 10.0,
                     padding: EdgeInsets.zero,
                     height: 70,
                     color: AppTheme.cardColor.withOpacity(0.95),
@@ -220,15 +220,21 @@ final weeklyPlanCompletionProvider = Provider<bool>((ref){
   try {
     final weekly = WeeklyPlan.fromJson(planMap);
     DateTime startOfWeek(DateTime d)=> d.subtract(Duration(days: d.weekday-1));
+    String dateKey(DateTime d) => '${d.year.toString().padLeft(4,'0')}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
     final now = DateTime.now();
     final thisWeekStart = startOfWeek(now);
     final dates = List.generate(7, (i) => thisWeekStart.add(Duration(days: i)));
+
+    // Haftalık toplu okuma: tek seferde tüm günlerin tamamlananları
+    final weekMap = ref.watch(completedTasksForWeekProvider(thisWeekStart))
+        .maybeWhen(data: (m)=> m, orElse: ()=> const <String, List<String>>{});
+
     int planned = 0; int completed = 0;
     for(int i=0;i<weekly.plan.length;i++){
       final dp = weekly.plan[i];
       planned += dp.schedule.length;
       final dayDate = dates[i];
-      final completedList = ref.watch(completedTasksForDateProvider(dayDate)).maybeWhen(data: (list)=> list, orElse: ()=> const <String>[]);
+      final completedList = weekMap[dateKey(dayDate)] ?? const <String>[];
       int comp = 0;
       for (final s in dp.schedule) {
         final id='${s.time}-${s.activity}';

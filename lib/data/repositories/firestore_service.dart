@@ -55,6 +55,43 @@ class FirestoreService {
     return const [];
   }
 
+  // YENI: Haftalık tamamlanan görevleri toplu döndürür.
+  // Haftanın başlangıç tarihinden itibaren 7 günü kapsar.
+  // Aynı ay içinde ise tek belge okur; ay sınırına taşarsa en fazla iki belge okur.
+  Future<Map<String, List<String>>> getCompletedTasksForWeek(String userId, DateTime weekStart) async {
+    final start = DateTime(weekStart.year, weekStart.month, weekStart.day);
+    final days = List<DateTime>.generate(7, (i) => start.add(Duration(days: i)));
+
+    String monthKey(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}';
+
+    // Aylara göre grupla
+    final Map<String, List<DateTime>> byMonth = {};
+    for (final d in days) {
+      final mk = monthKey(d);
+      (byMonth[mk] ??= <DateTime>[]).add(d);
+    }
+
+    // Aylık dokümanları oku (1 ya da 2 adet olur)
+    final Map<String, Map<String, dynamic>> monthData = {};
+    for (final entry in byMonth.entries) {
+      final firstOfMonth = entry.value.first;
+      monthData[entry.key] = await getActivityMonth(userId, firstOfMonth);
+    }
+
+    final result = <String, List<String>>{};
+    for (final d in days) {
+      final dk = _dateKey(d);
+      final mk = monthKey(d);
+      final data = monthData[mk] ?? const <String, dynamic>{};
+      final completedTasks = data['completedTasks'] as Map<String, dynamic>?;
+      final list = (completedTasks != null && completedTasks[dk] is List)
+          ? List<String>.from(completedTasks[dk] as List)
+          : const <String>[];
+      result[dk] = list;
+    }
+    return result;
+  }
+
   Future<List<Timestamp>> getVisitsForMonth(String userId, DateTime date) async {
     final data = await getActivityMonth(userId, date);
     final v = data['visits'];
