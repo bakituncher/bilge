@@ -34,7 +34,7 @@ class UserModel {
   final String? avatarSeed;
   final String? dailyQuestPlanSignature; // YENİ: bugünkü plan imzası
   final double? lastScheduleCompletionRatio; // YENİ: dünkü program tamamlama oranı
-  final Map<String, List<int>> dailyPlanBonuses; // YENİ: tarih -> verilen bonus eşikleri
+  // KALDIRILDI: dailyPlanBonuses -> user_activity alt koleksiyonuna taşındı
   final int dailyScheduleStreak; // YENİ: art arda tamamlanan plan görevi sayısı (bugün)
   final Map<String,dynamic>? lastWeeklyReport; // YENİ: geçen hafta raporu
   final double? dynamicDifficultyFactorToday; // YENİ: bugünkü dinamik zorluk çarpanı
@@ -75,7 +75,7 @@ class UserModel {
     this.avatarSeed, // YENİ
     this.dailyQuestPlanSignature,
     this.lastScheduleCompletionRatio,
-    this.dailyPlanBonuses = const {},
+    // KALDIRILDI: dailyPlanBonuses
     this.dailyScheduleStreak = 0,
     this.lastWeeklyReport,
     this.dynamicDifficultyFactorToday,
@@ -139,9 +139,7 @@ class UserModel {
       avatarSeed: data['avatarSeed'],
       dailyQuestPlanSignature: data['dailyQuestPlanSignature'],
       lastScheduleCompletionRatio: (data['lastScheduleCompletionRatio'] as num?)?.toDouble(),
-      dailyPlanBonuses: Map<String, List<int>>.from(
-        (data['dailyPlanBonuses'] ?? {}).map((k, v) => MapEntry(k, List<int>.from(v))),
-      ),
+      // KALDIRILDI: dailyPlanBonuses
       dailyScheduleStreak: data['dailyScheduleStreak'] ?? 0,
       lastWeeklyReport: data['lastWeeklyReport'] as Map<String,dynamic>?,
       dynamicDifficultyFactorToday: (data['dynamicDifficultyFactorToday'] as num?)?.toDouble(),
@@ -190,7 +188,7 @@ class UserModel {
       'avatarSeed': avatarSeed,
       'dailyQuestPlanSignature': dailyQuestPlanSignature,
       'lastScheduleCompletionRatio': lastScheduleCompletionRatio,
-      'dailyPlanBonuses': dailyPlanBonuses,
+      // KALDIRILDI: dailyPlanBonuses
       'dailyScheduleStreak': dailyScheduleStreak,
       'lastWeeklyReport': lastWeeklyReport,
       'dynamicDifficultyFactorToday': dynamicDifficultyFactorToday,

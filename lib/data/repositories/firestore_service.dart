@@ -328,11 +328,11 @@ class FirestoreService {
       });
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      final lastUpdate = user.lastStreakUpdate;
-      if (lastUpdate == null) {
+      final lastStreakUpdate = user.lastStreakUpdate;
+      if (lastStreakUpdate == null) {
         transaction.update(userDocRef, {'streak': 1, 'lastStreakUpdate': Timestamp.fromDate(today)});
       } else {
-        final lastUpdateDate = DateTime(lastUpdate.year, lastUpdate.month, lastUpdate.day);
+        final lastUpdateDate = DateTime(lastStreakUpdate.year, lastStreakUpdate.month, lastStreakUpdate.day);
         if (!today.isAtSameMomentAs(lastUpdateDate)) {
           final yesterday = today.subtract(const Duration(days: 1));
           if (lastUpdateDate.isAtSameMomentAs(yesterday)) {
@@ -521,11 +521,12 @@ class FirestoreService {
       final planDoc = await txn.get(_planDoc(userId));
       final planData = planDoc.data();
 
-      // Aylık aktivite dokümanından o güne ait mevcut tamamlananlar
+      // Aylık aktivite dokümanından o güne ait mevcut tamamlananlar ve bonuslar
       final monthSnap = await txn.get(monthDocRef);
       final monthData = monthSnap.data() ?? <String, dynamic>{};
       final Map<String, dynamic> completedMap = Map<String, dynamic>.from(monthData['completedTasks'] ?? {});
       final List<String> completedList = List<String>.from(completedMap[dateKey] ?? const <String>[]);
+      final Map<String, dynamic> bonusesMap = Map<String, dynamic>.from(monthData['dailyPlanBonuses'] ?? {});
 
       final updates = <String,dynamic>{};
       // Kullanıcı kök dokümanında skor ve diğer anlık metaları koruyoruz
@@ -568,7 +569,7 @@ class FirestoreService {
         if(totalForDay > 0) {
           final ratio = projectedCompleted / totalForDay;
           final thresholds = [0.6,0.8,1.0];
-          final givenList = List<int>.from((snap.data()?['dailyPlanBonuses'] ?? const {})[dateKey] ?? const <int>[]);
+          final List<int> givenList = List<int>.from(bonusesMap[dateKey] ?? const <int>[]);
           for(int i=0;i<thresholds.length;i++) {
             if(ratio >= thresholds[i] && !givenList.contains(i)) {
               int extra = (i==0?25:(i==1?35:60));
@@ -576,7 +577,11 @@ class FirestoreService {
               givenList.add(i);
             }
           }
-          updates['dailyPlanBonuses.$dateKey'] = givenList;
+          // Bonus işaretlerini user_activity ay dokümanına yaz
+          txn.set(monthDocRef, {
+            'dailyPlanBonuses.$dateKey': givenList,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
         }
       }
 
