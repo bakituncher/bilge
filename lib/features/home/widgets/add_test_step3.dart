@@ -10,6 +10,7 @@ import 'package:bilge_ai/features/home/logic/add_test_notifier.dart';
 import 'package:bilge_ai/data/models/exam_model.dart';
 import 'package:bilge_ai/features/quests/logic/quest_notifier.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
+import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 
 class Step3Summary extends ConsumerWidget {
   const Step3Summary({super.key});
@@ -80,6 +81,17 @@ class Step3Summary extends ConsumerWidget {
 
               try {
                 await ref.read(firestoreServiceProvider).addTestResult(newTest);
+
+                // Yeni test eklendiği için analizi yeniden çalıştırıp özeti kaydet
+                try {
+                  final updatedTests = await ref.read(firestoreServiceProvider).getTestResultsPaginated(user.id, limit: 1000);
+                  final performance = await ref.read(firestoreServiceProvider).getPerformanceSummaryOnce(user.id);
+                  final examData = await ExamData.getExamByType(ExamType.values.byName(user.selectedExam!));
+                  final analysis = StatsAnalysis(updatedTests, performance, examData, ref.read(firestoreServiceProvider), user: user);
+                  await ref.read(firestoreServiceProvider).updateAnalysisSummary(user.id, analysis);
+                } catch (_) {
+                  // Sessizce geç; görev üretimi yine çalışır
+                }
 
                 // Yeni FutureProvider verisini yenile (invalidate)
                 ref.invalidate(testsProvider);

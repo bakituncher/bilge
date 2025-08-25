@@ -113,24 +113,52 @@ class QuestService {
     final List<Quest> generatedQuests = [];
     final random = Random();
 
-    List<TestModel> tests = _ref.read(testsProvider).valueOrNull ?? [];
-    final performance = _ref.read(performanceProvider).value ?? const PerformanceSummary();
+    // HAFIFLEME: Ağır veri okumak yerine özet analizi kullan
     final examData = user.selectedExam != null
         ? await ExamData.getExamByType(ExamType.values.byName(user.selectedExam!))
         : null;
 
     StatsAnalysis? analysis;
-    if (tests.isNotEmpty && examData != null) {
-      // DÜZELTME: firestoreServiceProvider eklendi
-      analysis = StatsAnalysis(tests, performance, examData, _ref.read(firestoreServiceProvider), user: user);
+    try {
+      if (examData != null) {
+        final doc = await _ref
+            .read(firestoreServiceProvider)
+            .usersCollection
+            .doc(user.id)
+            .collection('performance')
+            .doc('analysis_summary')
+            .get();
+        final data = doc.data();
+        if (data != null) {
+          analysis = StatsAnalysis.fromSummary(
+            data,
+            examData,
+            _ref.read(firestoreServiceProvider),
+            user: user,
+          );
+        } else {
+          // Özet yoksa minimal analiz oluştur
+          analysis = StatsAnalysis.fromSummary(
+            const <String, dynamic>{},
+            examData,
+            _ref.read(firestoreServiceProvider),
+            user: user,
+          );
+        }
+      }
+    } catch (_) {
+      // Özet okuma sorununda analiz null kalabilir; görev üretimi yine devam eder
     }
+
+    // tests ve performance ağır okunmasın
+    final List<TestModel> tests = const [];
+    const PerformanceSummary performance = PerformanceSummary();
 
     List<QuestTemplate> templates = questArmory.map((m) => QuestTemplateFactory.fromMap(m)).toList();
     templates.shuffle();
     templates.removeWhere((t) => existingQuests.any((q) => q.id == t.id));
 
     final now = DateTime.now();
-    final todayKey = _dateKey(now);
     final completedToday = await _ref.read(firestoreServiceProvider).getCompletedTasksForDate(user.id, now);
     final todayCompletedPlanTasks = completedToday.length;
 
@@ -185,6 +213,7 @@ class QuestService {
       generatedQuests[i] = _personalizeQuest(generatedQuests[i], user, analysis, performance);
     }
 
+    // Zayıf hafif analiz ile bazı enjeksiyonlar atlanabilir; sorun değil.
     _maybeInjectNeglectedSubjectQuest(user, generatedQuests, analysis, performance);
 
     _maybeInjectPlateauBreaker(user, generatedQuests, analysis, tests);

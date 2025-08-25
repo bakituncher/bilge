@@ -14,13 +14,14 @@ import 'package:bilge_ai/data/models/performance_summary.dart';
 import 'package:bilge_ai/data/models/app_state.dart';
 import 'package:bilge_ai/features/arena/models/leaderboard_entry_model.dart';
 import 'package:bilge_ai/features/quests/models/quest_model.dart';
+import 'package:bilge_ai/features/stats/logic/stats_analysis.dart';
 
 class FirestoreService {
   final FirebaseFirestore _firestore;
   FirestoreService(this._firestore);
 
   String sanitizeKey(String key) {
-    return key.replaceAll(RegExp(r'[.\s\(\)]'), '_');
+    return key.replaceAll(RegExp(r'[.\s()]'), '_');
   }
 
   String? getUserId() {
@@ -745,5 +746,22 @@ class FirestoreService {
   String _weekdayName(int weekday) {
     const list = ['Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi','Pazar'];
     return list[(weekday-1).clamp(0,6)];
+  }
+
+  // YENI: Analiz özetini küçük bir dokümana yaz
+  Future<void> updateAnalysisSummary(String userId, StatsAnalysis analysis) {
+    final summaryData = {
+      'weakestSubjectByNet': analysis.weakestSubjectByNet,
+      'strongestSubjectByNet': analysis.strongestSubjectByNet,
+      'trend': analysis.trend,
+      'warriorScore': analysis.warriorScore,
+      'averageNet': analysis.averageNet,
+      'updatedAt': FieldValue.serverTimestamp(),
+    };
+    return usersCollection
+        .doc(userId)
+        .collection('performance')
+        .doc('analysis_summary')
+        .set(summaryData, SetOptions(merge: true));
   }
 }

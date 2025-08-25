@@ -109,6 +109,37 @@ class StatsAnalysis {
     }
   }
 
+  // YENI: Özet veriden minimal StatsAnalysis oluşturur
+  factory StatsAnalysis.fromSummary(
+    Map<String, dynamic> data,
+    Exam examData,
+    FirestoreService firestoreService, {
+    UserModel? user,
+  }) {
+    final analysis = StatsAnalysis(
+      const <TestModel>[],
+      const PerformanceSummary(),
+      examData,
+      firestoreService,
+      user: user,
+    );
+    // Varsayılan boşları oluşturduktan sonra özet alanları üzerine yaz
+    analysis.averageNet = (data['averageNet'] as num?)?.toDouble() ?? 0.0;
+    analysis.trend = (data['trend'] as num?)?.toDouble() ?? 0.0;
+    analysis.warriorScore = (data['warriorScore'] as num?)?.toDouble() ?? 0.0;
+    analysis.weakestSubjectByNet = (data['weakestSubjectByNet'] as String?) ?? 'Belirlenemedi';
+    analysis.strongestSubjectByNet = (data['strongestSubjectByNet'] as String?) ?? 'Belirlenemedi';
+    // Diğer alanları minimal tut
+    analysis.accuracy = 0.0;
+    analysis.consistency = 0.0;
+    analysis.subjectAverages = {};
+    analysis.sortedSubjects = [];
+    analysis.sortedTests = const <TestModel>[];
+    analysis.netSpots = const <FlSpot>[];
+    analysis.tacticalAdvice = const <TacticalAdvice>[];
+    return analysis;
+  }
+
   double _calculateTrend(List<double> data) {
     if (data.length < 2) return 0.0;
     final n = data.length;
