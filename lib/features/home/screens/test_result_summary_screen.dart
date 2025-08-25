@@ -79,7 +79,7 @@ class TestResultSummaryEntry extends ConsumerWidget {
     }
 
     return FutureBuilder(
-      future: ref.read(firestoreServiceProvider).getTestResultsOnce(user.uid),
+      future: ref.read(firestoreServiceProvider).getTestResultsPaginated(user.uid, limit: 1),
       builder: (context, snap) {
         if (snap.connectionState != ConnectionState.done) {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));

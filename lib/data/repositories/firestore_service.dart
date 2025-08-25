@@ -350,12 +350,21 @@ class FirestoreService {
     return _testsCollection.where('userId', isEqualTo: userId).orderBy('date', descending: true).snapshots().map((snapshot) => snapshot.docs.map((doc) => TestModel.fromSnapshot(doc)).toList());
   }
 
-  Future<List<TestModel>> getTestResultsOnce(String userId) async {
-    final qs = await _testsCollection
+  // ESKI getTestResultsOnce FONKSIYONU KALDIRILDI
+
+  // YENI SAYFALAMALI FONKSIYON
+  Future<List<TestModel>> getTestResultsPaginated(String userId, {DocumentSnapshot? lastVisible, int limit = 20}) async {
+    Query query = _testsCollection
         .where('userId', isEqualTo: userId)
         .orderBy('date', descending: true)
-        .get();
-    return qs.docs.map((d) => TestModel.fromSnapshot(d)).toList();
+        .limit(limit);
+
+    if (lastVisible != null) {
+      query = query.startAfterDocument(lastVisible);
+    }
+
+    final qs = await query.get();
+    return qs.docs.map((d) => TestModel.fromSnapshot(d as DocumentSnapshot<Map<String, dynamic>>)).toList();
   }
 
   Future<void> saveExamSelection({

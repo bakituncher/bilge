@@ -7,13 +7,101 @@ import 'package:bilge_ai/data/models/test_model.dart';
 import 'package:bilge_ai/data/providers/firestore_providers.dart';
 import 'package:bilge_ai/core/theme/app_theme.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class LibraryScreen extends ConsumerWidget {
+class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final testsAsync = ref.watch(testsProvider);
+  ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final List<TestModel> _tests = [];
+  bool _isLoading = false;
+  bool _hasMore = true;
+  static const int _pageSize = 10; // 20 -> 10
+  DocumentSnapshot? _lastVisible; // UI tarafında doküman referansı tutacağız
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+    _loadInitial();
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _isLoading || !_hasMore) return;
+    final threshold = 200.0;
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - threshold) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _syncLastVisibleFromLastItem() async {
+    if (_tests.isEmpty) {
+      _lastVisible = null;
+      return;
+    }
+    final lastId = _tests.last.id;
+    final snap = await FirebaseFirestore.instance.collection('tests').doc(lastId).get();
+    _lastVisible = snap;
+  }
+
+  Future<void> _loadInitial() async {
+    final service = ref.read(firestoreServiceProvider);
+    final userId = service.getUserId();
+    if (userId == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final items = await service.getTestResultsPaginated(userId, limit: _pageSize);
+      setState(() {
+        _tests.clear();
+        _tests.addAll(items);
+        _hasMore = items.length == _pageSize;
+      });
+      await _syncLastVisibleFromLastItem();
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoading || !_hasMore) return;
+    final service = ref.read(firestoreServiceProvider);
+    final userId = service.getUserId();
+    if (userId == null) return;
+    setState(() => _isLoading = true);
+    try {
+      // _lastVisible yoksa senkronize et
+      if (_lastVisible == null && _tests.isNotEmpty) {
+        await _syncLastVisibleFromLastItem();
+      }
+      final items = await service.getTestResultsPaginated(userId, lastVisible: _lastVisible, limit: _pageSize);
+      if (items.isEmpty) {
+        setState(() => _hasMore = false);
+        return;
+      }
+      setState(() {
+        _tests.addAll(items);
+        _hasMore = items.length == _pageSize;
+      });
+      await _syncLastVisibleFromLastItem();
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -40,59 +128,71 @@ class LibraryScreen extends ConsumerWidget {
             end: Alignment.bottomCenter,
             colors: [
               AppTheme.primaryColor,
-              AppTheme.cardColor.withOpacity(0.8),
+              AppTheme.cardColor.withValues(alpha: 0.8),
             ],
           ),
         ),
-        child: testsAsync.when(
-          data: (tests) {
-            if (tests.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.inventory_2_outlined, size: 80, color: AppTheme.secondaryTextColor),
-                    const SizedBox(height: 16),
-                    Text('Arşivin Henüz Boş', style: textTheme.headlineSmall),
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32.0),
-                      child: Text(
-                        'Her deneme, gelecekteki başarın için bir kanıtıdır. İlk kanıtı arşive ekle.',
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    ElevatedButton(
-                      onPressed: () => context.go('/home/add-test'),
-                      child: const Text("İlk Kaydı Ekle"),
-                    )
-                  ],
-                ).animate().fadeIn(duration: 800.ms),
-              );
-            }
-            return GridView.builder(
-              padding: const EdgeInsets.all(16.0),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                childAspectRatio: 0.75,
+        child: _buildBody(textTheme),
+      ),
+    );
+  }
+
+  Widget _buildBody(TextTheme textTheme) {
+    if (_tests.isEmpty && _isLoading) {
+      return const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor));
+    }
+    if (_tests.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.inventory_2_outlined, size: 80, color: AppTheme.secondaryTextColor),
+            const SizedBox(height: 16),
+            Text('Arşivin Henüz Boş', style: textTheme.headlineSmall),
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32.0),
+              child: Text(
+                'Her deneme, gelecekteki başarın için bir kanıtıdır. İlk kanıtı arşive ekle.',
+                textAlign: TextAlign.center,
+                style: textTheme.bodyLarge?.copyWith(color: AppTheme.secondaryTextColor),
               ),
-              itemCount: tests.length,
-              itemBuilder: (context, index) {
-                final test = tests[index];
-                return _TriumphPlaqueCard(test: test)
-                    .animate()
-                    .fadeIn(delay: (100 * (index % 10)).ms, duration: 500.ms)
-                    .slideY(begin: 0.5, curve: Curves.easeOutCubic);
-              },
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor)),
-          error: (e, s) => Center(child: Text('Arşiv yüklenemedi: ${e.toString()}')),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => context.go('/home/add-test'),
+              child: const Text("İlk Kaydı Ekle"),
+            )
+          ],
+        ).animate().fadeIn(duration: 800.ms),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        _lastVisible = null;
+        await _loadInitial();
+      },
+      child: GridView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.all(16.0),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 16,
+          childAspectRatio: 0.75,
         ),
+        itemCount: _tests.length + (_isLoading || _hasMore ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index >= _tests.length) {
+            return const Center(child: CircularProgressIndicator(color: AppTheme.secondaryColor));
+          }
+          final test = _tests[index];
+          return _TriumphPlaqueCard(test: test)
+              .animate()
+              .fadeIn(delay: (100 * (index % 10)).ms, duration: 500.ms)
+              .slideY(begin: 0.5, curve: Curves.easeOutCubic);
+        },
       ),
     );
   }
@@ -145,8 +245,8 @@ class _TriumphPlaqueCardState extends State<_TriumphPlaqueCard> {
             boxShadow: [
               BoxShadow(
                 color: _isHovered
-                    ? tierColor.withOpacity(0.5)
-                    : Colors.black.withOpacity(0.6),
+                    ? tierColor.withValues(alpha: 0.5)
+                    : Colors.black.withValues(alpha: 0.6),
                 blurRadius: _isHovered ? 25 : 10,
               )
             ],
@@ -157,13 +257,13 @@ class _TriumphPlaqueCardState extends State<_TriumphPlaqueCard> {
               color: AppTheme.cardColor,
               gradient: LinearGradient(
                 colors: [
-                  AppTheme.lightSurfaceColor.withOpacity(0.1),
+                  AppTheme.lightSurfaceColor.withValues(alpha: 0.1),
                   AppTheme.cardColor,
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              border: Border.all(color: AppTheme.lightSurfaceColor.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.lightSurfaceColor.withValues(alpha: 0.3)),
             ),
             child: SingleChildScrollView(
               child: Column(
@@ -235,7 +335,7 @@ class _TriumphPlaqueCardState extends State<_TriumphPlaqueCard> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryColor.withOpacity(0.5),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.5),
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(24),
                         bottomRight: Radius.circular(24),
