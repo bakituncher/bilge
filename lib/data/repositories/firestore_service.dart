@@ -721,6 +721,18 @@ class FirestoreService {
     await batch.commit();
   }
 
+  Future<void> claimQuestReward(String userId, Quest quest) async {
+    final batch = _firestore.batch();
+    final questRef = dailyQuestsCollection(userId).doc(quest.id);
+    batch.update(questRef, {'rewardClaimed': true});
+
+    final userRef = usersCollection.doc(userId);
+    batch.update(userRef, {'engagementScore': FieldValue.increment(quest.reward)});
+
+    await batch.commit();
+    await _syncLeaderboardUser(userId); // Skoru liderlik tablosuna yansıt
+  }
+
   // ISTEGE BAGLI: Tek kullanımlık migrate yardımcısı. Client tarafında sadece tek kullanıcı için güvenli.
   Future<void> migrateActiveDailyQuestsForUser(String userId) async {
     final userDoc = await usersCollection.doc(userId).get();

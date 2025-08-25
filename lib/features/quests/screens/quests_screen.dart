@@ -25,9 +25,15 @@ class QuestCard extends StatelessWidget {
       case QuestCategory.focus: return Icons.center_focus_strong;
     }
   }
-  List<Widget> _buildPriorityBadges(Quest quest,{bool locked=false,List<String> prereqNames=const []}){
+  List<Widget> _buildPriorityBadges(BuildContext context, Quest quest,{bool locked=false,List<String> prereqNames=const []}){
     final chips=<Widget>[];
-    if(locked){final label=prereqNames.isEmpty?'Önkoşul':'Önkoşul: '+prereqNames.take(2).join(', ');chips.add(_badge(label,Icons.lock_clock,Colors.deepPurpleAccent));}
+    if(locked){
+      final label=prereqNames.isEmpty?'Önkoşul':'Önkoşul: '+prereqNames.take(2).join(', ');
+      chips.add(InkWell(onTap: (){
+        final msg = prereqNames.isEmpty? 'Bu görevi açmak için önkoşulları tamamla.' : 'Önkoşul: '+prereqNames.join(', ');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      }, child: _badge(label,Icons.lock_clock,Colors.deepPurpleAccent)));
+    }
     final isHighValue = quest.reward>=90 || quest.tags.contains('high_value');
     if(isHighValue) chips.add(_badge('Öncelik', Icons.flash_on, Colors.amber));
     if(quest.tags.contains('weakness')) chips.add(_badge('Zayıf Nokta', Icons.warning_amber, Colors.redAccent));
@@ -42,8 +48,13 @@ class QuestCard extends StatelessWidget {
   Widget _buildChainSegments(Quest q){ if(q.chainId==null||q.chainStep==null||q.chainLength==null) return const SizedBox.shrink(); return Padding(padding: const EdgeInsets.only(top:6), child: Row(children: List.generate(q.chainLength!, (i){final active=i<q.chainStep!; return Expanded(child: AnimatedContainer(duration:300.ms, margin: EdgeInsets.symmetric(horizontal:i==1?4:2), height:6, decoration:BoxDecoration(color: active?AppTheme.secondaryColor:AppTheme.lightSurfaceColor.withValues(alpha:0.3), borderRadius: BorderRadius.circular(4)),));}))); }
   @override Widget build(BuildContext context){
     final isCompleted=quest.isCompleted; final progress=quest.goalValue>0?((quest.currentProgress/quest.goalValue).clamp(0.0,1.0) as double):1.0; final locked=!isCompleted && quest.prerequisiteIds.isNotEmpty && !quest.prerequisiteIds.every((id)=>completedIds.contains(id));
+    final canClaim = isCompleted && !quest.rewardClaimed;
     return Card(margin: const EdgeInsets.only(bottom:16), clipBehavior: Clip.antiAlias, color: isCompleted?AppTheme.cardColor.withValues(alpha:0.5):AppTheme.cardColor, child: InkWell(
-      onTap: (isCompleted||locked)?(){ if(locked){ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Önce önkoşul görev(ler)ini tamamla')));} }:(){ if(userId!=null){ref.read(analyticsLoggerProvider).logQuestEvent(userId: userId!, event:'quest_tap', data:{'questId':quest.id,'category':quest.category.name});}
+      onTap: (isCompleted||locked)?(){ if(locked){
+        final names = quest.prerequisiteIds.map((id)=> allQuestsMap[id]?.title ?? id).toList();
+        final msg = names.isEmpty? 'Önce önkoşul görev(ler)ini tamamla' : 'Önkoşul: '+names.join(', ');
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg))); }
+      }:(){ if(userId!=null){ref.read(analyticsLoggerProvider).logQuestEvent(userId: userId!, event:'quest_tap', data:{'questId':quest.id,'category':quest.category.name});}
         String target=quest.actionRoute; if(target=='/coach'){ final subjectTag=quest.tags.firstWhere((t)=>t.startsWith('subject:'), orElse:()=>'' ); if(subjectTag.isNotEmpty){ final subj=subjectTag.split(':').sublist(1).join(':'); target=Uri(path:'/coach', queryParameters:{'subject':subj}).toString(); }} context.go(target); },
       child: Stack(children:[
         Padding(padding: const EdgeInsets.fromLTRB(16,16,16,8), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children:[
@@ -57,7 +68,7 @@ class QuestCard extends StatelessWidget {
           ]),
           const SizedBox(height:8),
           Wrap(spacing:8, runSpacing:4, children:[
-            ..._buildPriorityBadges(quest, locked:locked, prereqNames: quest.prerequisiteIds.map((id)=>allQuestsMap[id]?.title??id).toList()),
+            ..._buildPriorityBadges(context, quest, locked:locked, prereqNames: quest.prerequisiteIds.map((id)=>allQuestsMap[id]?.title??id).toList()),
             if(quest.id.startsWith('schedule_')) Chip(label: const Text('Plan'), visualDensity: VisualDensity.compact, backgroundColor: Colors.blueGrey.withValues(alpha:0.3), labelStyle: const TextStyle(fontSize:12)),
             Chip(avatar: const Icon(Icons.star_rounded,color:Colors.amber,size:16), label: Text('+${quest.reward} BP'), visualDensity: VisualDensity.compact, backgroundColor: AppTheme.primaryColor.withValues(alpha:0.4)),
           ]),
@@ -65,7 +76,12 @@ class QuestCard extends StatelessWidget {
           if(!isCompleted) Row(children:[ Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(8), child: LinearProgressIndicator(value:progress,minHeight:8, backgroundColor: AppTheme.lightSurfaceColor.withValues(alpha:0.3), valueColor: const AlwaysStoppedAnimation(AppTheme.secondaryColor)))), const SizedBox(width:12), Text('${quest.currentProgress} / ${quest.goalValue}', style: const TextStyle(fontWeight: FontWeight.bold)),]),
           const SizedBox(height:8),
           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children:[
-            if(isCompleted) Row(children: const [Text('Fethedildi!', style: TextStyle(color: AppTheme.successColor,fontWeight: FontWeight.bold)), SizedBox(width:4), Icon(Icons.check_circle_rounded,color:AppTheme.successColor,size:20)]).animate().fadeIn().scale(delay:150.ms, curve: Curves.easeOutBack),
+            if(isCompleted && quest.rewardClaimed) Row(children: const [Text('Fethedildi!', style: TextStyle(color: AppTheme.successColor,fontWeight: FontWeight.bold)), SizedBox(width:4), Icon(Icons.check_circle_rounded,color:AppTheme.successColor,size:20)]).animate().fadeIn().scale(delay:150.ms, curve: Curves.easeOutBack),
+            if(isCompleted && !quest.rewardClaimed) Expanded(child: ElevatedButton.icon(onPressed: userId==null? null : () async {
+              await ref.read(firestoreServiceProvider).claimQuestReward(userId!, quest);
+              ref.invalidate(dailyQuestsProvider);
+              if(context.mounted){ ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ödül tahsil edildi.'))); }
+            }, icon: const Icon(Icons.card_giftcard_rounded), label: const Text('Ödülü Al!'), style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryColor, foregroundColor: AppTheme.primaryColor))),
             if(!isCompleted) const Row(children:[Text('Yola Koyul', style: TextStyle(color: AppTheme.secondaryTextColor)), SizedBox(width:4), Icon(Icons.arrow_forward, color: AppTheme.secondaryTextColor, size:16)])
           ]),
           const SizedBox(height:4),

@@ -205,7 +205,8 @@ class QuestService {
       selectedCategories.add(catEnum);
     }
 
-    await _injectScheduleBasedQuests(user, generatedQuests, tests: tests);
+    // Plan tabanlı görevler artık eklenmiyor
+    // await _injectScheduleBasedQuests(user, generatedQuests, tests: tests);
 
     _normalizeDailyRewards(generatedQuests);
 
@@ -429,86 +430,8 @@ class QuestService {
   }
 
   Future<void> _injectScheduleBasedQuests(UserModel user, List<Quest> quests, {required List<TestModel> tests}) async {
-    final planDoc = _ref.read(planProvider).value;
-    final weeklyPlan = planDoc?.weeklyPlan;
-    if (weeklyPlan == null) return;
-    try {
-      final weekly = WeeklyPlan.fromJson(weeklyPlan);
-      final today = DateTime.now();
-      final weekdayIndex = today.weekday - 1;
-      if (weekdayIndex < 0 || weekdayIndex >= weekly.plan.length) return;
-      final todayPlan = weekly.plan[weekdayIndex];
-      final dateKey = _dateKey(today);
-      final completedIds = await _ref.read(firestoreServiceProvider).getCompletedTasksForDate(user.id, today);
-
-      bool hasTestQuestAlready = quests.any((q) => q.category == QuestCategory.test_submission);
-
-      if (todayPlan.schedule.isEmpty) {
-        if (!quests.any((q) => q.id == 'schedule_${dateKey}_rest')) {
-          quests.add(_autoTagQuest(Quest(
-            id: 'schedule_${dateKey}_rest',
-            title: 'Zihinsel Bakım Ritüeli',
-            description: 'Dinlenme gününde 10 dakikalık kısa bir odak/plan gözden geçirme seansı yap.',
-            type: QuestType.daily,
-            category: QuestCategory.engagement,
-            progressType: QuestProgressType.increment,
-            reward: 35,
-            goalValue: 1,
-            actionRoute: '/home/pomodoro',
-            route: questRouteFromPath('/home/pomodoro'),
-          )));
-        }
-        return;
-      }
-
-      for (final item in todayPlan.schedule) {
-        final identifier = '${item.time}-${item.activity}';
-        if (completedIds.contains(identifier)) continue;
-        final questId = 'schedule_${dateKey}_${identifier.hashCode}';
-        if (quests.any((q) => q.id == questId)) continue;
-
-        final lower = item.activity.toLowerCase();
-        bool isTestLike = lower.contains('deneme') || lower.contains('test') || lower.contains('simülasyon');
-
-        if (isTestLike && !hasTestQuestAlready) {
-          quests.add(_autoTagQuest(Quest(
-            id: questId,
-            title: 'Fetih: Günün Denemesi',
-            description: 'Programındaki denemeyi çöz ve sonucunu ekleyerek kaleyi raporla.',
-            type: QuestType.daily,
-            category: QuestCategory.test_submission,
-            progressType: QuestProgressType.increment,
-            reward: 160,
-            goalValue: 1,
-            actionRoute: '/home/add-test',
-            route: questRouteFromPath('/home/add-test'),
-          )));
-          hasTestQuestAlready = true;
-          continue;
-        }
-
-        final category = _mapScheduleTypeToCategory(item.type);
-        final reward = _estimateReward(item, category);
-        final inferred = _inferRoute(item, isTestLike: isTestLike);
-        quests.add(_autoTagQuest(Quest(
-          id: questId,
-          title: _buildDynamicTitle(item),
-          description: 'Bugünkü planındaki "${item.activity}" görevini tamamla.',
-          type: QuestType.daily,
-          category: category,
-          progressType: QuestProgressType.increment,
-          reward: reward,
-          goalValue: 1,
-          actionRoute: inferred,
-          route: questRouteFromPath(inferred),
-        )));
-      }
-    } catch (e, st) {
-      if (kDebugMode) {
-        debugPrint('[QuestService] Haftalık plan parse hatası: $e');
-        debugPrint(st.toString());
-      }
-    }
+    // PLAN TABANLI GÖREVLER KALDIRILDI
+    return;
   }
 
   void _normalizeDailyRewards(List<Quest> quests) {

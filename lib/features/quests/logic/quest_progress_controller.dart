@@ -59,7 +59,7 @@ class QuestProgressController {
         ref.read(sessionCompletedQuestsProvider.notifier).update((s)=>{...s, quest.id});
         ref.read(questCompletionProvider.notifier).show(quest.copyWith(currentProgress: quest.goalValue, isCompleted: true, completionDate: Timestamp.now()));
         HapticFeedback.mediumImpact();
-        engagementDelta += quest.reward;
+        // Görev tamamlandığında otomatik puan verilmez
         ref.read(analyticsLoggerProvider).logQuestEvent(userId: user.id, event: 'quest_completed', data: {
           'questId': quest.id,'category': quest.category.name,'reward': quest.reward,'difficulty': quest.difficulty.name,
         });
@@ -132,7 +132,7 @@ class QuestProgressController {
       };
       ref.read(questCompletionProvider.notifier).show(quest!.copyWith(currentProgress: quest!.goalValue, isCompleted: true, completionDate: Timestamp.now()));
       HapticFeedback.mediumImpact();
-      engagementDelta += quest!.reward;
+      // Görev tamamlandığında otomatik puan verilmez
       ref.read(analyticsLoggerProvider).logQuestEvent(userId: user.id, event: 'quest_completed', data: {
         'questId': quest!.id,'category': quest!.category.name,'reward': quest!.reward,'difficulty': quest!.difficulty.name,
       });

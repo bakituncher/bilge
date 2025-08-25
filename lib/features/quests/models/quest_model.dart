@@ -79,6 +79,7 @@ class Quest extends Equatable {
   final int? chainStep; // yeni: zincirdeki adım (1-based)
   final int? chainLength; // yeni: toplam adım sayısı
   final QuestRoute route; // yeni: type-safe rota
+  final bool rewardClaimed; // yeni: ödül tahsil edildi mi
 
   Quest({
     required this.id,
@@ -103,6 +104,7 @@ class Quest extends Equatable {
     this.chainStep,
     this.chainLength,
     required this.route,
+    this.rewardClaimed = false,
   });
 
   factory Quest.fromMap(Map<String, dynamic> map, String id) {
@@ -153,6 +155,7 @@ class Quest extends Equatable {
       chainId: derivedChainId,
       chainStep: derivedChainStep,
       chainLength: derivedChainLength,
+      rewardClaimed: map['rewardClaimed'] == true,
     );
   }
 
@@ -186,6 +189,7 @@ class Quest extends Equatable {
       if (chainLength != null) 'chainLength': chainLength,
       'routeKey': route.name,
       'schemaVersion': 2,
+      'rewardClaimed': rewardClaimed,
     };
   }
 
@@ -207,6 +211,7 @@ class Quest extends Equatable {
     int? chainStep,
     int? chainLength,
     QuestRoute? route,
+    bool? rewardClaimed,
   }) {
     return Quest(
       id: id,
@@ -231,6 +236,7 @@ class Quest extends Equatable {
       chainStep: chainStep ?? this.chainStep,
       chainLength: chainLength ?? this.chainLength,
       route: route ?? this.route,
+      rewardClaimed: rewardClaimed ?? this.rewardClaimed,
     );
   }
 
@@ -260,5 +266,6 @@ class Quest extends Equatable {
     chainStep,
     chainLength,
     route,
+    rewardClaimed,
   ];
 }

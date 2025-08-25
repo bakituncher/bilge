@@ -504,27 +504,6 @@
     "triggerConditions": {"comboEligible": true}
   },
   {
-    "id": "reflection_01",
-    "title": "Mini Öz Değerlendirme",
-    "description": "Bugünkü çalışmanda seni en çok yavaşlatan şeyi not et (AI not ekranı).",
-    "category": "engagement",
-    "reward": 20,
-    "goalValue": 1,
-    "actionRoute": "/ai-hub/motivation-chat",
-    "tags": ["analysis", "micro"],
-    "triggerConditions": {"reflectionNotDone": true}
-  },
-  {
-    "id": "reflection_02",
-    "title": "Güç Noktası Güncellemesi",
-    "description": "Güçlü olduğun bir konuyu seç ve neden güçlü olduğunu 1 cümle ile kaydet.",
-    "category": "engagement",
-    "reward": 25,
-    "goalValue": 1,
-    "actionRoute": "/coach",
-    "tags": ["strength", "analysis"]
-  },
-  {
     "id": "celebration_01",
     "title": "Gizli Sandık",
     "description": "Bugün 4 farklı kategori görevi tamamlarsan ek ödül kazan (otomatik açılır).",
@@ -579,4 +558,3 @@
     "triggerConditions": {"hasWeakTopic": true}
   }
 ]
-
